@@ -1,0 +1,42 @@
+name: Nightly ingest
+
+on:
+  schedule:
+    # 07:10 UTC = 03:10 ET. Off the hour on purpose: GitHub's scheduler is
+    # heavily contended at :00 and jobs get delayed or dropped.
+    - cron: "10 7 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and normalize without writing to Postgres"
+        type: boolean
+        default: false
+
+# Never run two ingests at once. A queued run that overlaps the previous one
+# would double the request rate against an API we are deliberately being gentle
+# with.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: Run ingestion
+        env:
+          PCX_API_KEY: ${{ secrets.PCX_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          INGEST_RATE_LIMIT_SECONDS: "1.0"
+        run: |
+          python -m ingest.run ${{ inputs.dry_run && '--dry-run' || '' }}
