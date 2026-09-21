@@ -13,6 +13,25 @@ jobs:
   python:
     name: ruff + pytest
     runs-on: ubuntu-latest
+
+    # The write path is the one place mocks cannot tell you whether the SQL is
+    # valid or whether ON CONFLICT DO NOTHING really leaves a historical price
+    # alone. ingest/tests/test_db_integration.py runs against this and skips
+    # silently when INGEST_TEST_DATABASE_URL is unset, so local runs need no
+    # database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +50,8 @@ jobs:
         run: ruff format --check ingest
 
       - name: Test
+        env:
+          INGEST_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest -q
 
   web:
