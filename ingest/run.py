@@ -125,6 +125,12 @@ def ingest_store(
     for term in terms:
         try:
             response = client.search(target.banner, target.store_code, term, on_date=observed_on)
+        except AccessDenied:
+            # AccessDenied subclasses IngestError, so without this it would be
+            # recorded as a per-store failure and the loop would move on to the
+            # next store -- still hitting an API that has just told us to stop,
+            # and exiting 1 instead of 2. Let it reach main().
+            raise
         except IngestError as exc:
             outcome.error = str(exc)
             log.error("%s term %r failed: %s", target.key, term, exc)

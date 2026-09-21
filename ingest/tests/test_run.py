@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from ingest.run import StoreTarget, ingest_store
-from ingest.sources.loblaw import SearchResponse, StoreVerificationError
+from ingest.sources.loblaw import AccessDenied, SearchResponse, StoreVerificationError
 from ingest.tests.conftest import product_entry, search_payload
 
 TARGET = StoreTarget(banner="nofrills", store_code="3131", label="No Frills - Vaughan")
@@ -102,3 +104,24 @@ def test_sale_items_are_counted() -> None:
 
     assert outcome.on_sale == 1
     assert outcome.normalized == 2
+
+
+class DenyingClient(StubClient):
+    """Canary passes, then the API returns a stop signal on a search term."""
+
+    def search(self, banner, store_id, term, *, page_size=48, on_date=None):
+        self.searched.append(term)
+        raise AccessDenied("stop signal", status_code=403)
+
+
+def test_stop_signal_aborts_the_run_rather_than_becoming_a_store_error() -> None:
+    """AccessDenied subclasses IngestError, so the term loop must re-raise it.
+
+    Swallowing it would record a per-store failure and move on to the next
+    store -- continuing to hit an API that has just told us to stop, and
+    exiting 1 instead of 2.
+    """
+    client = DenyingClient({"milk": []})
+
+    with pytest.raises(AccessDenied):
+        ingest_store(client, TARGET, ["milk"], ("milk",), TODAY)
