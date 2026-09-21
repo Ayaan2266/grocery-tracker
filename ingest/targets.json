@@ -1,0 +1,21 @@
+{
+  "_comment": "store_id is the Postgres stores.id. store_code is the PCX storeId. Only add a store after verify_store passes against it.",
+  "stores": [
+    {
+      "store_id": 1,
+      "banner": "nofrills",
+      "store_code": "3131",
+      "label": "No Frills - Vaughan",
+      "cap": 120,
+      "terms": ["milk", "bread", "eggs", "chicken breast", "rice", "bananas"]
+    },
+    {
+      "store_id": 2,
+      "banner": "superstore",
+      "store_code": "1516",
+      "label": "Real Canadian Superstore",
+      "cap": 120,
+      "terms": ["milk", "bread", "eggs", "chicken breast", "rice", "bananas"]
+    }
+  ]
+}
