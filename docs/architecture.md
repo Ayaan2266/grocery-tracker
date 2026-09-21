@@ -40,9 +40,17 @@ scheduled CI to anyone reading the repo.
 **`price_observations` is append-only.** Nothing ever updates a historical
 price. This table is the only asset in the project a competitor cannot
 retroactively reproduce — Flipp and Gofer.run could add a history feature
-tomorrow and still have no history. The one `ON CONFLICT` clause targets
-`(product_id, observed_on)` so that re-running a failed ingest the same day is
-idempotent rather than duplicating rows.
+tomorrow and still have no history. Its `ON CONFLICT` clause targets
+`(product_id, observed_on)` and is `DO NOTHING`, so re-running a failed ingest
+the same day is idempotent: rows already written stay exactly as they were
+written. A bad value gets corrected analytically later via `unit_price_source`,
+never by overwriting history.
+
+`products` is the deliberate exception and upserts on
+`(store_id, retailer_sku)` with `DO UPDATE`. Product metadata is mutable —
+names and package sizes get re-worded upstream, and the newest rendering is
+the one worth keeping. The append-only rule governs observations, not
+identity.
 
 **Money is integer cents everywhere.** No float dollars in the database, in the
 Python models, or in the API responses the frontend consumes. Formatting

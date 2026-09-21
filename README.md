@@ -55,8 +55,11 @@ ingest/
   normalize.py        unit-price extraction and validation
   match.py            cross-banner product matching
   db.py               append-only writes
+  money.py            dollars to integer cents, in one place
+  config.py           environment settings, rate-limit floor
   run.py              CLI entry point
-  targets.json        stores and search terms (data, not code)
+  targets.json        3 stores x 167 search terms (data, not code)
+  tests/              offline; respx intercepts every outbound request
 db/migrations/        numbered SQL
 web/                  Next.js app
 docs/                 architecture and data-source notes
@@ -71,8 +74,10 @@ pip install -e ".[dev]"
 
 psql "$DATABASE_URL" -f db/migrations/0001_init.sql
 
-python -m ingest.run --dry-run    # fetch and normalize, write nothing
-python -m ingest.run              # write to Postgres
+python -m ingest.run --dry-run                       # fetch, normalize, write nothing
+python -m ingest.run --dry-run --limit 3 -v          # ~10s smoke test
+python -m ingest.run --store nofrills/3131           # one store only
+python -m ingest.run                                 # full run, writes to Postgres
 
 ruff check ingest && pytest -q
 ```
@@ -85,16 +90,19 @@ cd web && npm install && npm run dev
 
 Maintained honestly. Overclaiming reads as junior.
 
-- **`parse_package_size` is unimplemented.** Products that return an empty
-  `comparisonPrices` — mostly sold-by-each and weighted produce — get a NULL
-  unit price rather than a wrong one. The row is still stored; price history is
-  the point and unit price is a convenience column.
+- **Unit price is NULL on every row.** Both `extract_unit_price` (read the
+  API's pre-normalized `comparisonPrices`) and `parse_package_size` (the
+  fallback for entries that return an empty one — mostly sold-by-each items and
+  weighted produce) are stubs that return `None`, so every observation lands
+  with `unit_price_source = "none"`. Shelf prices and sale flags are stored
+  correctly. Unit price is a convenience column, and a NULL is recoverable
+  where a wrong value silently poisons every comparison built on top of it.
 - **Cross-banner matching is a skeleton.** `match.py` documents the approach and
   the identity-vs-substitutability distinction but proposes nothing yet. By
   design: the spec says not to design matching before there is real messy data
   to look at.
-- **Three banners, two stores.** Zehrs, Maxi and Fortinos need verified store
-  codes first; guessed codes return 200 with zero results, which is
+- **Three banners, three stores.** Zehrs, Maxi and Fortinos need verified
+  store codes first; guessed codes return 200 with zero results, which is
   indistinguishable from a working store with nothing in stock.
 - **No precision/recall numbers on matching.** They go here once there are
   hand-labelled pairs to measure against.
