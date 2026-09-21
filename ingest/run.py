@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -191,6 +192,19 @@ def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
             print(f"\n  {outcome.target.key}: {outcome.error}")
 
 
+def redact_password(message: str, database_url: str) -> str:
+    """Replace the connection-string password wherever it appears in a message.
+
+    Belt and braces alongside withholding parse errors entirely. Driver errors
+    quote all sorts of context, and anything this function returns is headed
+    for a CI log that anyone can read.
+    """
+    match = re.search(r"://[^:/@\s]+:([^@\s]+)@", database_url)
+    if match and match.group(1):
+        return message.replace(match.group(1), "***")
+    return message
+
+
 def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
     """Prove the database is writable before spending any API requests on it.
 
@@ -211,8 +225,18 @@ def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
                 db.resolve_store_id(conn, target.banner, target.store_code)
     except db.UnknownStore as exc:
         return str(exc)
+    except db.psycopg.ProgrammingError:
+        # psycopg quotes the offending part of the connection string, which is
+        # almost always the password. Never echo it: Actions logs on a public
+        # repo are public, and GitHub only masks exact matches of the whole
+        # secret, not fragments of it.
+        return (
+            "DATABASE_URL is malformed -- most likely an unencoded character in the "
+            "password. Percent-encode % as %25, # as %23, @ as %40, : as %3A, / as %2F. "
+            "The underlying error is withheld because it quotes the connection string."
+        )
     except db.psycopg.Error as exc:
-        return f"cannot connect to Postgres: {exc}"
+        return f"cannot connect to Postgres: {redact_password(str(exc), database_url)}"
     return None
 
 

@@ -59,7 +59,8 @@ ingest/
   config.py           environment settings, rate-limit floor
   run.py              CLI entry point
   targets.json        3 stores x 167 search terms (data, not code)
-  tests/              offline; respx intercepts every outbound request
+  tests/              offline; respx intercepts every outbound request.
+                      test_db_integration.py needs a Postgres and skips without one
 db/migrations/        numbered SQL
 web/                  Next.js app
 docs/                 architecture and data-source notes
@@ -81,6 +82,18 @@ python -m ingest.run                                 # full run, writes to Postg
 
 ruff check ingest && pytest -q
 ```
+
+The write-path tests need a real Postgres and skip silently without one. CI
+provides it; locally:
+
+```bash
+docker run --rm -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+export INGEST_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+pytest -q
+```
+
+They run inside a throwaway schema that is dropped afterwards, so the target
+database is left as it was found.
 
 ```bash
 cd web && npm install && npm run dev
