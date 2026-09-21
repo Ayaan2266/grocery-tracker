@@ -82,8 +82,22 @@ class WriteResult:
 
 
 def connect(database_url: str) -> psycopg.Connection:
-    """Open a connection with autocommit off; each store commits as a unit."""
-    return psycopg.connect(database_url, autocommit=False)
+    """Open a connection with autocommit off; each store commits as a unit.
+
+    prepare_threshold=None turns off psycopg's automatic prepared statements,
+    which default to kicking in after a statement has run 5 times. A night
+    runs the two statements below once per product -- several hundred times --
+    so they would certainly be prepared.
+
+    DATABASE_URL points at Supabase's transaction-mode pooler (port 6543), and
+    a server-side prepared statement is bound to one backend connection while
+    the pooler hands out a different one per transaction. That mismatch
+    surfaces as "prepared statement already exists" partway through a run, at
+    3am, after some rows are already committed. Newer Supavisor builds handle
+    named prepared statements, but this is a nightly batch job where the cost
+    of not preparing is unmeasurable, so there is no reason to depend on it.
+    """
+    return psycopg.connect(database_url, autocommit=False, prepare_threshold=None)
 
 
 def resolve_store_id(conn: psycopg.Connection, banner_slug: str, store_code: str) -> int:
