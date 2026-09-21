@@ -45,24 +45,45 @@ SELECT s.id
    AND s.active
 """
 
-UPSERT_PRODUCT = """
+# Rows per round trip. A night is several thousand products per store; sending
+# them one at a time meant ~13,000 sequential round trips to ca-central-1 and a
+# 16-minute write phase against a 30-minute job timeout. unnest() turns each
+# chunk into a single statement.
+CHUNK_SIZE = 1000
+
+UPSERT_PRODUCTS = """
 INSERT INTO products (
     store_id, retailer_sku, raw_name, brand, package_size, size_value, size_unit
-) VALUES (%s, %s, %s, %s, %s, %s, %s)
+)
+SELECT %(store_id)s, u.sku, u.name, u.brand, u.pkg, u.size_value, u.size_unit
+  FROM unnest(
+           %(skus)s::text[], %(names)s::text[], %(brands)s::text[],
+           %(pkgs)s::text[], %(size_values)s::numeric[], %(size_units)s::text[]
+       ) AS u(sku, name, brand, pkg, size_value, size_unit)
 ON CONFLICT (store_id, retailer_sku) DO UPDATE
    SET raw_name     = EXCLUDED.raw_name,
        brand        = EXCLUDED.brand,
        package_size = EXCLUDED.package_size,
        size_value   = EXCLUDED.size_value,
        size_unit    = EXCLUDED.size_unit
-RETURNING id
+RETURNING retailer_sku, id
 """
 
-INSERT_OBSERVATION = """
+INSERT_OBSERVATIONS = """
 INSERT INTO price_observations (
     product_id, price_cents, was_price_cents, unit_price_cents,
     comparison_unit, comparison_quantity, unit_price_source, in_stock, observed_on
-) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+)
+SELECT u.product_id, u.price_cents, u.was_price_cents, u.unit_price_cents,
+       u.comparison_unit, u.comparison_quantity, u.unit_price_source, u.in_stock,
+       %(observed_on)s
+  FROM unnest(
+           %(product_ids)s::int[], %(price_cents)s::int[], %(was_price_cents)s::int[],
+           %(unit_price_cents)s::int[], %(comparison_units)s::text[],
+           %(comparison_quantities)s::numeric[], %(unit_price_sources)s::text[],
+           %(in_stocks)s::boolean[]
+       ) AS u(product_id, price_cents, was_price_cents, unit_price_cents,
+              comparison_unit, comparison_quantity, unit_price_source, in_stock)
 ON CONFLICT (product_id, observed_on) DO NOTHING
 """
 
@@ -120,50 +141,66 @@ def write_store_observations(
 
     Committed per store so that a failure partway through the night leaves
     whole stores written rather than a half-written one.
+
+    Rows go up in chunks of CHUNK_SIZE via unnest(), two statements per chunk,
+    rather than two per product. On 2026-09-21 the row-at-a-time version spent
+    16 minutes writing 19,742 observations and finished four minutes inside a
+    30-minute job timeout; a busier day would have lost the night's history.
     """
     result = WriteResult()
+
+    # ON CONFLICT DO UPDATE cannot touch the same row twice in one statement,
+    # so a duplicate SKU inside a chunk would abort it. run.py already collapses
+    # by SKU; this makes the guarantee local to the function that depends on it.
+    deduped = {row.retailer_sku: row for row in rows}
+    batch = list(deduped.values())
+
     try:
         with conn.cursor() as cur:
-            for row in rows:
-                cur.execute(
-                    UPSERT_PRODUCT,
-                    (
-                        store_id,
-                        row.retailer_sku,
-                        row.raw_name,
-                        row.brand,
-                        row.package_size,
-                        row.size_value,
-                        row.size_unit,
-                    ),
-                )
-                product_row = cur.fetchone()
-                if product_row is None:  # pragma: no cover - RETURNING always yields
-                    continue
-                product_id = int(product_row[0])
-                result.products_written += 1
+            for start in range(0, len(batch), CHUNK_SIZE):
+                chunk = batch[start : start + CHUNK_SIZE]
 
                 cur.execute(
-                    INSERT_OBSERVATION,
-                    (
-                        product_id,
-                        row.price_cents,
-                        row.was_price_cents,
-                        row.unit_price_cents,
-                        row.comparison_unit,
-                        row.comparison_quantity,
-                        row.unit_price_source,
-                        row.in_stock,
-                        observed_on,
-                    ),
+                    UPSERT_PRODUCTS,
+                    {
+                        "store_id": store_id,
+                        "skus": [r.retailer_sku for r in chunk],
+                        "names": [r.raw_name for r in chunk],
+                        "brands": [r.brand for r in chunk],
+                        "pkgs": [r.package_size for r in chunk],
+                        "size_values": [r.size_value for r in chunk],
+                        "size_units": [r.size_unit for r in chunk],
+                    },
                 )
-                # rowcount 0 means ON CONFLICT DO NOTHING fired: today's
-                # observation for this product already exists and was left
-                # untouched, which is the intended re-run behaviour.
-                if cur.rowcount:
-                    result.observations_inserted += 1
-                else:
-                    result.observations_already_present += 1
+                product_ids = {sku: pid for sku, pid in cur.fetchall()}
+                result.products_written += len(product_ids)
+
+                # A product whose upsert returned nothing has no id to hang an
+                # observation on. RETURNING always yields on a conflict-update,
+                # so this stays empty in practice.
+                observed = [r for r in chunk if r.retailer_sku in product_ids]
+
+                cur.execute(
+                    INSERT_OBSERVATIONS,
+                    {
+                        "observed_on": observed_on,
+                        "product_ids": [product_ids[r.retailer_sku] for r in observed],
+                        "price_cents": [r.price_cents for r in observed],
+                        "was_price_cents": [r.was_price_cents for r in observed],
+                        "unit_price_cents": [r.unit_price_cents for r in observed],
+                        "comparison_units": [r.comparison_unit for r in observed],
+                        "comparison_quantities": [r.comparison_quantity for r in observed],
+                        "unit_price_sources": [r.unit_price_source for r in observed],
+                        "in_stocks": [r.in_stock for r in observed],
+                    },
+                )
+                # Rows the ON CONFLICT DO NOTHING skipped already had today's
+                # observation and were left exactly as written -- the intended
+                # re-run behaviour.
+                inserted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                result.observations_inserted += inserted
+                result.observations_already_present += len(observed) - inserted
+
         conn.commit()
     except psycopg.Error as exc:
         conn.rollback()
