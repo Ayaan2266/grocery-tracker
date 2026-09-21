@@ -1,0 +1,44 @@
+{
+  "query": "2% milk 4l",
+  "pagination": { "totalResults": 3 },
+  "results": [
+    {
+      "code": "20188873_EA",
+      "name": "2% Partly Skimmed Milk",
+      "brand": "Neilson",
+      "packageSize": "4 l",
+      "stockStatus": "OK",
+      "prices": {
+        "price": { "value": 6.44, "unit": "ea", "quantity": 1, "type": "REGULAR" },
+        "wasPrice": null,
+        "comparisonPrices": [{ "value": 0.16, "unit": "ml", "quantity": 100 }]
+      }
+    },
+    {
+      "code": "20657104_EA",
+      "name": "Microfiltered 2% Milk",
+      "brand": "Neilson",
+      "packageSize": "4 l",
+      "stockStatus": "OK",
+      "prices": {
+        "price": { "value": 6.49, "unit": "ea", "quantity": 1, "type": "REGULAR" },
+        "wasPrice": { "value": 7.18, "unit": "ea", "quantity": 1, "type": "WAS" },
+        "comparisonPrices": [{ "value": 0.16, "unit": "ml", "quantity": 100 }]
+      }
+    },
+    {
+      "code": "21001122_EA",
+      "name": "Free Run Large White Eggs",
+      "brand": "No Name",
+      "packageSize": "12 ct",
+      "stockStatus": "OUT_OF_STOCK",
+      "prices": {
+        "price": { "value": 4.29, "unit": "ea", "quantity": 1, "type": "REGULAR" },
+        "wasPrice": null,
+        "comparisonPrices": []
+      }
+    }
+  ],
+  "sponsoredCarousels": [],
+  "someFieldAddedUpstreamNextTuesday": { "nested": true }
+}
