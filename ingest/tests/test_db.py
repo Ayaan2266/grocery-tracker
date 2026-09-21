@@ -51,14 +51,14 @@ def test_connect_leaves_transactions_open(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_observations_never_overwrite_history() -> None:
     """price_observations is append-only: DO NOTHING, never DO UPDATE."""
-    sql = " ".join(db.INSERT_OBSERVATION.split()).upper()
+    sql = " ".join(db.INSERT_OBSERVATIONS.split()).upper()
     assert "ON CONFLICT (PRODUCT_ID, OBSERVED_ON) DO NOTHING" in sql
     assert "DO UPDATE" not in sql
 
 
 def test_products_upsert_because_metadata_is_mutable() -> None:
     """Names and package sizes get re-worded upstream; identity is not history."""
-    sql = " ".join(db.UPSERT_PRODUCT.split()).upper()
+    sql = " ".join(db.UPSERT_PRODUCTS.split()).upper()
     assert "ON CONFLICT (STORE_ID, RETAILER_SKU) DO UPDATE" in sql
 
 

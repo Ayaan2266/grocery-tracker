@@ -13,7 +13,7 @@ import pytest
 import respx
 
 from ingest import config, db
-from ingest.run import StoreTarget, load_targets, main, preflight
+from ingest.run import StoreTarget, load_targets, main, preflight, redact_password
 from ingest.sources.loblaw import SEARCH_URL
 from ingest.tests.conftest import search_payload
 
@@ -116,3 +116,58 @@ def test_dry_run_skips_preflight_entirely(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(db, "connect", explode)
 
     assert main(["--dry-run", "--limit", "1"]) == 0
+
+
+SECRET = "FCfSezBjA3pw"
+URL_WITH_SECRET = f"postgresql://postgres.abcdef:{SECRET}@pooler.supabase.com:6543/postgres"
+
+
+def test_redact_password_removes_it_from_a_message() -> None:
+    message = f'connection failed for "{SECRET}" at host pooler.supabase.com'
+
+    cleaned = redact_password(message, URL_WITH_SECRET)
+
+    assert SECRET not in cleaned
+    assert "***" in cleaned
+    assert "pooler.supabase.com" in cleaned, "only the password should be removed"
+
+
+def test_redact_password_is_a_noop_without_one() -> None:
+    assert redact_password("boom", "postgresql://localhost:5432/db") == "boom"
+
+
+def test_a_malformed_url_never_echoes_the_driver_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """psycopg quotes the offending part of the string -- usually the password.
+
+    Actions logs on a public repo are public, and GitHub only masks exact
+    matches of the whole secret, not fragments of it. This is how a real
+    password fragment reached a public log on 2026-09-21.
+    """
+    fragment = "FCfSezBjA3%.#-m"
+
+    def refuse(_url: str):
+        raise psycopg.ProgrammingError(f'invalid percent-encoded token: "{fragment}"')
+
+    monkeypatch.setattr(db, "connect", refuse)
+
+    problem = preflight(f"postgresql://postgres.abcdef:{fragment}@pooler:6543/postgres", STORES)
+
+    assert problem is not None
+    assert fragment not in problem, "the driver error leaked credential material"
+    assert "%25" in problem, "the message should say how to encode it"
+
+
+def test_a_connection_error_still_has_its_password_stripped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse(_url: str):
+        raise psycopg.OperationalError(f"auth failed, tried password {SECRET}")
+
+    monkeypatch.setattr(db, "connect", refuse)
+
+    problem = preflight(URL_WITH_SECRET, STORES)
+
+    assert problem is not None
+    assert SECRET not in problem
