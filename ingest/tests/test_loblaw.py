@@ -172,3 +172,43 @@ def test_rate_limiter_enforces_the_gap(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert len(slept) == 1, "the first call should not wait"
     assert 0.5 < slept[0] <= 1.0
+
+
+@respx.mock
+def test_401_is_a_stop_signal_and_is_never_retried() -> None:
+    """A rotated or invalid key is the likeliest stop signal, not a crash."""
+    route = respx.post(loblaw.SEARCH_URL).mock(
+        return_value=httpx.Response(
+            401,
+            json={
+                "error": "invalid_client",
+                "error_description": "The client credentials provided were invalid.",
+            },
+        )
+    )
+
+    with pytest.raises(loblaw.AccessDenied) as caught:
+        make_client().search("nofrills", "3131", "milk")
+
+    assert caught.value.status_code == 401
+    assert route.call_count == 1, "401 must not be retried"
+
+
+@respx.mock
+def test_403_carries_its_status_too() -> None:
+    route = respx.post(loblaw.SEARCH_URL).mock(return_value=httpx.Response(403))
+
+    with pytest.raises(loblaw.AccessDenied) as caught:
+        make_client().search("nofrills", "3131", "milk")
+
+    assert caught.value.status_code == 403
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_unexpected_status_raises_ingest_error_not_a_raw_httpx_error() -> None:
+    """Callers catch IngestError; anything else escapes as an ugly traceback."""
+    respx.post(loblaw.SEARCH_URL).mock(return_value=httpx.Response(422))
+
+    with pytest.raises(loblaw.IngestError):
+        make_client().search("nofrills", "3131", "milk")

@@ -118,6 +118,13 @@ Known-good store codes: `3131` (No Frills Vaughan), `1516` (Superstore),
    only. This is undocumented internal API usage and is against Loblaw's terms.
    Key rotation or sustained 403s is a stop signal, not a problem to route
    around with proxies.
+5. **A rotated or wrong key returns 401, not 403.** Verified on 2026-09-21:
+   the body is `{"error": "invalid_client", "error_description": "The client
+   credentials provided were invalid, the request is unauthorized."}`. Since
+   the key is a static value shipped in the storefront bundle, 401 is the
+   likelier of the two stop signals — it is what a rotation looks like.
+   `LoblawClient` treats 401 and 403 alike: never retried, abandon the run,
+   exit 2. The message names which remedy applies.
 
 ## Open items
 
