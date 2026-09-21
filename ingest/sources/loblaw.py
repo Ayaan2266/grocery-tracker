@@ -25,6 +25,10 @@ DEFAULT_TIMEOUT = 30.0
 MAX_ATTEMPTS = 3
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
+# Never retried, never routed around. 401 is what this API actually returns
+# for a bad or rotated key -- observed live, not assumed.
+STOP_SIGNAL_STATUS = frozenset({401, 403})
+
 # Terms every grocery store in the country stocks. Used to prove a storeId
 # actually resolves before we trust an empty result from it.
 CANARY_TERMS = ("milk", "bread", "eggs")
@@ -35,12 +39,37 @@ class IngestError(RuntimeError):
 
 
 class AccessDenied(IngestError):
-    """HTTP 403.
+    """HTTP 401 or 403. Never retried, never routed around.
 
-    Treated as a stop signal, never retried and never routed around. Personal,
-    non-commercial use of an undocumented internal API is only defensible for
-    as long as it stays gentle; sustained 403s or a key rotation mean stop.
+    Both are stop signals but they mean different things, so the status comes
+    along with the exception:
+
+    401 -- the credential was rejected. The storefront ships a new key and
+           PCX_API_KEY needs re-capturing. This is the key-rotation case the
+           README calls a stop signal, and it is the likelier of the two.
+    403 -- the request was understood and refused. That is the answer to
+           whether server-side access works at all.
+
+    Personal, non-commercial use of an undocumented internal API is only
+    defensible while it stays gentle. Neither of these is a problem to solve
+    with proxies.
     """
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+_STOP_SIGNAL_REMEDY = {
+    401: (
+        "the credential was rejected -- the key is invalid or has rotated. "
+        "Re-capture x-apikey from the storefront bundle and update PCX_API_KEY."
+    ),
+    403: (
+        "the request was understood and refused -- server-side access is "
+        "blocked. Do not route around this."
+    ),
+}
 
 
 class StoreVerificationError(IngestError):
@@ -210,10 +239,11 @@ class LoblawClient:
                 self._backoff(attempt)
                 continue
 
-            if response.status_code == 403:
+            if response.status_code in STOP_SIGNAL_STATUS:
                 raise AccessDenied(
-                    f"403 for banner={banner} store={store_id}. Stop signal: the key may have "
-                    "rotated or server-side access is blocked. Do not route around this."
+                    f"HTTP {response.status_code} for banner={banner} store={store_id}. "
+                    f"Stop signal: {_STOP_SIGNAL_REMEDY[response.status_code]}",
+                    status_code=response.status_code,
                 )
 
             if response.status_code in RETRYABLE_STATUS:
@@ -231,7 +261,16 @@ class LoblawClient:
                 self._backoff(attempt)
                 continue
 
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                # Callers catch IngestError. A raw httpx error would sail past
+                # every handler in run.py and end the night in a traceback.
+                raise IngestError(
+                    f"unexpected HTTP {response.status_code} for banner={banner} "
+                    f"store={store_id} term={term!r}"
+                ) from exc
+
             return SearchResponse.model_validate(response.json())
 
         raise IngestError(
