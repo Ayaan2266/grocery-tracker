@@ -191,6 +191,31 @@ def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
             print(f"\n  {outcome.target.key}: {outcome.error}")
 
 
+def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
+    """Prove the database is writable before spending any API requests on it.
+
+    Returns None when everything resolves, or a message describing what is
+    wrong. Costs about a second.
+
+    Without this, a bad DATABASE_URL or a missing migration is only discovered
+    after the whole night has been fetched -- 500-odd requests against an
+    undocumented API we have no permission to use, thrown away because of a
+    typo in a secret. Resolving every target store also catches the case where
+    targets.json names a store that no migration has added yet.
+    """
+    from ingest import db
+
+    try:
+        with db.connect(database_url) as conn:
+            for target in stores:
+                db.resolve_store_id(conn, target.banner, target.store_code)
+    except db.UnknownStore as exc:
+        return str(exc)
+    except db.psycopg.Error as exc:
+        return f"cannot connect to Postgres: {exc}"
+    return None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ingest.run", description=__doc__)
     parser.add_argument(
@@ -252,6 +277,14 @@ def main(argv: list[str] | None = None) -> int:
         (len(stores) * (len(terms) + 1) * settings.rate_limit_seconds) / 60,
     )
 
+    if not args.dry_run:
+        assert settings.database_url is not None
+        problem = preflight(settings.database_url, stores)
+        if problem:
+            log.error("preflight failed, no API requests made -- fix this first:\n  %s", problem)
+            return EXIT_FAILURE
+        log.info("preflight ok: database reachable, %d store(s) resolved", len(stores))
+
     outcomes: list[StoreOutcome] = []
     with LoblawClient(
         settings.pcx_api_key, rate_limit_seconds=settings.rate_limit_seconds
@@ -281,7 +314,19 @@ def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: 
     from ingest import db
 
     assert database_url is not None
-    with db.connect(database_url) as conn:
+    try:
+        connection = db.connect(database_url)
+    except db.psycopg.Error as exc:
+        # Preflight makes this unlikely, but the database can go away mid-run.
+        # Record it against every store and return, so print_summary still runs
+        # and the night's work is at least visible in the log.
+        log.error("could not connect to Postgres, nothing written: %s", exc)
+        for outcome in outcomes:
+            if outcome.ok:
+                outcome.error = f"database unavailable: {exc}"
+        return
+
+    with connection as conn:
         for outcome in outcomes:
             if not outcome.ok or not outcome.rows:
                 continue
