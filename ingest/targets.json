@@ -1,0 +1,80 @@
+{
+  "_note": "Data, not code. Adding a store here requires a migration adding it to the stores table first; a store_code with no row is rejected rather than guessed at.",
+  "stores": [
+    {
+      "banner": "nofrills",
+      "store_code": "3131",
+      "label": "No Frills - Vaughan"
+    },
+    {
+      "banner": "superstore",
+      "store_code": "1516",
+      "label": "Real Canadian Superstore"
+    },
+    {
+      "banner": "loblaw",
+      "store_code": "1032",
+      "label": "Loblaws"
+    }
+  ],
+  "canary_terms": ["milk", "bread", "eggs"],
+  "search_terms": {
+    "dairy_and_eggs": [
+      "2% milk 4l", "1% milk 4l", "whole milk 4l", "skim milk 4l", "chocolate milk",
+      "butter", "margarine", "cream cheese", "sour cream", "greek yogurt", "yogurt",
+      "cheddar cheese", "mozzarella cheese", "shredded cheese", "cottage cheese",
+      "large eggs", "whipping cream", "half and half"
+    ],
+    "bakery": [
+      "white bread", "whole wheat bread", "bagels", "english muffins", "tortillas",
+      "hamburger buns", "hot dog buns", "croissants", "naan bread"
+    ],
+    "produce": [
+      "bananas", "gala apples", "granny smith apples", "navel oranges", "strawberries",
+      "blueberries", "green grapes", "avocado", "lemons", "limes", "russet potatoes",
+      "yellow onions", "red onions", "garlic", "carrots", "celery", "broccoli",
+      "cauliflower", "iceberg lettuce", "romaine lettuce", "baby spinach", "tomatoes",
+      "cucumber", "green bell pepper", "mushrooms", "sweet potato", "zucchini",
+      "green beans", "corn on the cob", "kale", "cabbage"
+    ],
+    "meat_and_seafood": [
+      "chicken breast", "chicken thighs", "whole chicken", "ground beef",
+      "lean ground beef", "ground turkey", "pork chops", "bacon", "breakfast sausage",
+      "striploin steak", "salmon fillet", "tilapia fillet", "frozen shrimp", "deli ham",
+      "sliced turkey breast"
+    ],
+    "pantry": [
+      "white rice", "basmati rice", "jasmine rice", "spaghetti", "penne pasta",
+      "macaroni", "pasta sauce", "canned diced tomatoes", "tomato paste", "olive oil",
+      "canola oil", "all purpose flour", "granulated sugar", "brown sugar", "table salt",
+      "black pepper", "peanut butter", "strawberry jam", "honey", "maple syrup",
+      "ketchup", "yellow mustard", "mayonnaise", "soy sauce", "white vinegar",
+      "canned tuna", "canned black beans", "chickpeas", "red lentils", "chicken broth",
+      "canned soup", "quick oats", "breakfast cereal", "granola bars", "soda crackers",
+      "bread crumbs", "baking soda"
+    ],
+    "frozen": [
+      "frozen pizza", "frozen mixed vegetables", "frozen peas", "frozen corn",
+      "frozen berries", "ice cream", "frozen french fries", "frozen waffles",
+      "frozen chicken nuggets", "frozen perogies"
+    ],
+    "beverages": [
+      "orange juice", "apple juice", "ground coffee", "instant coffee", "coffee pods",
+      "black tea", "green tea", "bottled water", "sparkling water", "cola", "ginger ale",
+      "sports drink", "almond milk", "oat milk", "soy milk"
+    ],
+    "snacks": [
+      "potato chips", "tortilla chips", "popcorn", "pretzels", "chocolate chip cookies",
+      "chocolate bar", "mixed nuts", "almonds", "peanuts", "trail mix", "fruit snacks",
+      "rice cakes"
+    ],
+    "household_and_baby": [
+      "toilet paper", "paper towels", "dish soap", "laundry detergent", "dishwasher pods",
+      "garbage bags", "aluminum foil", "plastic wrap", "hand soap", "shampoo",
+      "toothpaste", "diapers", "baby wipes", "baby formula"
+    ],
+    "other": [
+      "tofu", "hummus", "salsa", "dill pickles", "green olives", "instant noodles"
+    ]
+  }
+}
