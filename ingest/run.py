@@ -21,7 +21,12 @@ from datetime import date
 from pathlib import Path
 
 from ingest.config import ConfigError, load_settings
-from ingest.normalize import NormalizedPrice, normalize_entry
+from ingest.normalize import (
+    DISAGREEMENT_TOLERANCE,
+    NormalizedPrice,
+    normalize_entry,
+    unit_price_disagreement,
+)
 from ingest.sources.loblaw import (
     AccessDenied,
     IngestError,
@@ -63,6 +68,8 @@ class StoreOutcome:
     normalized: int = 0
     skipped_no_price: int = 0
     on_sale: int = 0
+    unit_priced: int = 0
+    unit_price_mismatches: int = 0
     inserted: int = 0
     already_present: int = 0
     error: str | None = None
@@ -151,6 +158,23 @@ def ingest_store(
     outcome.rows = list(by_sku.values())
     outcome.normalized = len(outcome.rows)
     outcome.on_sale = sum(1 for row in outcome.rows if row.on_sale)
+    outcome.unit_priced = sum(1 for row in outcome.rows if row.unit_price_cents is not None)
+
+    # Both routes to a unit price agreed on every product checked by hand, so a
+    # run where this starts firing means something moved upstream: a packageSize
+    # parsing wrong, or the API changing which price its comparison tracks.
+    gaps = (unit_price_disagreement(row) for row in outcome.rows)
+    outcome.unit_price_mismatches = sum(
+        1 for gap in gaps if gap is not None and gap > DISAGREEMENT_TOLERANCE
+    )
+    if outcome.unit_price_mismatches:
+        log.warning(
+            "%s: %d row(s) where the API unit price disagrees with the package size "
+            "by more than %.0f%% -- check whether packageSize or comparisonPrices moved",
+            target.key,
+            outcome.unit_price_mismatches,
+            DISAGREEMENT_TOLERANCE * 100,
+        )
 
     if outcome.skipped_no_price > outcome.normalized:
         log.warning(
@@ -166,10 +190,10 @@ def ingest_store(
 
 def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
     mode = "DRY RUN (nothing written)" if dry_run else "WROTE TO POSTGRES"
-    print(f"\n{'=' * 72}\n{mode}\n{'=' * 72}")
-    header = f"{'store':<34}{'fetched':>8}{'kept':>7}{'sale':>6}{'new':>6}{'dup':>6}"
+    print(f"\n{'=' * 79}\n{mode}\n{'=' * 79}")
+    header = f"{'store':<34}{'fetched':>8}{'kept':>7}{'sale':>6}{'unit':>7}{'new':>6}{'dup':>6}"
     print(header)
-    print("-" * 72)
+    print("-" * 79)
     for outcome in outcomes:
         label = outcome.target.label or outcome.target.key
         if not outcome.ok:
@@ -177,16 +201,21 @@ def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
             continue
         print(
             f"{label:<34}{outcome.fetched:>8}{outcome.normalized:>7}"
-            f"{outcome.on_sale:>6}{outcome.inserted:>6}{outcome.already_present:>6}"
+            f"{outcome.on_sale:>6}{outcome.unit_priced:>7}"
+            f"{outcome.inserted:>6}{outcome.already_present:>6}"
         )
-    print("-" * 72)
+    print("-" * 79)
     print(
         f"{'total':<34}{sum(o.fetched for o in outcomes):>8}"
         f"{sum(o.normalized for o in outcomes):>7}"
         f"{sum(o.on_sale for o in outcomes):>6}"
+        f"{sum(o.unit_priced for o in outcomes):>7}"
         f"{sum(o.inserted for o in outcomes):>6}"
         f"{sum(o.already_present for o in outcomes):>6}"
     )
+    mismatches = sum(o.unit_price_mismatches for o in outcomes)
+    if mismatches:
+        print(f"\n  {mismatches} row(s) with a unit price the package size disagrees with")
     for outcome in outcomes:
         if not outcome.ok:
             print(f"\n  {outcome.target.key}: {outcome.error}")
