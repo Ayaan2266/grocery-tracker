@@ -13,3 +13,27 @@ export function formatCents(cents: number | null): string {
     currency: "CAD",
   }).format(cents / 100);
 }
+
+/** "$1.56/100g". Returns null when there is no unit price to show. */
+export function formatUnitPrice(
+  cents: number | null,
+  quantity: number | null,
+  unit: string | null,
+): string | null {
+  if (cents === null || quantity === null || !unit) return null;
+  const amount = new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: "CAD",
+  }).format(cents / 100);
+  return unit === "ea" ? `${amount} each` : `${amount}/${quantity}${unit}`;
+}
+
+/** "Sep 22" for an ISO date, without dragging in a date library. */
+export function formatDay(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
