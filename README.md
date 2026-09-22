@@ -15,7 +15,7 @@ questions:
 
 ## Why this exists
 
-Flipp and reebee aggregate weekly flyers — they show what is *on sale*, not what
+Flipp and reebee aggregate weekly flyers: they show what is *on sale*, not what
 is *cheapest*, and they depend on retailers uploading flyers. Gofer.run compares
 live prices across stores by postal code. None of them keep price history.
 
@@ -52,7 +52,7 @@ Total infrastructure cost: $0.
 .github/workflows/    ingest.yml (nightly cron), ci.yml (ruff + pytest + next build)
 ingest/
   sources/loblaw.py   rate-limited PCX client, canary store verification
-  normalize.py        unit-price extraction and validation
+  normalize.py        unit-price extraction, canonical units, validation
   match.py            cross-banner product matching
   db.py               append-only writes
   money.py            dollars to integer cents, in one place
@@ -99,30 +99,58 @@ database is left as it was found.
 cd web && npm install && npm run dev
 ```
 
+## Unit prices
+
+Two routes to the same number, and they agree.
+
+`comparisonPrices` from the API supplies `{"value": 1.56, "unit": "g",
+"quantity": 100}`, meaning $1.56 per 100 g. When it is absent, `packageSize` is
+parsed and the unit price is derived from the shelf price. `unit_price_source`
+records which route each row took, so a bug in the derivation can be corrected
+later without distrusting API-supplied values.
+
+Everything folds onto three canonical dimensions:
+
+| written as | stored as |
+|---|---|
+| `g`, `kg` | grams |
+| `ml`, `l` | millilitres |
+| `ea` | each |
+
+That conversion is not cosmetic. 2,715 products (13.8% of the catalogue) are
+written in `l` or `kg`; left verbatim they would form a second bucket that
+could never compare against the 15,115 written in `g` or `ml`, even though
+`1 l` and `1000 ml` are the same quantity of the same thing. `package_size`
+keeps the retailer's raw string, so nothing is lost.
+
+Grams, millilitres and each are deliberately not comparable with each other.
+The density to convert mass to volume is not in the payload and `ea` has no
+magnitude, so the unit travels with the row and stops a downstream query
+comparing across dimensions by accident.
+
 ## What doesn't work yet
 
 Maintained honestly. Overclaiming reads as junior.
 
-- **Unit price is NULL on every row.** Both `extract_unit_price` (read the
-  API's pre-normalized `comparisonPrices`) and `parse_package_size` (the
-  fallback for entries that return an empty one — mostly sold-by-each items and
-  weighted produce) are stubs that return `None`, so every observation lands
-  with `unit_price_source = "none"`. Shelf prices and sale flags are stored
-  correctly. Unit price is a convenience column, and a NULL is recoverable
-  where a wrong value silently poisons every comparison built on top of it.
+- **No frontend yet.** Ingestion runs nightly and the history is accumulating,
+  but nothing reads it. Search, the price history chart and the basket view are
+  all still to build.
+- **Unit price is unavailable for 0.12% of products.** 16 are measured in
+  metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
+  volume, so they get a NULL rather than a fabricated number.
 - **Cross-banner matching is a skeleton.** `match.py` documents the approach and
   the identity-vs-substitutability distinction but proposes nothing yet. By
   design: the spec says not to design matching before there is real messy data
-  to look at.
+  to look at. There is now real messy data to look at.
 - **Three banners, three stores.** Zehrs, Maxi and Fortinos need verified
   store codes first; guessed codes return 200 with zero results, which is
   indistinguishable from a working store with nothing in stock.
 - **No precision/recall numbers on matching.** They go here once there are
   hand-labelled pairs to measure against.
-- **Server-side API access is unverified.** The contract was confirmed from
-  inside the browser, which carries cookies and an `Origin` header that GitHub
-  Actions does not. See the open items in
-  [docs/data-sources.md](docs/data-sources.md).
+- **Observations before 2026-09-22 have no unit price.** The first two nights
+  ran before `extract_unit_price` existed. Unit price is derivable from
+  `price_cents` and `size_value`, both stored, so those rows can be filled by a
+  view rather than an `UPDATE` against `price_observations`.
 
 ## Legal
 
