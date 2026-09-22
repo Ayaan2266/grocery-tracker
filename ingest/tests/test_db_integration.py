@@ -44,7 +44,11 @@ def conn():
     try:
         with connection.cursor() as cur:
             cur.execute(f'CREATE SCHEMA "{schema}"')
-            cur.execute(f'SET search_path TO "{schema}"')
+            # public and extensions come along because pg_trgm's operator
+            # class lives in whichever of them the host installed it into:
+            # `extensions` on Supabase, `public` on a plain Postgres. The
+            # migration deliberately does not qualify it for that reason.
+            cur.execute(f'SET search_path TO "{schema}", public, extensions')
             # Every migration in order, so a new one is exercised here the
             # day it lands rather than the day it breaks production.
             for path in sorted(MIGRATIONS.glob("*.sql")):
@@ -288,3 +292,96 @@ class TestRowLevelSecurity:
         result = db.write_store_observations(conn, store_id, [make_row(1)], DAY)
         assert result.errors == []
         assert result.observations_inserted == 1
+
+
+class TestViews:
+    """The two views the frontend reads. 0004_product_latest_price.sql."""
+
+    def test_latest_price_returns_one_row_per_product(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        rows = [make_row(i) for i in range(10)]
+        db.write_store_observations(conn, store_id, rows, DAY)
+        db.write_store_observations(
+            conn,
+            store_id,
+            [make_row(i, price_cents=999) for i in range(10)],
+            date(2026, 9, 22),
+        )
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM product_latest_price")
+            assert cur.fetchone()[0] == 10, "one row per product, not per observation"
+
+    def test_latest_price_carries_the_newest_observation(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+        db.write_store_observations(
+            conn, store_id, [make_row(1, price_cents=999)], date(2026, 9, 22)
+        )
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT observed_on, price_cents FROM product_latest_price WHERE retailer_sku = %s",
+                ("SKU000001_EA",),
+            )
+            assert cur.fetchone() == (date(2026, 9, 22), 999)
+
+    def test_latest_price_joins_the_banner_through(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "loblaw", "1032")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT banner_slug, store_code FROM product_latest_price WHERE retailer_sku = %s",
+                ("SKU000001_EA",),
+            )
+            assert cur.fetchone() == ("loblaw", "1032")
+
+    def test_coverage_counts_days_not_rows(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        for day in (DAY, date(2026, 9, 22), date(2026, 9, 23)):
+            db.write_store_observations(conn, store_id, [make_row(i) for i in range(4)], day)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT products, observations, days, first_day, last_day FROM ingest_coverage"
+            )
+            products, observations, days, first_day, last_day = cur.fetchone()
+
+        assert (products, observations, days) == (4, 12, 3)
+        assert (first_day, last_day) == (DAY, date(2026, 9, 23))
+
+    def test_both_views_run_as_the_invoker(self, conn) -> None:
+        """Without security_invoker a view runs as its owner and bypasses RLS.
+
+        The owner here is the role that writes the data, so the view would be a
+        hole straight through every policy 0003 added.
+        """
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.relname, c.reloptions
+                  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE n.nspname = current_schema()
+                   AND c.relkind = 'v'
+                 ORDER BY c.relname
+                """
+            )
+            views = dict(cur.fetchall())
+
+        assert set(views) == {"ingest_coverage", "product_latest_price"}
+        for name, options in views.items():
+            assert options and "security_invoker=true" in options, (
+                f"{name} does not run as the invoker"
+            )
+
+    def test_anon_can_read_both_views(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT count(*) FROM product_latest_price")
+            assert cur.fetchone()[0] == 1
+            cur.execute("SELECT products FROM ingest_coverage")
+            assert cur.fetchone()[0] == 1
