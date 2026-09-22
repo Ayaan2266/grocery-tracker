@@ -94,15 +94,20 @@ class TestNormalizeEntry:
     def test_entry_without_a_price_value_is_skipped(self) -> None:
         assert parse(prices={"wasPrice": None, "comparisonPrices": []}) is None
 
-    def test_unit_price_is_null_until_extract_unit_price_is_written(self) -> None:
-        """Documented current behaviour. Update this when the stub lands."""
+    def test_a_compound_unit_string_falls_through_to_the_parser(self) -> None:
+        """The API uses unit="ml" with quantity=100, never a compound "100ml".
+
+        If it ever did, the unit table would reject it and the derived path
+        takes over rather than storing something unjoinable. $6.44 for 4 L is
+        16 cents per 100 ml.
+        """
         row = parse(
             prices={
                 "price": {"value": 6.44},
-                "comparisonPrices": [{"value": 0.16, "unit": "100ml"}],
+                "comparisonPrices": [{"value": 0.16, "unit": "100ml", "quantity": 1}],
             }
         )
         assert row is not None
-        assert row.unit_price_cents is None
-        assert row.comparison_unit is None
-        assert row.unit_price_source == "none"
+        assert row.unit_price_source == "derived"
+        assert row.unit_price_cents == 16
+        assert row.comparison_unit == "ml"

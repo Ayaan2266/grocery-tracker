@@ -84,6 +84,39 @@ work originally budgeted for week 1. `normalize.py` is a validation layer over
 it, not a parser. The parser only runs as a fallback for products that return
 an empty `comparisonPrices`.
 
+### comparisonPrices, verified 2026-09-22
+
+Sampled live across six categories, 315 products, 90 of them on sale:
+
+```json
+{"value": 1.56, "unit": "g", "quantity": 100,
+ "reasonCode": null, "type": "REGULAR", "expiryDate": null}
+```
+
+`unit` is the base unit and `quantity` is a separate multiplier, so this reads
+as $1.56 per 100 g. It is not a compound `"100g"` string, and the vocabulary is
+the same one `packageSize` uses, so there is one namespace rather than two.
+
+Exactly three `(unit, quantity)` pairs occurred:
+
+| pair | n |
+|---|---|
+| `(g, 100)` | 306 |
+| `(ml, 100)` | 6 |
+| `(ea, 1)` | 3 |
+
+**No product had more than one entry**, including the 90 on sale, so the first
+entry is taken and there is no selection rule to write.
+
+**`type` is a trap.** It reads `"REGULAR"` even on a discounted item, but the
+value tracks the *current* selling price. Triple Cheddar Shredded Cheese at
+$4.99 (was $6.00) in a 320 g pack reported $1.56/100 g, and 1.56 x 3.2 = 4.99,
+not 6.00. Filtering on `type` to find "the regular price" would silently pair a
+sale shelf price with a regular-price unit price on every discounted row.
+
+`wasPrice` is the same shape, carrying `type: "WAS"` and `unit: "ea"`. Only
+`.value` is consumed.
+
 ### Verified cross-banner divergence
 
 Query `"2% milk 4l"`, same key, same endpoint, 2026-09-20:
@@ -128,11 +161,11 @@ Known-good store codes: `3131` (No Frills Vaughan), `1516` (Superstore),
 
 ## Open items
 
-- [ ] **Does a cold server-side request work?** All verification calls ran from
-      inside the browser, carrying its cookies and `Origin` header. A request
-      from GitHub Actions carries neither. Test with cURL from a clean terminal
-      before trusting the nightly job. 200 → clean pipeline. 403 → a cookie
-      warm-up step is needed.
+- [x] **Does a cold server-side request work?** Yes. Answered 2026-09-21 by the
+      nightly job itself rather than by inference: three stores verified on
+      canary terms and 8.5 minutes of continuous fetching from a GitHub Actions
+      runner, with no cookies, no `Origin` header and a datacenter IP. Zero
+      403s across two consecutive nights.
 - [ ] **Real store list.** Open the storefront's store picker with a `fetch`
       interceptor installed and capture the endpoint it calls. That seeds
       `stores` with postal codes and coordinates instead of hand-found codes.
