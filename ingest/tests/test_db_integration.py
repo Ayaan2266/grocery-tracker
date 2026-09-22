@@ -45,8 +45,10 @@ def conn():
         with connection.cursor() as cur:
             cur.execute(f'CREATE SCHEMA "{schema}"')
             cur.execute(f'SET search_path TO "{schema}"')
-            for name in ("0001_init.sql", "0002_add_loblaws_store.sql"):
-                cur.execute((MIGRATIONS / name).read_text(encoding="utf-8"))
+            # Every migration in order, so a new one is exercised here the
+            # day it lands rather than the day it breaks production.
+            for path in sorted(MIGRATIONS.glob("*.sql")):
+                cur.execute(path.read_text(encoding="utf-8"))
         connection.commit()
         yield connection
     finally:
@@ -218,3 +220,71 @@ def test_a_write_is_a_handful_of_round_trips_not_two_per_product(conn) -> None:
         psycopg.Cursor.execute = original
 
     assert calls <= 10, f"{calls} round trips for 500 products; row-at-a-time would be 1000"
+
+
+class TestRowLevelSecurity:
+    """The anon key ships to every browser, so anything it can do, anyone can.
+
+    web/src/lib/supabase.ts describes this security model in a comment. These
+    tests are what make the comment true rather than aspirational.
+    """
+
+    def test_anon_can_read_every_table(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            for table in ("retailers", "stores", "products", "price_observations"):
+                cur.execute(f"SELECT count(*) FROM {table}")
+                assert cur.fetchone()[0] > 0, f"anon cannot read {table}"
+
+    def test_anon_cannot_insert(self, conn) -> None:
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(
+                    "INSERT INTO retailers (name, banner_slug, parent_company)"
+                    " VALUES ('x', 'x', 'x')"
+                )
+
+    def test_anon_cannot_rewrite_a_price(self, conn) -> None:
+        """The one thing in the project that cannot be regenerated."""
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("UPDATE price_observations SET price_cents = 1")
+
+    def test_anon_cannot_delete_history(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("DELETE FROM price_observations")
+
+    def test_rls_is_enabled_on_every_table(self, conn) -> None:
+        """A table with RLS off is readable and writable by anyone granted it."""
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT tablename, rowsecurity FROM pg_tables
+                 WHERE schemaname = current_schema()
+                 ORDER BY tablename
+                """
+            )
+            rows = dict(cur.fetchall())
+
+        assert rows, "no tables found in the test schema"
+        assert all(rows.values()), f"RLS off on: {[t for t, on in rows.items() if not on]}"
+
+    def test_the_owner_still_writes(self, conn) -> None:
+        """Ingestion connects as the owner, which bypasses RLS by design."""
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        result = db.write_store_observations(conn, store_id, [make_row(1)], DAY)
+        assert result.errors == []
+        assert result.observations_inserted == 1

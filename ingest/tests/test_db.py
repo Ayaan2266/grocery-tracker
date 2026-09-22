@@ -63,7 +63,13 @@ def test_products_upsert_because_metadata_is_mutable() -> None:
 
 
 def test_nothing_updates_or_deletes_price_observations() -> None:
-    """Enforces db/migrations/README.md's rule across the whole package."""
+    """Enforces db/migrations/README.md's rule across the package.
+
+    Production modules only. The test suite is excluded on purpose: it contains
+    these statements as assertions that they FAIL, which is the rule being
+    enforced rather than broken. test_db_integration.py runs an UPDATE and a
+    DELETE as the anon role and requires both to be refused.
+    """
     forbidden = re.compile(
         r"\b(UPDATE\s+price_observations|DELETE\s+FROM\s+price_observations"
         r"|TRUNCATE\s+(TABLE\s+)?price_observations)\b",
@@ -72,6 +78,7 @@ def test_nothing_updates_or_deletes_price_observations() -> None:
     offenders = [
         path.relative_to(INGEST_ROOT.parent).as_posix()
         for path in INGEST_ROOT.rglob("*.py")
+        if "tests" not in path.parts
         if forbidden.search(path.read_text(encoding="utf-8"))
     ]
     assert offenders == [], f"append-only rule violated in: {offenders}"
