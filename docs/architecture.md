@@ -72,6 +72,23 @@ grocery store stocks and raises if none return.
 the provenance means a bug in the derivation can be found and corrected later
 without re-deriving the whole table or distrusting the API-supplied values.
 
+**Units canonicalise to three dimensions.** `g` and `kg` both become grams,
+`ml` and `l` both become millilitres, `ea` stays as it is. `comparison_unit` is
+a join key rather than a display label: two products only compare when their
+units agree exactly, so without this the 2,715 products written in `l` or `kg`
+(13.8% of the catalogue) could never compare against the 15,115 written in `g`
+or `ml`, even though `1 l` and `1000 ml` are the same quantity of the same
+thing. `package_size` keeps the retailer's raw string, so canonicalising costs
+no fidelity.
+
+The three dimensions are deliberately not interconvertible. Mass to volume
+needs a density that is not in the payload, and `ea` has no magnitude at all,
+so the unit travelling with each row is what prevents a downstream query
+comparing across them by accident. Both the API path and the fallback parser
+use the same conversion table, because if they used different ones they could
+disagree about what a gram is and the disagreement would only surface as a
+wrong price comparison months later.
+
 **Matching is a separate, reviewed step.** `match.py` proposes candidates; it
 does not write to `product_matches`. An unreviewed matcher silently poisons
 every downstream price comparison, and a wrong "cheaper at Superstore" claim is
