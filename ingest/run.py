@@ -163,17 +163,18 @@ def ingest_store(
     outcome.on_sale = sum(1 for row in outcome.rows if row.on_sale)
     outcome.unit_priced = sum(1 for row in outcome.rows if row.unit_price_cents is not None)
 
-    # Both routes to a unit price agreed on every product checked by hand, so a
-    # run where this starts firing means something moved upstream: a packageSize
-    # parsing wrong, or the API changing which price its comparison tracks.
+    # Stored unit prices follow the shelf price, so a disagreement no longer
+    # corrupts anything. It is counted because its size is informative: the
+    # baseline is deals the API prices at the regular rate, and a jump well past
+    # it means a packageSize parsing wrong or the API changing what it tracks.
     gaps = (unit_price_disagreement(row) for row in outcome.rows)
     outcome.unit_price_mismatches = sum(
         1 for gap in gaps if gap is not None and gap > DISAGREEMENT_TOLERANCE
     )
     if outcome.unit_price_mismatches:
-        log.warning(
-            "%s: %d row(s) where the API unit price disagrees with the package size "
-            "by more than %.0f%% -- check whether packageSize or comparisonPrices moved",
+        log.info(
+            "%s: %d row(s) where the API's unit price disagrees with the shelf price by "
+            "more than %.0f%% -- mostly deals it prices at the regular rate",
             target.key,
             outcome.unit_price_mismatches,
             DISAGREEMENT_TOLERANCE * 100,
@@ -222,7 +223,7 @@ def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
     )
     mismatches = sum(o.unit_price_mismatches for o in outcomes)
     if mismatches:
-        print(f"\n  {mismatches} row(s) with a unit price the package size disagrees with")
+        print(f"\n  {mismatches} row(s) where the API's unit price disagrees with the shelf price")
     for outcome in outcomes:
         if not outcome.ok:
             print(f"\n  {outcome.target.key}: {outcome.error}")
