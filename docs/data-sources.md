@@ -97,13 +97,17 @@ Sampled live across six categories, 315 products, 90 of them on sale:
 as $1.56 per 100 g. It is not a compound `"100g"` string, and the vocabulary is
 the same one `packageSize` uses, so there is one namespace rather than two.
 
-Exactly three `(unit, quantity)` pairs occurred:
+In that sample, three `(unit, quantity)` pairs occurred:
 
 | pair | n |
 |---|---|
 | `(g, 100)` | 306 |
 | `(ml, 100)` | 6 |
 | `(ea, 1)` | 3 |
+
+The full nightly run on 2026-09-23 also turned up per 1000 g, per 10 ml and
+per 100 ea (sliced turkey at $36.18/kg, for example). `extract_unit_price`
+rescales every figure onto per 100 g, per 100 ml or per 1 ea.
 
 **No product had more than one entry**, including the 90 on sale, so the first
 entry is taken and there is no selection rule to write.
@@ -113,6 +117,23 @@ value tracks the *current* selling price. Triple Cheddar Shredded Cheese at
 $4.99 (was $6.00) in a 320 g pack reported $1.56/100 g, and 1.56 x 3.2 = 4.99,
 not 6.00. Filtering on `type` to find "the regular price" would silently pair a
 sale shelf price with a regular-price unit price on every discounted row.
+
+**Except when there is no `wasPrice`.** The first full-catalogue check
+(2026-09-23) found deals whose unit price stays on the regular price: 60 of 288
+comparable Superstore products in the stored sample, 21% of Superstore's
+products in the nightly count, and about 2% at No Frills and Loblaws:
+
+| product | shelf | API unit price | implies |
+|---|---|---|---|
+| Mango Nectar, 960 ml | $1.50 | $0.24/100 ml | $2.30 |
+| Artesano Original White Bread, 540 g | $2.97 | $0.79/100 g | $4.27 |
+| Lemon Lime Soft Drink, 6x710 ml | $3.97 | $0.15/100 ml | $6.39 |
+
+None of them had a `wasPrice`, so nothing else in the response marks them as
+discounted. That is why unit prices are derived from the shelf price and the
+API's figure is only a fallback. What exactly these deals are (multi-buy,
+member pricing, clearance) is not yet known: the fields that would say are
+dropped by `extra="ignore"`.
 
 `wasPrice` is the same shape, carrying `type: "WAS"` and `unit: "ea"`. Only
 `.value` is consumed.

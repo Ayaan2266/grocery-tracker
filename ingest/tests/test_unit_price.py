@@ -1,4 +1,4 @@
-"""Unit-price tests, built from values observed live on 2026-09-22.
+"""Unit-price tests, built from values observed live on 2026-09-22 and -23.
 
 Where a number here looks arbitrary it came off the real API or out of the
 products table, and the docstring says which.
@@ -68,10 +68,25 @@ class TestExtractUnitPrice:
         assert result is not None and result.cents == 156
 
     def test_a_big_unit_is_folded_onto_the_canonical_one(self) -> None:
-        """$3.00/kg is $3.00 per 1000 g: the price holds, the quantity scales."""
+        """$3.00/kg is $0.30 per 100 g, the basis every other gram price uses."""
         result = extract_unit_price([api_entry(value=3.00, unit="kg", quantity=1)])
         assert result is not None
-        assert (result.cents, result.unit, result.quantity) == (300, "g", Decimal(1000))
+        assert (result.cents, result.unit, result.quantity) == (30, "g", Decimal(100))
+
+    @pytest.mark.parametrize(
+        ("entry", "expected"),
+        [
+            # Superstore, 2026-09-23. Each agrees with its shelf price once
+            # rescaled; unrescaled, all three read as a 10x mismatch.
+            ({"value": 36.18, "unit": "kg", "quantity": 1}, (362, "g", 100)),  # sliced turkey
+            ({"value": 5.66, "unit": "ml", "quantity": 10}, (5660, "ml", 100)),  # air freshener
+            ({"value": 35.00, "unit": "ea", "quantity": 100}, (35, "ea", 1)),  # reusable cloth
+        ],
+    )
+    def test_every_basis_is_rescaled_onto_per_100_or_per_1(self, entry, expected) -> None:
+        result = extract_unit_price([api_entry(**entry)])
+        assert result is not None
+        assert (result.cents, result.unit, result.quantity) == expected
 
     def test_an_unknown_unit_yields_nothing(self) -> None:
         assert extract_unit_price([api_entry(unit="sheet")]) is None
@@ -160,7 +175,7 @@ class TestDeriveUnitPrice:
 
 
 class TestNormalizeEntry:
-    def test_the_api_path_wins_when_available(self) -> None:
+    def test_the_shelf_price_wins_when_the_size_parses(self) -> None:
         row = normalize_entry(
             Product.model_validate(
                 product_entry(
@@ -170,12 +185,13 @@ class TestNormalizeEntry:
             )
         )
         assert row is not None
-        assert row.unit_price_source == "api"
+        assert row.unit_price_source == "derived"
         assert row.unit_price_cents == 156
         assert row.comparison_unit == "g"
         assert row.comparison_quantity == Decimal(100)
+        assert row.api_unit_price_cents == 156, "kept for the cross-check"
 
-    def test_the_parser_fills_in_when_the_api_does_not(self) -> None:
+    def test_the_parser_works_without_the_api(self) -> None:
         row = normalize_entry(
             Product.model_validate(
                 product_entry(
@@ -187,8 +203,56 @@ class TestNormalizeEntry:
         assert row is not None
         assert row.unit_price_source == "derived"
         assert row.unit_price_cents == 156
+        assert row.api_unit_price_cents is None
 
-    def test_size_is_parsed_even_when_the_api_supplies_a_unit_price(self) -> None:
+    def test_the_api_fills_in_when_the_size_does_not_parse(self) -> None:
+        row = normalize_entry(
+            Product.model_validate(
+                product_entry(
+                    packageSize="1 bag",
+                    prices={"price": {"value": 4.99}, "comparisonPrices": [api_entry()]},
+                )
+            )
+        )
+        assert row is not None
+        assert row.unit_price_source == "api"
+        assert (row.unit_price_cents, row.comparison_unit) == (156, "g")
+
+    @pytest.mark.parametrize(
+        ("name", "package_size", "price", "api_value", "api_unit", "stored", "api_cents"),
+        [
+            # Superstore, 2026-09-23: discounted with no wasPrice, while the
+            # API's unit price stayed on the regular price.
+            ("Mango Nectar", "960 ml", 1.50, 0.24, "ml", 16, 24),
+            ("Artesano Original White Bread", "540 g", 2.97, 0.79, "g", 55, 79),
+        ],
+    )
+    def test_a_deal_without_a_was_price_keeps_the_price_actually_paid(
+        self, name, package_size, price, api_value, api_unit, stored, api_cents
+    ) -> None:
+        """The reason the shelf price comes first. Taking the API's figure
+        stored a unit price for a $2.30 bottle next to a $1.50 shelf price."""
+        row = normalize_entry(
+            Product.model_validate(
+                product_entry(
+                    name=name,
+                    packageSize=package_size,
+                    prices={
+                        "price": {"value": price},
+                        "wasPrice": None,
+                        "comparisonPrices": [api_entry(value=api_value, unit=api_unit)],
+                    },
+                )
+            )
+        )
+        assert row is not None
+        assert row.on_sale is False, "nothing marks these as deals"
+        assert (row.unit_price_cents, row.unit_price_source) == (stored, "derived")
+        assert row.api_unit_price_cents == api_cents
+        gap = unit_price_disagreement(row)
+        assert gap is not None and gap > Decimal("0.02"), "still counted in the summary"
+
+    def test_size_is_parsed_whatever_the_api_supplies(self) -> None:
         """size_value and size_unit are identity fields, not just parser output."""
         row = normalize_entry(
             Product.model_validate(
@@ -202,7 +266,7 @@ class TestNormalizeEntry:
             )
         )
         assert row is not None
-        assert row.unit_price_source == "api"
+        assert row.unit_price_source == "derived"
         assert (row.size_value, row.size_unit) == (Decimal(1000), "ml")
 
     def test_an_unparseable_size_and_no_api_price_leaves_a_null(self) -> None:
@@ -267,6 +331,21 @@ class TestUnitPriceDisagreement:
         assert row is not None
         gap = unit_price_disagreement(row)
         assert gap is not None and gap > Decimal("0.15")
+
+    def test_a_per_kg_api_figure_is_not_a_mismatch(self) -> None:
+        """Sliced turkey, 55 g at $1.99, API $36.18/kg. Flagged before rescaling."""
+        row = normalize_entry(
+            Product.model_validate(
+                product_entry(
+                    packageSize="55 g",
+                    prices={
+                        "price": {"value": 1.99},
+                        "comparisonPrices": [api_entry(value=36.18, unit="kg", quantity=1)],
+                    },
+                )
+            )
+        )
+        assert row is not None and unit_price_disagreement(row) == 0
 
     def test_nothing_to_compare_reads_none(self) -> None:
         row = normalize_entry(

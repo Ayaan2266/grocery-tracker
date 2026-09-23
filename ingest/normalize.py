@@ -1,15 +1,26 @@
 """Turn a raw PCX product entry into a row we can store.
 
-This is a validation layer over the API's own `comparisonPrices`, not a
-parser. The parser is a fallback for entries that come back without one.
+The stored unit price is the shelf price divided by the package size: the
+price you actually pay, per 100 g, per 100 ml or per 1 each. The API's own
+`comparisonPrices` is only a fallback, for the ~0.1% of products whose
+packageSize will not parse, and a nightly cross-check on the rest.
+
+It used to be the other way round, with the API's figure trusted first. The
+first live check (2026-09-23) showed why not: on 21% of Superstore products,
+and occasionally elsewhere, the shelf price is discounted with no wasPrice, and
+the API's unit price still follows the regular price. Mango Nectar, 960 ml at
+$1.50, came back as $0.24/100 ml -- a $2.30 bottle. Taking the API's word
+there stores a unit price that no customer paid.
 
 The unit vocabulary was settled against real data on 2026-09-22. Across 19,649
 stored products, `packageSize` used exactly five units:
 
     g 10,770 | ml 4,345 | ea 1,796 | l 1,503 | kg 1,212 | other 23 (0.12%)
 
-and across 315 live products the API's own `comparisonPrices` used exactly
-three `(unit, quantity)` pairs: `(g, 100)`, `(ml, 100)`, `(ea, 1)`.
+and across 315 live products the API's own `comparisonPrices` used three
+`(unit, quantity)` pairs: `(g, 100)`, `(ml, 100)`, `(ea, 1)`. The full nightly
+run later turned up per 1000 g, per 10 ml and per 100 ea as well, so API
+figures are rescaled onto the same per-100 / per-1 basis before use.
 
 Both are folded onto the same three canonical dimensions below. That matters
 because `comparison_unit` is a join key: two products only compare if their
@@ -90,7 +101,10 @@ class UnitPrice:
 
 @dataclass(frozen=True)
 class NormalizedPrice:
-    """One product observed at one store on one day. Maps 1:1 onto the schema."""
+    """One product observed at one store on one day.
+
+    Maps 1:1 onto the schema, apart from api_unit_price_cents.
+    """
 
     retailer_sku: str
     raw_name: str
@@ -105,6 +119,9 @@ class NormalizedPrice:
     comparison_quantity: Decimal | None
     unit_price_source: UnitPriceSource
     in_stock: bool
+    # The API's unit price on the same basis as unit_price_cents, when it gave
+    # one in the same unit. Kept for the nightly cross-check only; not stored.
+    api_unit_price_cents: int | None = None
 
     @property
     def on_sale(self) -> bool:
@@ -151,6 +168,10 @@ def extract_unit_price(comparison_prices: list[dict[str, Any]]) -> UnitPrice | N
     not 6.00. So `type` must not be used to pick or reject an entry -- doing so
     would silently pair a sale shelf price with a regular-price unit price.
 
+    That holds for sales that set wasPrice. Deals that do not -- most of them at
+    Superstore -- keep a unit price on the regular price, which is why
+    normalize_entry only falls back to this. See the module docstring.
+
     An empty list is the documented common case, not an error.
     """
     if not comparison_prices:
@@ -160,8 +181,8 @@ def extract_unit_price(comparison_prices: list[dict[str, Any]]) -> UnitPrice | N
     if not isinstance(entry, dict):
         return None
 
-    cents = dollars_to_cents(entry.get("value"))
-    if cents is None or cents < 0:
+    value = _to_decimal(entry.get("value"))
+    if value is None or value < 0:
         return None
 
     quantity = _to_decimal(entry.get("quantity"))
@@ -172,13 +193,16 @@ def extract_unit_price(comparison_prices: list[dict[str, Any]]) -> UnitPrice | N
     if canonical is None:
         return None
 
+    # $36.18 per 1000 g and $3.62 per 100 g are the same price, but only the
+    # second compares directly with every other gram-priced product. Rescale
+    # onto the basis derive_unit_price uses, from the unrounded dollar value.
     canonical_unit, canonical_quantity = canonical
-    return UnitPrice(
-        cents=cents,
-        unit=canonical_unit,
-        quantity=canonical_quantity,
-        source="api",
-    )
+    per = CANONICAL_QUANTITY[canonical_unit]
+    cents = dollars_to_cents(value * per / canonical_quantity)
+    if cents is None:
+        return None
+
+    return UnitPrice(cents=cents, unit=canonical_unit, quantity=per, source="api")
 
 
 def parse_package_size(package_size: str) -> tuple[Decimal, str] | None:
@@ -240,31 +264,25 @@ def derive_unit_price(price_cents: int, size_value: Decimal, size_unit: str) -> 
 
 
 def unit_price_disagreement(row: NormalizedPrice) -> Decimal | None:
-    """Relative gap between an API unit price and the one the size implies.
+    """Relative gap between the API's unit price and the stored, shelf-price one.
 
-    Returns None when there is nothing to compare. Both routes agreed on every
-    product checked by hand, so a run where this starts firing means something
-    moved: a packageSize parsed wrong, the API changing which price the
-    comparison tracks, or a units mismatch creeping in. Cheap to compute and it
-    turns a silent corruption into a number in the nightly summary.
+    Returns None when there is nothing to compare. Nothing stored depends on
+    this any more; it is a number in the nightly summary. Its baseline is the
+    deals the API prices at the regular rate (about 1,400 a night, nearly all
+    at Superstore), so a jump well past that means something else moved: a
+    packageSize parsing wrong, or the API changing what its figure tracks.
     """
-    if row.unit_price_source != "api" or row.unit_price_cents is None:
+    if row.api_unit_price_cents is None or row.unit_price_source != "derived":
         return None
-    if row.size_value is None or row.size_unit is None or row.size_value <= 0:
-        return None
-    if row.comparison_unit != row.size_unit:
+    if row.unit_price_cents is None or row.unit_price_cents == 0:
         return None
 
-    derived = derive_unit_price(row.price_cents, row.size_value, row.size_unit)
-    if derived is None or derived.cents == 0:
-        return None
-
-    difference = abs(row.unit_price_cents - derived.cents)
+    difference = abs(row.api_unit_price_cents - row.unit_price_cents)
     if difference <= 1:
         # The two paths round independently, so a cent apart is agreement.
         return Decimal(0)
 
-    scale = max(row.unit_price_cents, derived.cents, 1)
+    scale = max(row.api_unit_price_cents, row.unit_price_cents, 1)
     return Decimal(difference) / Decimal(scale)
 
 
@@ -286,8 +304,8 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
     if price_cents is None or price_cents < 0:
         return None
 
-    # Always parsed, whether or not the API supplies a unit price: size_value
-    # and size_unit are product identity fields that match.py will lean on.
+    # size_value and size_unit are product identity fields that match.py will
+    # lean on, as well as the basis of the unit price.
     size_value: Decimal | None = None
     size_unit: str | None = None
     if entry.package_size:
@@ -295,9 +313,11 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
         if parsed is not None:
             size_value, size_unit = parsed
 
-    unit_price = extract_unit_price(entry.prices.comparison_prices)
-    if unit_price is None and size_value is not None and size_unit is not None:
-        unit_price = derive_unit_price(price_cents, size_value, size_unit)
+    derived = None
+    if size_value is not None and size_unit is not None:
+        derived = derive_unit_price(price_cents, size_value, size_unit)
+    api = extract_unit_price(entry.prices.comparison_prices)
+    unit_price = derived or api
 
     return NormalizedPrice(
         retailer_sku=entry.code,
@@ -313,4 +333,5 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
         comparison_quantity=unit_price.quantity if unit_price else None,
         unit_price_source=unit_price.source if unit_price else "none",
         in_stock=entry.stock_status == IN_STOCK_STATUS,
+        api_unit_price_cents=api.cents if api and derived and api.unit == derived.unit else None,
     )
