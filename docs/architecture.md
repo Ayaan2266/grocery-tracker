@@ -17,11 +17,11 @@ GitHub Actions (cron 03:10 ET)
            │  NormalizedPrice
            ▼
 ┌───────────────────────┐
-│ ingest/db.py          │  upsert products, append price_observations
+│ ingest/db.py          │  upsert products, record price changes
 └──────────┬────────────┘
            ▼
 ┌───────────────────────┐
-│ Supabase Postgres     │  price_observations is APPEND-ONLY
+│ Supabase Postgres     │  price_spans: no price ever rewritten
 └──────────┬────────────┘
            │  anon key, RLS read-only
            ▼
@@ -37,20 +37,47 @@ for a few minutes. A VM or a container platform would cost money and add an
 operational surface for zero benefit, and the workflow file is visible proof of
 scheduled CI to anyone reading the repo.
 
-**`price_observations` is append-only.** Nothing ever updates a historical
-price. This table is the only asset in the project a competitor cannot
-retroactively reproduce — Flipp and Gofer.run could add a history feature
-tomorrow and still have no history. Its `ON CONFLICT` clause targets
-`(product_id, observed_on)` and is `DO NOTHING`, so re-running a failed ingest
-the same day is idempotent: rows already written stay exactly as they were
-written. A bad value gets corrected analytically later via `unit_price_source`,
-never by overwriting history.
+**No price is ever rewritten.** Price history is the only asset in the
+project a competitor cannot reproduce after the fact. Flipp and Gofer.run could
+add a history feature tomorrow and still have no history. A price, once
+written, stays exactly as written. A bad value gets corrected analytically
+later via `unit_price_source`, never by overwriting it. Since `0006` this is
+enforced by a trigger that binds every role, the owner that ingestion connects
+as included, rather than by convention.
+
+**Price changes are stored, not every night.** Storing one row per product
+per night measured ~165 bytes a row and ~2.9 MB a night, which fills Supabase's
+500 MB free tier in about five months. Grocery prices move weekly at most, so
+most of those rows repeated the night before. `price_spans` holds one row per
+unbroken stretch of identical values, `first_observed_on` to
+`last_confirmed_on`. A night that sees the same values moves
+`last_confirmed_on` forward. That one-column `UPDATE` is the only one the
+trigger allows, and it can only move forward. In a 60-night simulation at full
+size this was 8.7x smaller when every product changed weekly, and 18x smaller
+at 5% a night.
+
+The cost of storing only changes is telling "unchanged" apart from "we didn't
+look". `ingest_runs` records which (store, day) pairs were actually ingested,
+and a span is only extended if it was confirmed on that store's previous run.
+A product missing from a run starts a new span when it returns, so the night
+it was missing is never reported as observed. A night where the whole store
+failed has no run, so a span can bridge it without claiming it.
+
+The logical model did not change. `price_observations` is now a view that
+rebuilds exactly one row per product per observed day (spans x runs). `0006`
+converted the existing history and refused to commit unless that view matched
+the original table row for row. A same-day re-run is still idempotent: a product
+already confirmed today is left exactly as written, and its span's
+`(product_id, first_observed_on)` key is `ON CONFLICT DO NOTHING`.
 
 `products` is the deliberate exception and upserts on
 `(store_id, retailer_sku)` with `DO UPDATE`. Product metadata is mutable —
 names and package sizes get re-worded upstream, and the newest rendering is
-the one worth keeping. The append-only rule governs observations, not
-identity.
+the one worth keeping. The no-rewrite rule governs prices, not identity. That
+is also why `comparison_unit` and `comparison_quantity` stay with the price
+rather than moving to `products`. They can differ between nights, and a
+column on a table that is overwritten nightly would silently re-scale every
+historical unit price.
 
 **Money is integer cents everywhere.** No float dollars in the database, in the
 Python models, or in the API responses the frontend consumes. Formatting

@@ -54,7 +54,7 @@ ingest/
   sources/loblaw.py   rate-limited PCX client, canary store verification
   normalize.py        unit-price extraction, canonical units, validation
   match.py            cross-banner product matching
-  db.py               append-only writes
+  db.py               writes price changes; history is never rewritten
   money.py            dollars to integer cents, in one place
   config.py           environment settings, rate-limit floor
   run.py              CLI entry point
@@ -73,7 +73,7 @@ cp .env.example .env          # fill in PCX_API_KEY and DATABASE_URL
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-psql "$DATABASE_URL" -f db/migrations/0001_init.sql
+for f in db/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 python -m ingest.run --dry-run                       # fetch, normalize, write nothing
 python -m ingest.run --dry-run --limit 3 -v          # ~10s smoke test
@@ -150,7 +150,14 @@ Maintained honestly. Overclaiming reads as junior.
 - **Observations before 2026-09-22 have no unit price.** The first two nights
   ran before `extract_unit_price` existed. Unit price is derivable from
   `price_cents` and `size_value`, both stored, so those rows can be filled by a
-  view rather than an `UPDATE` against `price_observations`.
+  view rather than by rewriting a stored price.
+- **The storage growth figure is simulated, not measured.** One row per product
+  per night was measured at ~165 bytes and ~2.9 MB a night, enough to fill
+  Supabase's 500 MB free tier around March 2027. Storing changes only (`0006`)
+  measured 8.7x smaller in a 60-night simulation where every product changes
+  weekly, and 18x smaller at 5% a night. How often real prices change is
+  unknown until a few nights after `0006`; the query in
+  [db/migrations/README.md](db/migrations/README.md) gives the real ratio.
 
 ## Legal
 
