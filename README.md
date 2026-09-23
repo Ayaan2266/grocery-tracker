@@ -101,13 +101,18 @@ cd web && npm install && npm run dev
 
 ## Unit prices
 
-Two routes to the same number, and they agree.
+The unit price is the shelf price divided by the package size: what you
+actually pay, per 100 g, per 100 ml or per 1 each. `packageSize` parses for
+99.9% of products. For the rest, the API's own `comparisonPrices` fills in,
+rescaled onto the same basis. `unit_price_source` records which route each row
+took.
 
-`comparisonPrices` from the API supplies `{"value": 1.56, "unit": "g",
-"quantity": 100}`, meaning $1.56 per 100 g. When it is absent, `packageSize` is
-parsed and the unit price is derived from the shelf price. `unit_price_source`
-records which route each row took, so a bug in the derivation can be corrected
-later without distrusting API-supplied values.
+The API's figure used to come first. The first live cross-check (2026-09-23)
+retired that: on 21% of Superstore products the shelf price is discounted with
+no `wasPrice`, and the API's unit price stays on the regular price. Mango
+Nectar, 960 ml at $1.50, reported $0.24/100 ml, the price of a $2.30 bottle. The
+two figures are still compared every night, and the count of disagreements is
+in the run summary.
 
 Everything folds onto three canonical dimensions:
 
@@ -147,10 +152,16 @@ Maintained honestly. Overclaiming reads as junior.
   indistinguishable from a working store with nothing in stock.
 - **No precision/recall numbers on matching.** They go here once there are
   hand-labelled pairs to measure against.
-- **Observations before 2026-09-22 have no unit price.** The first two nights
-  ran before `extract_unit_price` existed. Unit price is derivable from
-  `price_cents` and `size_value`, both stored, so those rows can be filled by a
-  view rather than by rewriting a stored price.
+- **Most prices first seen before 2026-09-24 have no unit price.** Every run
+  before 12:43 UTC on 2026-09-23 used code whose unit-price extraction was a
+  stub, and 808 rows from that run took the API's figure, which is wrong on
+  undeclared deals. `unit_price_source` identifies both groups, and unit price
+  is derivable from `price_cents` and `size_value`, both stored, so they can
+  be corrected by a view rather than by rewriting a stored price.
+- **Deals without a `wasPrice` are not flagged as sales.** About a fifth of
+  Superstore's products are discounted that way. The API's unit price still
+  reflects their regular price, which is exactly the "is this really a deal"
+  signal, but it is not stored yet.
 - **The storage growth figure is simulated, not measured.** One row per product
   per night was measured at ~165 bytes and ~2.9 MB a night, enough to fill
   Supabase's 500 MB free tier around March 2027. Storing changes only (`0006`)

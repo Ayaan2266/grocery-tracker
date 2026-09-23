@@ -12,7 +12,7 @@ GitHub Actions (cron 03:10 ET)
            │  pydantic models (extra="ignore")
            ▼
 ┌───────────────────────┐
-│ ingest/normalize.py   │  comparisonPrices → unit price; fallback parser
+│ ingest/normalize.py   │  shelf price ÷ package size; API as fallback
 └──────────┬────────────┘
            │  NormalizedPrice
            ▼
@@ -94,10 +94,21 @@ produces months of successful-looking empty runs, and the price history — the
 entire point — is silently missing. `verify_store` searches for terms every
 grocery store stocks and raises if none return.
 
-**`unit_price_source` column.** Records whether a unit price came from the API's
-`comparisonPrices`, was derived from `packageSize`, or is unavailable. Keeping
-the provenance means a bug in the derivation can be found and corrected later
-without re-deriving the whole table or distrusting the API-supplied values.
+**`unit_price_source` column.** Records whether a unit price was derived from
+the shelf price and `packageSize`, came from the API's `comparisonPrices`, or is
+unavailable. Keeping the provenance means a bad route can be found and corrected
+later without re-deriving the whole table. It has already paid for itself: the
+808 rows written on 2026-09-23 while the API's figure came first are all
+`api`, which is how they can be told apart from what came after.
+
+**Unit prices follow the shelf price, not the API.** The API's
+`comparisonPrices` looked like the authoritative figure, and it agreed with
+the shelf price on every product checked by hand. The first full-catalogue
+check disagreed on 21% of Superstore products. Nearly all were deals the API
+reports without a `wasPrice`, where its unit price stays on the regular price.
+A unit price must describe the price that was actually charged, so it is
+derived from the shelf price whenever the package size parses. The API fills
+in otherwise and stays as a nightly cross-check.
 
 **Units canonicalise to three dimensions.** `g` and `kg` both become grams,
 `ml` and `l` both become millilitres, `ea` stays as it is. `comparison_unit` is
