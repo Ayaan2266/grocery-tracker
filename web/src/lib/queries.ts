@@ -28,6 +28,13 @@ export type LatestPrice = {
   comparison_quantity: number | null;
   unit_price_source: "api" | "derived" | "none";
   in_stock: boolean;
+  /**
+   * The regular price behind a deal the store does not mark as a sale,
+   * rebuilt from its own unit price. Approximate, and inferred rather than
+   * declared, so it is never shown as `was_price_cents`. Absent (not just
+   * null) on a database without migration 0007.
+   */
+  implied_regular_cents?: number | null;
 };
 
 export type Coverage = {

@@ -158,10 +158,12 @@ Maintained honestly. Overclaiming reads as junior.
   undeclared deals. `unit_price_source` identifies both groups, and unit price
   is derivable from `price_cents` and `size_value`, both stored, so they can
   be corrected by a view rather than by rewriting a stored price.
-- **Deals without a `wasPrice` are not flagged as sales.** About a fifth of
-  Superstore's products are discounted that way. The API's unit price still
-  reflects their regular price, which is exactly the "is this really a deal"
-  signal, but it is not stored yet.
+- **The regular price on unmarked deals is an estimate.** About a fifth of
+  Superstore's products are discounted with no `wasPrice`. Since `0007` their
+  regular price is rebuilt from the API's unit price into
+  `implied_regular_cents`, and search results show it as "usually ~$2.30".
+  The API rounds its unit price to the cent per 100 g, so it can be a few
+  cents out, and history before 2026-09-24 does not have it.
 - **The storage growth figure is simulated, not measured.** One row per product
   per night was measured at ~165 bytes and ~2.9 MB a night, enough to fill
   Supabase's 500 MB free tier around March 2027. Storing changes only (`0006`)

@@ -110,6 +110,14 @@ A unit price must describe the price that was actually charged, so it is
 derived from the shelf price whenever the package size parses. The API fills
 in otherwise and stays as a nightly cross-check.
 
+**Inferred prices never go in observed columns.** The API's unit price on
+those deals reveals the regular price, and `implied_regular_cents` stores it
+(`0007`). It could have gone into `was_price_cents`, which the frontend
+already shows as "was $X". It deliberately does not. `was_price_cents` is what
+the retailer declared and `implied_regular_cents` is what we worked out,
+approximately, from a figure the retailer rounded. Keeping them apart means
+either can be trusted, or corrected, without doubting the other.
+
 **Units canonicalise to three dimensions.** `g` and `kg` both become grams,
 `ml` and `l` both become millilitres, `ea` stays as it is. `comparison_unit` is
 a join key rather than a display label: two products only compare when their

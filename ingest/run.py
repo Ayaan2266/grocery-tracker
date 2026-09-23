@@ -70,6 +70,8 @@ class StoreOutcome:
     on_sale: int = 0
     unit_priced: int = 0
     unit_price_mismatches: int = 0
+    # Deals with no wasPrice whose regular price was inferred and stored.
+    implied_deals: int = 0
     recorded: int = 0
     already_present: int = 0
     # Rows actually added: price changes, new products, and products back after
@@ -171,6 +173,13 @@ def ingest_store(
     outcome.unit_price_mismatches = sum(
         1 for gap in gaps if gap is not None and gap > DISAGREEMENT_TOLERANCE
     )
+    outcome.implied_deals = sum(1 for row in outcome.rows if row.implied_regular_cents)
+    if outcome.implied_deals:
+        log.info(
+            "%s: %d deal(s) with no wasPrice; the regular price the API implies is stored",
+            target.key,
+            outcome.implied_deals,
+        )
     if outcome.unit_price_mismatches:
         log.info(
             "%s: %d row(s) where the API's unit price disagrees with the shelf price by "

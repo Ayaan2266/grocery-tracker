@@ -131,7 +131,10 @@ products in the nightly count, and about 2% at No Frills and Loblaws:
 
 None of them had a `wasPrice`, so nothing else in the response marks them as
 discounted. That is why unit prices are derived from the shelf price and the
-API's figure is only a fallback. What exactly these deals are (multi-buy,
+API's figure is only a fallback. The API's figure is still useful, though: times
+the package size it gives the regular price, which is stored as
+`implied_regular_cents` (`0007`) whenever it is meaningfully above the shelf
+price and there is no `wasPrice`. What exactly these deals are (multi-buy,
 member pricing, clearance) is not yet known: the fields that would say are
 dropped by `extra="ignore"`.
 
