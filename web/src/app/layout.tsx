@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Canadian Grocery Price History",
+  title: "Shelf Smart | Grocery prices have a story",
   description:
-    "Daily store-level grocery price history across Canadian banners. Tells you whether today's price is actually a good deal.",
+    "Search recorded Canadian grocery prices, see store sale context, and shop a little smarter.",
 };
 
 export default function RootLayout({
