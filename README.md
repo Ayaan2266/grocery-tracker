@@ -137,9 +137,10 @@ comparing across dimensions by accident.
 
 Maintained honestly. Overclaiming reads as junior.
 
-- **No frontend yet.** Ingestion runs nightly and the history is accumulating,
-  but nothing reads it. Search, the price history chart and the basket view are
-  all still to build.
+- **The frontend is search only.** It shows each product's latest recorded
+  price with its sale context and unit price. The price history chart and the
+  basket view are still to build, so the history accumulating every night is
+  not shown anywhere yet.
 - **Unit price is unavailable for 0.12% of products.** 16 are measured in
   metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
   volume, so they get a NULL rather than a fabricated number.
