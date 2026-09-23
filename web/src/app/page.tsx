@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
           <p className="hero-eyebrow">✱ &nbsp; A little brighter at checkout</p>
           <h1>Grocery prices<br />have a story.</h1>
           <p className="hero-subtitle">Find out if today is a good day to buy.</p>
-          <form action="/" method="get" role="search" className="search-form">
+          <form action="/#prices" method="get" role="search" className="search-form">
             <Search size={28} strokeWidth={2.6} aria-hidden="true" />
             <input type="search" name="q" defaultValue={query} placeholder="Search groceries..." aria-label="Search grocery prices" enterKeyHint="search" />
             <button type="submit" aria-label="Find prices"><span>Find prices</span><ArrowRight size={24} aria-hidden="true" /></button>
@@ -97,9 +97,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
           </article>
         </section>
 
-        {failure && <div role="alert" className="database-alert">Price data is unavailable right now. {failure}</div>}
-
         <section className="prices-section" id="prices">
+          {failure && <div role="alert" className="database-alert">Price data is unavailable right now. {failure}</div>}
           <div className="section-heading">
             <div><p className="section-kicker">THE GOOD STUFF <span>✱</span></p><h2>{query ? "Prices for “" + query + "”" : "Start with the staples"}</h2><p>{query ? "Latest recorded listings, cheapest first. Each row is one store product." : "Pick something familiar and see what the stores are charging."}</p></div>
             {query && <Link className="clear-search" href="/">New search <ArrowRight size={19} aria-hidden="true" /></Link>}
@@ -108,10 +107,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
             <p className="result-count">{prices.length === 0 ? "No matching products yet." : prices.length + " result" + (prices.length === 1 ? "" : "s") + " found"}</p>
             {prices.length > 0 && <ul className="price-list">{prices.map((row) => <PriceRow key={row.product_id} row={row} />)}</ul>}
             {prices.some((row) => estimatedRegular(row) !== null) && <p className="price-footnote">* “Usually” is an approximate regular price inferred from that store’s unit price. The store does not label it as a sale.</p>}
-            {prices.length === 0 && <p className="empty-state">Try a simpler name, such as <Link href="/?q=milk">milk</Link> or <Link href="/?q=banana">banana</Link>.</p>}
+            {prices.length === 0 && <p className="empty-state">Try a simpler name, such as <Link href="/?q=milk#prices">milk</Link> or <Link href="/?q=banana#prices">banana</Link>.</p>}
           </>}
           {!query && <div className="home-lower-grid">
-            <div className="suggestion-list">{suggestions.map((item) => <Link className="suggestion-row" href={"/?q=" + encodeURIComponent(item.term)} key={item.term}><span className="suggestion-emoji" aria-hidden="true">{item.emoji}</span><span className="suggestion-copy"><strong>{item.name}</strong><small>{item.note}</small></span><span className="suggestion-action">Check prices <ArrowRight size={19} aria-hidden="true" /></span></Link>)}</div>
+            <div className="suggestion-list">{suggestions.map((item) => <Link className="suggestion-row" href={"/?q=" + encodeURIComponent(item.term) + "#prices"} key={item.term}><span className="suggestion-emoji" aria-hidden="true">{item.emoji}</span><span className="suggestion-copy"><strong>{item.name}</strong><small>{item.note}</small></span><span className="suggestion-action">Check prices <ArrowRight size={19} aria-hidden="true" /></span></Link>)}</div>
             <aside className="banana-card"><p>SAME GROCERIES.<br />BRIGHTER<br />TOMORROWS. <span>♥</span></p><Image src="/illustrations/bananas.png" alt="Illustrated bunch of bananas" width={300} height={300} sizes="(max-width: 760px) 180px, 260px" /><span className="banana-stamp">GOOD THINGS<br />COST LESS<br />HERE ✱</span></aside>
           </div>}
         </section>
