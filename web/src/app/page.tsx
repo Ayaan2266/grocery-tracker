@@ -7,7 +7,13 @@ const BANNER_LABELS: Record<string, string> = {
   loblaw: "Loblaws",
 };
 
+/** A deal's regular price, when the store did not declare one. */
+function usualPrice(row: LatestPrice): number | null {
+  return row.was_price_cents === null ? (row.implied_regular_cents ?? null) : null;
+}
+
 function PriceRow({ row }: { row: LatestPrice }) {
+  const usual = usualPrice(row);
   const unitPrice = formatUnitPrice(
     row.unit_price_cents,
     row.comparison_quantity,
@@ -41,6 +47,14 @@ function PriceRow({ row }: { row: LatestPrice }) {
             <span className="line-through text-neutral-400 dark:text-neutral-500">
               {formatCents(row.was_price_cents)}
             </span>
+          </p>
+        )}
+        {usual !== null && (
+          <p
+            className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400"
+            title="Estimated from the store's own unit price. The store does not mark this as a sale."
+          >
+            usually ~{formatCents(usual)}
           </p>
         )}
         {unitPrice && (
@@ -117,6 +131,12 @@ export default async function Home({
               <PriceRow key={row.product_id} row={row} />
             ))}
           </ul>
+          {results.data.some((row) => usualPrice(row) !== null) && (
+            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+              “usually ~” is an estimated regular price for a deal the store
+              does not mark as a sale, worked out from its own unit price.
+            </p>
+          )}
         </section>
       )}
 
