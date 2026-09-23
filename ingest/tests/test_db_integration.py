@@ -40,12 +40,14 @@ DAY = date(2026, 9, 21)
 SPANS_MIGRATION = "0006_store_price_changes_only.sql"
 
 
-def apply_migrations(connection, *, before: str | None = None) -> None:
-    """Apply migrations in order, stopping short of `before` if given."""
+def apply_migrations(connection, *, before: str | None = None, after: str | None = None) -> None:
+    """Apply migrations in order: those after `after` and before `before`, if given."""
     with connection.cursor() as cur:
         for path in sorted(MIGRATIONS.glob("*.sql")):
             if before is not None and path.name >= before:
                 break
+            if after is not None and path.name <= after:
+                continue
             cur.execute(path.read_text(encoding="utf-8"))
     connection.commit()
 
@@ -647,6 +649,7 @@ class TestAppendOnly:
         [
             "UPDATE price_spans SET price_cents = 1",
             "UPDATE price_spans SET was_price_cents = 1",
+            "UPDATE price_spans SET implied_regular_cents = 1",
             "UPDATE price_spans SET first_observed_on = first_observed_on - 1",
             "UPDATE price_spans SET last_confirmed_on = last_confirmed_on - 1",
             "DELETE FROM price_spans",
@@ -721,6 +724,9 @@ class TestSpansBackfill:
         with schema_conn.cursor() as cur:
             cur.execute((MIGRATIONS / SPANS_MIGRATION).read_text(encoding="utf-8"))
         schema_conn.commit()
+        # Whatever came after 0006, so the nightly write below runs against
+        # the schema production has, not the one 0006 left.
+        apply_migrations(schema_conn, after=SPANS_MIGRATION)
         return schema_conn
 
     def test_daily_rows_become_the_expected_spans(self, migrated) -> None:
@@ -783,3 +789,66 @@ class TestSpansBackfill:
         assert result.errors == []
         assert result.spans_opened == 0
         assert spans(migrated, "FAILED_NIGHT_EA", "1516") == [(self.D1, date(2026, 9, 25), 700)]
+
+
+class TestImpliedRegularPrice:
+    """0007. The regular price behind a deal the API does not mark as one."""
+
+    D1, D2 = date(2026, 9, 24), date(2026, 9, 25)
+
+    def deal(self, price_cents: int = 150, implied: int | None = 230) -> NormalizedPrice:
+        """Mango Nectar, 960 ml: $1.50 on the shelf, no wasPrice, API says $2.30."""
+        return NormalizedPrice(
+            retailer_sku="MANGO_EA",
+            raw_name="Mango Nectar",
+            brand=None,
+            package_size="960 ml",
+            size_value=Decimal(960),
+            size_unit="ml",
+            price_cents=price_cents,
+            was_price_cents=None,
+            unit_price_cents=16,
+            comparison_unit="ml",
+            comparison_quantity=Decimal(100),
+            unit_price_source="derived",
+            in_stock=True,
+            implied_regular_cents=implied,
+        )
+
+    def test_it_is_stored_and_read_back_through_every_view(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        db.write_store_observations(conn, store_id, [self.deal()], self.D1)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT implied_regular_cents FROM price_spans")
+            assert cur.fetchone()[0] == 230
+            cur.execute("SELECT implied_regular_cents, was_price_cents FROM product_latest_price")
+            assert cur.fetchone() == (230, None), "kept apart from the declared was price"
+            cur.execute("SELECT implied_regular_cents FROM price_observations")
+            assert cur.fetchone()[0] == 230
+
+    def test_anon_can_read_it(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        db.write_store_observations(conn, store_id, [self.deal()], self.D1)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT implied_regular_cents FROM product_latest_price")
+            assert cur.fetchone()[0] == 230
+
+    def test_an_unchanged_deal_extends_its_row(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        for day in (self.D1, self.D2):
+            db.write_store_observations(conn, store_id, [self.deal()], day)
+
+        assert spans(conn, "MANGO_EA", "1516") == [(self.D1, self.D2, 150)]
+
+    def test_the_deal_ending_opens_a_new_row(self, conn) -> None:
+        """Same shelf price, but the API no longer implies a higher regular one:
+        the deal is over, and that is a change worth keeping."""
+        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        db.write_store_observations(conn, store_id, [self.deal()], self.D1)
+        result = db.write_store_observations(conn, store_id, [self.deal(implied=None)], self.D2)
+
+        assert result.spans_opened == 1
+        assert len(spans(conn, "MANGO_EA", "1516")) == 2

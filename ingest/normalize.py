@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, DecimalException
 from typing import Any, Literal
 
@@ -119,6 +119,10 @@ class NormalizedPrice:
     comparison_quantity: Decimal | None
     unit_price_source: UnitPriceSource
     in_stock: bool
+    # The regular price the API's unit price implies, on a deal that has no
+    # wasPrice. Inferred, so kept apart from was_price_cents. See
+    # implied_regular_cents().
+    implied_regular_cents: int | None = None
     # The API's unit price on the same basis as unit_price_cents, when it gave
     # one in the same unit. Kept for the nightly cross-check only; not stored.
     api_unit_price_cents: int | None = None
@@ -174,6 +178,28 @@ def extract_unit_price(comparison_prices: list[dict[str, Any]]) -> UnitPrice | N
 
     An empty list is the documented common case, not an error.
     """
+    rate = api_rate(comparison_prices)
+    if rate is None:
+        return None
+
+    # $36.18 per 1000 g and $3.62 per 100 g are the same price, but only the
+    # second compares directly with every other gram-priced product. Rescale
+    # onto the basis derive_unit_price uses, from the unrounded rate.
+    canonical_unit, dollars_per_one = rate
+    per = CANONICAL_QUANTITY[canonical_unit]
+    cents = dollars_to_cents(dollars_per_one * per)
+    if cents is None:
+        return None
+
+    return UnitPrice(cents=cents, unit=canonical_unit, quantity=per, source="api")
+
+
+def api_rate(comparison_prices: list[dict[str, Any]]) -> tuple[str, Decimal] | None:
+    """The API's first comparison price as (canonical unit, dollars per one of it).
+
+    Unrounded, so a price rebuilt from it for a whole package carries only the
+    API's own rounding, not a second rounding to the cent per 100 g.
+    """
     if not comparison_prices:
         return None
 
@@ -193,16 +219,8 @@ def extract_unit_price(comparison_prices: list[dict[str, Any]]) -> UnitPrice | N
     if canonical is None:
         return None
 
-    # $36.18 per 1000 g and $3.62 per 100 g are the same price, but only the
-    # second compares directly with every other gram-priced product. Rescale
-    # onto the basis derive_unit_price uses, from the unrounded dollar value.
     canonical_unit, canonical_quantity = canonical
-    per = CANONICAL_QUANTITY[canonical_unit]
-    cents = dollars_to_cents(value * per / canonical_quantity)
-    if cents is None:
-        return None
-
-    return UnitPrice(cents=cents, unit=canonical_unit, quantity=per, source="api")
+    return canonical_unit, value / canonical_quantity
 
 
 def parse_package_size(package_size: str) -> tuple[Decimal, str] | None:
@@ -286,6 +304,40 @@ def unit_price_disagreement(row: NormalizedPrice) -> Decimal | None:
     return Decimal(difference) / Decimal(scale)
 
 
+def implied_regular_cents(row: NormalizedPrice, dollars_per_one: Decimal) -> int | None:
+    """The regular price behind a deal the API does not mark as one.
+
+    On these deals the shelf price is discounted, wasPrice is absent, and the
+    API's unit price stays on the regular price (see the module docstring).
+    That unit price times the package size is the regular price, which is the
+    "is this really a deal" signal the project exists for.
+
+    Returns None unless all of these hold: no wasPrice (a declared sale already
+    says what it was), the API's unit price is the higher of the two, and the
+    gap is past the same tolerance the nightly check uses, so rounding noise
+    is never stored as a deal.
+
+    Approximate. The API rounds its unit price to the cent per its quantity, so
+    the result can be off by half a cent per 100 g of package: about 3 cents on
+    a 540 g loaf, 21 cents on a 6x710 ml pack.
+    """
+    if row.was_price_cents is not None or row.size_value is None:
+        return None
+    if row.api_unit_price_cents is None or row.unit_price_cents is None:
+        return None
+    if row.api_unit_price_cents <= row.unit_price_cents:
+        return None
+
+    gap = unit_price_disagreement(row)
+    if gap is None or gap <= DISAGREEMENT_TOLERANCE:
+        return None
+
+    regular = dollars_to_cents(dollars_per_one * row.size_value)
+    if regular is None or regular <= row.price_cents:
+        return None
+    return regular
+
+
 def _was_price_cents(was_price: Price | float | None) -> int | None:
     """wasPrice arrives as an object with .value; a bare number is tolerated."""
     if was_price is None:
@@ -316,10 +368,11 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
     derived = None
     if size_value is not None and size_unit is not None:
         derived = derive_unit_price(price_cents, size_value, size_unit)
+    rate = api_rate(entry.prices.comparison_prices)
     api = extract_unit_price(entry.prices.comparison_prices)
     unit_price = derived or api
 
-    return NormalizedPrice(
+    row = NormalizedPrice(
         retailer_sku=entry.code,
         raw_name=entry.name,
         brand=entry.brand,
@@ -335,3 +388,6 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
         in_stock=entry.stock_status == IN_STOCK_STATUS,
         api_unit_price_cents=api.cents if api and derived and api.unit == derived.unit else None,
     )
+    if rate is None:
+        return row
+    return replace(row, implied_regular_cents=implied_regular_cents(row, rate[1]))
