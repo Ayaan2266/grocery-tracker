@@ -4,7 +4,8 @@ import { getSupabase, MISSING_CREDENTIALS } from "./supabase";
  * One row of `product_latest_price`: a product carrying its most recent
  * observation. The view exists because PostgREST cannot order and limit an
  * embedded resource per parent, which is what "latest price per product"
- * needs. See db/migrations/0004_product_latest_price.sql.
+ * needs. Created in db/migrations/0004_product_latest_price.sql, redefined over
+ * price_spans with the same columns in 0006_store_price_changes_only.sql.
  */
 export type LatestPrice = {
   product_id: number;
