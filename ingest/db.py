@@ -1,22 +1,28 @@
 """Database writes.
 
-`price_observations` is APPEND-ONLY. Nothing in this module -- or anywhere in
-the project -- issues an UPDATE or DELETE against it. It is the one asset a
-competitor cannot retroactively reproduce, and a row rewritten is a day of
-history gone for good.
+No price is ever rewritten. Prices live in `price_spans`, one row per unbroken
+stretch of identical values, because storing every product every night filled
+the free tier in months (see db/migrations/0006). Each night, for each
+product, exactly one of three things happens:
 
-There are two ON CONFLICT clauses here and they mean different things:
+  present   its latest span already covers today: this is a same-day re-run,
+            and the first write stands exactly as it was written.
+  extend    its latest span was confirmed on this store's previous run and
+            today's values are identical: last_confirmed_on moves to today.
+  open      anything else -- a new product, a changed value, or a product the
+            previous run did not see: a new span starting today.
 
-  products             (store_id, retailer_sku)   DO UPDATE
-      Products are mutable metadata. Names and package sizes get re-worded
-      upstream and the newest rendering is the one worth keeping.
+The "previous run" condition is what keeps "unchanged" distinct from "not
+observed". A span never stretches across a run that happened without the
+product in it, and `ingest_runs` records which runs happened.
 
-  price_observations   (product_id, observed_on)  DO NOTHING
-      Deliberately NOT DO UPDATE. Re-running a failed ingest on the same day
-      is then idempotent: rows already written stay exactly as they were
-      written. If a bad value lands, `unit_price_source` is there so it can be
-      identified and corrected analytically later, rather than by silently
-      overwriting history.
+The one UPDATE issued against `price_spans` sets last_confirmed_on. A trigger
+in 0006 rejects any other UPDATE, any backwards move, and any DELETE, from
+every role, so this is enforced by Postgres and not only by this module.
+
+`products` is the deliberate exception and upserts on (store_id, retailer_sku)
+with DO UPDATE. Names and package sizes get re-worded upstream and the newest
+rendering is the one worth keeping. Identity is not history.
 """
 
 from __future__ import annotations
@@ -69,36 +75,106 @@ ON CONFLICT (store_id, retailer_sku) DO UPDATE
 RETURNING retailer_sku, id
 """
 
-INSERT_OBSERVATIONS = """
-INSERT INTO price_observations (
-    product_id, price_cents, was_price_cents, unit_price_cents,
-    comparison_unit, comparison_quantity, unit_price_source, in_stock, observed_on
+RUN_DATES = """
+SELECT max(run_on) FILTER (WHERE run_on < %(observed_on)s),
+       max(run_on)
+  FROM ingest_runs
+ WHERE store_id = %(store_id)s
+"""
+
+# One statement per chunk. `classified` pairs each incoming row with its
+# product's latest span and decides present / extend / open, the table in the
+# module docstring. Both writes then read that one decision, and every CTE sees
+# the same snapshot, so a row cannot be extended and opened at once.
+WRITE_SPANS = """
+WITH incoming AS (
+    SELECT *
+      FROM unnest(
+               %(product_ids)s::int[], %(price_cents)s::int[], %(was_price_cents)s::int[],
+               %(unit_price_cents)s::int[], %(comparison_units)s::text[],
+               %(comparison_quantities)s::numeric[], %(unit_price_sources)s::text[],
+               %(in_stocks)s::boolean[]
+           ) AS u(product_id, price_cents, was_price_cents, unit_price_cents,
+                  comparison_unit, comparison_quantity, unit_price_source, in_stock)
+),
+classified AS (
+    SELECT i.*,
+           latest.first_observed_on AS span_start,
+           CASE
+               WHEN latest.last_confirmed_on >= %(observed_on)s THEN 'present'
+               WHEN latest.last_confirmed_on = %(previous_run_on)s
+                AND ROW(latest.price_cents, latest.was_price_cents, latest.unit_price_cents,
+                        latest.comparison_unit, latest.comparison_quantity,
+                        latest.unit_price_source, latest.in_stock)
+                    IS NOT DISTINCT FROM
+                    ROW(i.price_cents, i.was_price_cents, i.unit_price_cents,
+                        i.comparison_unit, i.comparison_quantity,
+                        i.unit_price_source, i.in_stock)
+                   THEN 'extend'
+               ELSE 'open'
+           END AS action
+      FROM incoming i
+      LEFT JOIN LATERAL (
+               SELECT *
+                 FROM price_spans s
+                WHERE s.product_id = i.product_id
+                ORDER BY s.first_observed_on DESC
+                LIMIT 1
+           ) latest ON true
+),
+extended AS (
+    UPDATE price_spans s
+       SET last_confirmed_on = %(observed_on)s
+      FROM classified c
+     WHERE c.action = 'extend'
+       AND s.product_id = c.product_id
+       AND s.first_observed_on = c.span_start
+    RETURNING 1
+),
+opened AS (
+    INSERT INTO price_spans (
+        product_id, first_observed_on, last_confirmed_on, price_cents, was_price_cents,
+        unit_price_cents, comparison_unit, comparison_quantity, unit_price_source, in_stock
+    )
+    SELECT c.product_id, %(observed_on)s, %(observed_on)s, c.price_cents, c.was_price_cents,
+           c.unit_price_cents, c.comparison_unit, c.comparison_quantity,
+           c.unit_price_source, c.in_stock
+      FROM classified c
+     WHERE c.action = 'open'
+    ON CONFLICT (product_id, first_observed_on) DO NOTHING
+    RETURNING 1
 )
-SELECT u.product_id, u.price_cents, u.was_price_cents, u.unit_price_cents,
-       u.comparison_unit, u.comparison_quantity, u.unit_price_source, u.in_stock,
-       %(observed_on)s
-  FROM unnest(
-           %(product_ids)s::int[], %(price_cents)s::int[], %(was_price_cents)s::int[],
-           %(unit_price_cents)s::int[], %(comparison_units)s::text[],
-           %(comparison_quantities)s::numeric[], %(unit_price_sources)s::text[],
-           %(in_stocks)s::boolean[]
-       ) AS u(product_id, price_cents, was_price_cents, unit_price_cents,
-              comparison_unit, comparison_quantity, unit_price_source, in_stock)
-ON CONFLICT (product_id, observed_on) DO NOTHING
+SELECT (SELECT count(*) FROM extended), (SELECT count(*) FROM opened)
+"""
+
+# Recorded in the same transaction as the spans, so a store-day is in
+# ingest_runs if and only if its prices are. A same-day re-run adds only the
+# products it observed that the first run had not.
+RECORD_RUN = """
+INSERT INTO ingest_runs (store_id, run_on, products_observed)
+VALUES (%(store_id)s, %(observed_on)s, %(products_observed)s)
+ON CONFLICT (store_id, run_on) DO UPDATE
+   SET products_observed = ingest_runs.products_observed + EXCLUDED.products_observed
 """
 
 
 @dataclass
 class WriteResult:
     products_written: int = 0
-    observations_inserted: int = 0
+    # Product-days newly recorded: extended spans plus opened ones.
+    observations_recorded: int = 0
     observations_already_present: int = 0
+    # The part of observations_recorded that needed a new row: new products,
+    # changed values, and products back after a run without them. Everything
+    # else cost an UPDATE of one date.
+    spans_opened: int = 0
     errors: list[str] = field(default_factory=list)
 
     def merge(self, other: WriteResult) -> None:
         self.products_written += other.products_written
-        self.observations_inserted += other.observations_inserted
+        self.observations_recorded += other.observations_recorded
         self.observations_already_present += other.observations_already_present
+        self.spans_opened += other.spans_opened
         self.errors.extend(other.errors)
 
 
@@ -146,6 +222,10 @@ def write_store_observations(
     rather than two per product. On 2026-09-21 the row-at-a-time version spent
     16 minutes writing 19,742 observations and finished four minutes inside a
     30-minute job timeout; a busier day would have lost the night's history.
+
+    Days are written forward only. Extending a span assumes nothing has been
+    written after `observed_on`, so a day older than this store's latest run
+    is refused rather than spliced into the middle of its history.
     """
     result = WriteResult()
 
@@ -155,8 +235,25 @@ def write_store_observations(
     deduped = {row.retailer_sku: row for row in rows}
     batch = list(deduped.values())
 
+    # Recording a run that saw nothing would tell tomorrow's write that every
+    # product went missing tonight, and split every span in the store. An empty
+    # store is a failed fetch (run.py never passes one), not an observation.
+    if not batch:
+        return result
+
     try:
         with conn.cursor() as cur:
+            cur.execute(RUN_DATES, {"store_id": store_id, "observed_on": observed_on})
+            previous_run_on, latest_run_on = cur.fetchone()
+            if latest_run_on is not None and latest_run_on > observed_on:
+                conn.rollback()
+                result.errors.append(
+                    f"store_id={store_id}: refusing to write {observed_on}, this store's "
+                    f"history already reaches {latest_run_on}. Days are written forward only."
+                )
+                log.error("%s", result.errors[-1])
+                return result
+
             for start in range(0, len(batch), CHUNK_SIZE):
                 chunk = batch[start : start + CHUNK_SIZE]
 
@@ -181,9 +278,10 @@ def write_store_observations(
                 observed = [r for r in chunk if r.retailer_sku in product_ids]
 
                 cur.execute(
-                    INSERT_OBSERVATIONS,
+                    WRITE_SPANS,
                     {
                         "observed_on": observed_on,
+                        "previous_run_on": previous_run_on,
                         "product_ids": [product_ids[r.retailer_sku] for r in observed],
                         "price_cents": [r.price_cents for r in observed],
                         "was_price_cents": [r.was_price_cents for r in observed],
@@ -194,12 +292,21 @@ def write_store_observations(
                         "in_stocks": [r.in_stock for r in observed],
                     },
                 )
-                # Rows the ON CONFLICT DO NOTHING skipped already had today's
-                # observation and were left exactly as written -- the intended
-                # re-run behaviour.
-                inserted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
-                result.observations_inserted += inserted
-                result.observations_already_present += len(observed) - inserted
+                extended, opened = cur.fetchone()
+                # The rest were already confirmed today and were left exactly
+                # as written -- the intended re-run behaviour.
+                result.observations_recorded += extended + opened
+                result.observations_already_present += len(observed) - extended - opened
+                result.spans_opened += opened
+
+            cur.execute(
+                RECORD_RUN,
+                {
+                    "store_id": store_id,
+                    "observed_on": observed_on,
+                    "products_observed": result.observations_recorded,
+                },
+            )
 
         conn.commit()
     except psycopg.Error as exc:

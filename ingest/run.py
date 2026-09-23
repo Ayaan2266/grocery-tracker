@@ -70,8 +70,11 @@ class StoreOutcome:
     on_sale: int = 0
     unit_priced: int = 0
     unit_price_mismatches: int = 0
-    inserted: int = 0
+    recorded: int = 0
     already_present: int = 0
+    # Rows actually added: price changes, new products, and products back after
+    # a run without them. Everything else in `recorded` extended a span.
+    spans_opened: int = 0
     error: str | None = None
     rows: list[NormalizedPrice] = field(default_factory=list)
 
@@ -191,26 +194,30 @@ def ingest_store(
 def print_summary(outcomes: list[StoreOutcome], *, dry_run: bool) -> None:
     mode = "DRY RUN (nothing written)" if dry_run else "WROTE TO POSTGRES"
     print(f"\n{'=' * 79}\n{mode}\n{'=' * 79}")
-    header = f"{'store':<34}{'fetched':>8}{'kept':>7}{'sale':>6}{'unit':>7}{'new':>6}{'dup':>6}"
+    header = (
+        f"{'store':<30}{'fetched':>8}{'kept':>7}{'sale':>6}{'unit':>7}"
+        f"{'new':>6}{'rows':>6}{'dup':>6}"
+    )
     print(header)
     print("-" * 79)
     for outcome in outcomes:
         label = outcome.target.label or outcome.target.key
         if not outcome.ok:
-            print(f"{label:<34}{'FAILED':>33}")
+            print(f"{label:<30}{'FAILED':>33}")
             continue
         print(
-            f"{label:<34}{outcome.fetched:>8}{outcome.normalized:>7}"
+            f"{label:<30}{outcome.fetched:>8}{outcome.normalized:>7}"
             f"{outcome.on_sale:>6}{outcome.unit_priced:>7}"
-            f"{outcome.inserted:>6}{outcome.already_present:>6}"
+            f"{outcome.recorded:>6}{outcome.spans_opened:>6}{outcome.already_present:>6}"
         )
     print("-" * 79)
     print(
-        f"{'total':<34}{sum(o.fetched for o in outcomes):>8}"
+        f"{'total':<30}{sum(o.fetched for o in outcomes):>8}"
         f"{sum(o.normalized for o in outcomes):>7}"
         f"{sum(o.on_sale for o in outcomes):>6}"
         f"{sum(o.unit_priced for o in outcomes):>7}"
-        f"{sum(o.inserted for o in outcomes):>6}"
+        f"{sum(o.recorded for o in outcomes):>6}"
+        f"{sum(o.spans_opened for o in outcomes):>6}"
         f"{sum(o.already_present for o in outcomes):>6}"
     )
     mismatches = sum(o.unit_price_mismatches for o in outcomes)
@@ -393,8 +400,9 @@ def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: 
                 continue
 
             result = db.write_store_observations(conn, store_id, outcome.rows, observed_on)
-            outcome.inserted = result.observations_inserted
+            outcome.recorded = result.observations_recorded
             outcome.already_present = result.observations_already_present
+            outcome.spans_opened = result.spans_opened
             if result.errors:
                 outcome.error = "; ".join(result.errors)
 
