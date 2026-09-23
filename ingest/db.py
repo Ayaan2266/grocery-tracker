@@ -93,9 +93,10 @@ WITH incoming AS (
                %(product_ids)s::int[], %(price_cents)s::int[], %(was_price_cents)s::int[],
                %(unit_price_cents)s::int[], %(comparison_units)s::text[],
                %(comparison_quantities)s::numeric[], %(unit_price_sources)s::text[],
-               %(in_stocks)s::boolean[]
+               %(in_stocks)s::boolean[], %(implied_regular_cents)s::int[]
            ) AS u(product_id, price_cents, was_price_cents, unit_price_cents,
-                  comparison_unit, comparison_quantity, unit_price_source, in_stock)
+                  comparison_unit, comparison_quantity, unit_price_source, in_stock,
+                  implied_regular_cents)
 ),
 classified AS (
     SELECT i.*,
@@ -105,11 +106,12 @@ classified AS (
                WHEN latest.last_confirmed_on = %(previous_run_on)s
                 AND ROW(latest.price_cents, latest.was_price_cents, latest.unit_price_cents,
                         latest.comparison_unit, latest.comparison_quantity,
-                        latest.unit_price_source, latest.in_stock)
+                        latest.unit_price_source, latest.in_stock,
+                        latest.implied_regular_cents)
                     IS NOT DISTINCT FROM
                     ROW(i.price_cents, i.was_price_cents, i.unit_price_cents,
                         i.comparison_unit, i.comparison_quantity,
-                        i.unit_price_source, i.in_stock)
+                        i.unit_price_source, i.in_stock, i.implied_regular_cents)
                    THEN 'extend'
                ELSE 'open'
            END AS action
@@ -134,11 +136,12 @@ extended AS (
 opened AS (
     INSERT INTO price_spans (
         product_id, first_observed_on, last_confirmed_on, price_cents, was_price_cents,
-        unit_price_cents, comparison_unit, comparison_quantity, unit_price_source, in_stock
+        unit_price_cents, comparison_unit, comparison_quantity, unit_price_source, in_stock,
+        implied_regular_cents
     )
     SELECT c.product_id, %(observed_on)s, %(observed_on)s, c.price_cents, c.was_price_cents,
            c.unit_price_cents, c.comparison_unit, c.comparison_quantity,
-           c.unit_price_source, c.in_stock
+           c.unit_price_source, c.in_stock, c.implied_regular_cents
       FROM classified c
      WHERE c.action = 'open'
     ON CONFLICT (product_id, first_observed_on) DO NOTHING
@@ -290,6 +293,7 @@ def write_store_observations(
                         "comparison_quantities": [r.comparison_quantity for r in observed],
                         "unit_price_sources": [r.unit_price_source for r in observed],
                         "in_stocks": [r.in_stock for r in observed],
+                        "implied_regular_cents": [r.implied_regular_cents for r in observed],
                     },
                 )
                 extended, opened = cur.fetchone()

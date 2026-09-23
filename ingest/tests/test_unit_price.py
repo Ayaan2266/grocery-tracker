@@ -11,6 +11,7 @@ from decimal import Decimal
 import pytest
 
 from ingest.normalize import (
+    api_rate,
     derive_unit_price,
     extract_unit_price,
     normalize_entry,
@@ -357,3 +358,74 @@ class TestUnitPriceDisagreement:
             )
         )
         assert row is not None and unit_price_disagreement(row) is None
+
+
+def normalized(package_size: str, price: float, api: dict, was: float | None = None):
+    prices = {"price": {"value": price}, "comparisonPrices": [api_entry(**api)]}
+    if was is not None:
+        prices["wasPrice"] = {"value": was}
+    row = normalize_entry(
+        Product.model_validate(product_entry(packageSize=package_size, prices=prices))
+    )
+    assert row is not None
+    return row
+
+
+class TestImpliedRegularPrice:
+    """The regular price behind a deal with no wasPrice. Superstore, 2026-09-23."""
+
+    @pytest.mark.parametrize(
+        ("package_size", "price", "api", "regular"),
+        [
+            # $0.24/100 ml x 960 ml = $2.304
+            ("960 ml", 1.50, {"value": 0.24, "unit": "ml"}, 230),
+            # $0.79/100 g x 540 g = $4.266
+            ("540 g", 2.97, {"value": 0.79, "unit": "g"}, 427),
+            # $0.15/100 ml x 6 x 710 ml = $6.39: a multipack uses its total
+            ("6x710.0 ml", 3.97, {"value": 0.15, "unit": "ml"}, 639),
+            # A per-kg figure: $15.00/kg x 450 g = $6.75
+            ("450 g", 5.00, {"value": 15.00, "unit": "kg", "quantity": 1}, 675),
+            # Unrounded: $12.34/kg x 2 kg = $24.68. Going through the rounded
+            # 123c/100 g first would say $24.60.
+            ("2 kg", 15.00, {"value": 12.34, "unit": "kg", "quantity": 1}, 2468),
+        ],
+    )
+    def test_a_deal_without_a_was_price_gets_one(self, package_size, price, api, regular) -> None:
+        row = normalized(package_size, price, api)
+        assert row.was_price_cents is None
+        assert row.implied_regular_cents == regular
+
+    def test_a_declared_sale_is_left_to_its_was_price(self) -> None:
+        row = normalized("960 ml", 1.50, {"value": 0.24, "unit": "ml"}, was=2.29)
+        assert row.was_price_cents == 229
+        assert row.implied_regular_cents is None
+
+    def test_agreement_is_not_a_deal(self) -> None:
+        """Triple Cheddar: 320 g at $4.99, API $1.56/100 g."""
+        assert normalized("320 g", 4.99, {"value": 1.56}).implied_regular_cents is None
+
+    def test_rounding_noise_is_not_a_deal(self) -> None:
+        """A cent apart per 100 g is rounding. 180 g at $2.00 is 111c/100 g."""
+        assert normalized("180 g", 2.00, {"value": 1.12}).implied_regular_cents is None
+
+    def test_an_api_figure_below_the_shelf_price_is_not_a_deal(self) -> None:
+        assert (
+            normalized("960 ml", 2.30, {"value": 0.16, "unit": "ml"}).implied_regular_cents is None
+        )
+
+    def test_without_a_package_size_there_is_nothing_to_multiply(self) -> None:
+        assert (
+            normalized("1 bag", 1.50, {"value": 0.24, "unit": "ml"}).implied_regular_cents is None
+        )
+
+
+class TestApiRate:
+    def test_it_is_dollars_per_one_canonical_unit_unrounded(self) -> None:
+        assert api_rate([api_entry(value=36.18, unit="kg", quantity=1)]) == (
+            "g",
+            Decimal("0.03618"),
+        )
+
+    def test_nothing_usable_reads_none(self) -> None:
+        assert api_rate([]) is None
+        assert api_rate([api_entry(unit="sheet")]) is None
