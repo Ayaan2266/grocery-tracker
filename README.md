@@ -137,10 +137,16 @@ comparing across dimensions by accident.
 
 Maintained honestly. Overclaiming reads as junior.
 
-- **The frontend is search only.** It shows each product's latest recorded
-  price with its sale context and unit price. The price history chart and the
-  basket view are still to build, so the history accumulating every night is
-  not shown anywhere yet.
+- **Store comparisons only match identical products.** Search, product pages
+  with a price-history graph and a "good price?" verdict, and a basket priced at
+  every store all work. But "same item at other stores" and the basket's store
+  totals pair listings by their PCX product code, so they only find the exact
+  same product. A store brand's equivalent is a different code, and pairing
+  those is what `match.py` is for. The basket lives in a cookie, so it belongs
+  to one browser.
+- **Verdicts rest on days, not months, of history.** Tracking started on
+  2026-09-21, so "lowest price recorded" means lowest in that window. The
+  product page says how many days it is based on.
 - **Unit price is unavailable for 0.12% of products.** 16 are measured in
   metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
   volume, so they get a NULL rather than a fabricated number.
