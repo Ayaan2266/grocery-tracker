@@ -1,13 +1,30 @@
 import Link from "next/link";
 
 import { BasketButton } from "@/components/basket-button";
+import { Sparkline } from "@/components/sparkline";
+import type { Badge } from "@/lib/history";
 import type { LatestPrice } from "@/lib/queries";
-import { bannerLabel } from "@/lib/stores";
+import { BANNER_COLORS, bannerLabel } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
 /** The regular price behind a deal the store did not declare as a sale. */
 export function estimatedRegular(row: LatestPrice): number | null {
   return row.was_price_cents === null ? (row.implied_regular_cents ?? null) : null;
+}
+
+/** Whole-percent saving against a regular price, or null when there is none. */
+export function percentOff(price: number, regular: number | null): number | null {
+  if (regular === null || regular <= price) return null;
+  return Math.round(((regular - price) / regular) * 100);
+}
+
+export function StoreChip({ row }: { row: LatestPrice }) {
+  return (
+    <span className="store-chip" title={`Recorded ${formatDay(row.observed_on)}`}>
+      <i style={{ background: BANNER_COLORS[row.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+      {bannerLabel(row.banner_slug, row.retailer_name)}
+    </span>
+  );
 }
 
 /**
@@ -20,13 +37,19 @@ export function PriceRow({
   href,
   quantity,
   id,
+  trend,
+  badge,
 }: {
   row: LatestPrice;
   href: string;
   quantity: number;
   id?: string;
+  /** The last few days' prices, oldest first; null for a day it was not seen. */
+  trend?: (number | null)[];
+  badge?: Badge | null;
 }) {
   const estimated = estimatedRegular(row);
+  const off = percentOff(row.price_cents, row.was_price_cents ?? estimated);
   const unitPrice = formatUnitPrice(
     row.unit_price_cents,
     row.comparison_quantity,
@@ -42,27 +65,39 @@ export function PriceRow({
           </Link>
         </h3>
         <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+        <div className="price-row-chips">
+          <StoreChip row={row} />
+          {badge && <span className={`status-badge status-${badge.tone}`}>{badge.label}</span>}
+          {!row.in_stock && <span className="status-badge status-bad">Out of stock</span>}
+        </div>
       </div>
-      <div className="price-row-store">
-        <strong>{bannerLabel(row.banner_slug, row.retailer_name)}</strong>
-        <span>Recorded {formatDay(row.observed_on)}</span>
-        <BasketButton productId={row.product_id} quantity={quantity} size="small" />
+      <div className="price-row-trend" aria-hidden={trend ? undefined : true}>
+        {trend && (
+          <>
+            <Sparkline values={trend} color={BANNER_COLORS[row.banner_slug] ?? "#53617e"} />
+            <small>Last {trend.length} days</small>
+          </>
+        )}
       </div>
       <div className="price-row-amount">
         <strong>{formatCents(row.price_cents)}</strong>
         {row.was_price_cents !== null && (
-          <span className="sale-label">Store sale · was {formatCents(row.was_price_cents)}</span>
+          <span className="deal-tag deal-sale">
+            Store sale · was {formatCents(row.was_price_cents)}
+          </span>
         )}
         {estimated !== null && (
           <span
-            className="estimate-label"
+            className="deal-tag deal-usual"
             title="Estimated from the store's own unit price. The store does not mark this as a sale."
           >
-            Usually ~{formatCents(estimated)}*
+            Usually ~{formatCents(estimated)}*{off !== null && ` · ${off}% off`}
           </span>
         )}
         {unitPrice && <span>{unitPrice}</span>}
-        {!row.in_stock && <span className="stock-label">Out of stock</span>}
+      </div>
+      <div className="price-row-action">
+        <BasketButton productId={row.product_id} quantity={quantity} size="small" />
       </div>
     </li>
   );

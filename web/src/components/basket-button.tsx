@@ -21,16 +21,21 @@ export function BasketButton({
     return (
       <Link href="/basket" className={`basket-button basket-button-added basket-button-${size}`}>
         <Check size={16} aria-hidden="true" />
-        In basket{quantity > 1 ? ` (${quantity})` : ""}
+        {size === "small" ? "Added" : "In basket"}
+        {quantity > 1 ? ` (${quantity})` : ""}
       </Link>
     );
   }
   return (
     <form action={addToBasket} className="basket-form">
       <input type="hidden" name="productId" value={productId} />
-      <button type="submit" className={`basket-button basket-button-${size}`}>
+      <button
+        type="submit"
+        className={`basket-button basket-button-${size}`}
+        aria-label={size === "small" ? "Add to basket" : undefined}
+      >
         <Plus size={16} aria-hidden="true" />
-        Add to basket
+        {size === "small" ? "Add" : "Add to basket"}
       </button>
     </form>
   );
