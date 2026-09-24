@@ -178,6 +178,40 @@ export type PriceSpan = {
   in_stock: boolean;
 };
 
+/**
+ * Spans that overlap the days since `sinceIso`, for many products at once:
+ * the search rows' sparklines and badges.
+ *
+ * A product has at most one span per day, so 30 products over a 30-day
+ * window stay under Supabase's 1,000-row response cap. Newest first, so if a
+ * longer window ever does hit the cap, the oldest days are the ones dropped.
+ * The chunks run in parallel.
+ */
+export async function getRecentHistory(
+  productIds: number[],
+  sinceIso: string,
+): Promise<Result<PriceSpan[]>> {
+  if (productIds.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const chunks: number[][] = [];
+  for (let i = 0; i < productIds.length; i += 30) chunks.push(productIds.slice(i, i + 30));
+  const responses = await Promise.all(
+    chunks.map((ids) =>
+      supabase
+        .from("price_spans")
+        .select("*")
+        .in("product_id", ids)
+        .gte("last_confirmed_on", sinceIso)
+        .order("first_observed_on", { ascending: false }),
+    ),
+  );
+  const failed = responses.find((r) => r.error);
+  if (failed?.error) return { data: null, error: failed.error.message };
+  return { data: responses.flatMap((r) => (r.data ?? []) as PriceSpan[]), error: null };
+}
+
 export async function getPriceHistory(productIds: number[]): Promise<Result<PriceSpan[]>> {
   if (productIds.length === 0) return { data: [], error: null };
   const supabase = getSupabase();
