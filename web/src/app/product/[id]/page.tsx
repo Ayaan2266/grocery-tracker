@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";
 import { PriceChart, type ChartSeries } from "@/components/price-chart";
-import { estimatedRegular } from "@/components/price-row";
+import { StoreChip, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
-import { summarize, type Verdict } from "@/lib/history";
+import { rangePercent, summarize, type Verdict } from "@/lib/history";
 import { getListingsBySku, getPriceHistory, getProduct, type LatestPrice } from "@/lib/queries";
 import { BANNER_COLORS, BANNER_SHORT, bannerLabel } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
@@ -69,7 +69,31 @@ function verdictText(verdict: Verdict): { headline: string; detail: string } {
   }
 }
 
-function PriceCard({ product, quantity }: { product: LatestPrice; quantity: number }) {
+/** "$0.20 below typical", or above it, when the verdict gives today's price a side. */
+function TypicalPill({ price, verdict }: { price: number; verdict: Verdict | null }) {
+  if (!verdict || verdict.kind === "new" || verdict.kind === "steady") return null;
+  const gap = price - verdict.typical;
+  if (gap === 0) return null;
+  const Icon = gap < 0 ? ArrowDown : ArrowUp;
+  return (
+    <span className={`typical-pill ${gap < 0 ? "typical-pill-good" : "typical-pill-bad"}`}>
+      <Icon size={14} strokeWidth={2.6} aria-hidden="true" />
+      {formatCents(Math.abs(gap))} {gap < 0 ? "below" : "above"} typical
+    </span>
+  );
+}
+
+function PriceCard({
+  product,
+  quantity,
+  verdict,
+  storeCount,
+}: {
+  product: LatestPrice;
+  quantity: number;
+  verdict: Verdict | null;
+  storeCount: number;
+}) {
   const estimated = estimatedRegular(product);
   const regular = product.was_price_cents ?? estimated;
   const saving = regular !== null ? regular - product.price_cents : 0;
@@ -82,7 +106,10 @@ function PriceCard({ product, quantity }: { product: LatestPrice; quantity: numb
   return (
     <section className="price-card" aria-label="Current price">
       <p className="section-label">Latest price</p>
-      <p className="price-card-amount">{formatCents(product.price_cents)}</p>
+      <div className="price-card-headline">
+        <p className="price-card-amount">{formatCents(product.price_cents)}</p>
+        <TypicalPill price={product.price_cents} verdict={verdict} />
+      </div>
       {product.was_price_cents !== null && (
         <p className="sale-label">
           Store sale · was {formatCents(product.was_price_cents)}
@@ -99,7 +126,14 @@ function PriceCard({ product, quantity }: { product: LatestPrice; quantity: numb
         <li>{product.in_stock ? "In stock" : <span className="stock-label">Out of stock</span>}</li>
         <li>Recorded {formatDay(product.observed_on)}</li>
       </ul>
-      <BasketButton productId={product.product_id} quantity={quantity} />
+      <div className="price-card-actions">
+        <BasketButton productId={product.product_id} quantity={quantity} />
+        {storeCount > 1 && (
+          <a href="#compare" className="outline-button">
+            Compare {storeCount} stores <ArrowDown size={16} aria-hidden="true" />
+          </a>
+        )}
+      </div>
       {estimated !== null && (
         <p className="price-note">
           * Estimated from the store’s own unit price. The store does not label this as a sale.
@@ -109,7 +143,40 @@ function PriceCard({ product, quantity }: { product: LatestPrice; quantity: numb
   );
 }
 
-function VerdictCard({ verdict }: { verdict: Verdict | null }) {
+/**
+ * Lowest to highest recorded price, with the stretch below typical in green,
+ * typical marked in yellow, and a marker where today's price sits.
+ */
+function RangeBar({ verdict, price }: { verdict: Verdict; price: number }) {
+  const { lowest, typical, highest } = verdict;
+  const typicalAt = rangePercent(typical, lowest, highest);
+  const todayAt = rangePercent(price, lowest, highest);
+  const tone =
+    verdict.kind === "lowest" || verdict.kind === "below" ? "good" : verdict.kind === "above" ? "bad" : "neutral";
+  return (
+    <div
+      className="range-bar"
+      role="img"
+      aria-label={`${formatCents(price)} today, against a low of ${formatCents(lowest)}, a typical ${formatCents(typical)} and a high of ${formatCents(highest)}`}
+    >
+      <span className="range-today" style={{ left: `${todayAt}%`, transform: `translateX(-${todayAt}%)` }}>
+        Latest {formatCents(price)}
+      </span>
+      <div className="range-track">
+        <span className="range-good" style={{ width: `${typicalAt}%` }} />
+        <span className="range-typical" style={{ left: `clamp(0%, calc(${typicalAt}% - 6%), 88%)` }} />
+        <span className={`range-marker range-marker-${tone}`} style={{ left: `${todayAt}%` }} />
+      </div>
+      <div className="range-labels" aria-hidden="true">
+        <span>Low {formatCents(lowest)}</span>
+        <span>Typical {formatCents(typical)}</span>
+        <span>High {formatCents(highest)}</span>
+      </div>
+    </div>
+  );
+}
+
+function VerdictCard({ verdict, price }: { verdict: Verdict | null; price: number }) {
   if (!verdict) {
     return (
       <section className="verdict-card">
@@ -119,20 +186,17 @@ function VerdictCard({ verdict }: { verdict: Verdict | null }) {
     );
   }
   const { headline, detail } = verdictText(verdict);
+  const hasRange = verdict.lowest < verdict.highest;
   return (
     <section className={`verdict-card verdict-${verdict.kind}`} aria-label="Is it a good price?">
       <p className="section-label">Is it a good price?</p>
       <h2>{headline}</h2>
       <p>{detail}</p>
-      <dl className="verdict-stats">
-        <div><dt>Lowest</dt><dd>{formatCents(verdict.lowest)}</dd></div>
-        <div><dt>Typical</dt><dd>{formatCents(verdict.typical)}</dd></div>
-        <div><dt>Highest</dt><dd>{formatCents(verdict.highest)}</dd></div>
-        <div><dt>Tracked</dt><dd>{verdict.daysTracked} day{verdict.daysTracked === 1 ? "" : "s"}</dd></div>
-      </dl>
-      {verdict.daysTracked < 14 && verdict.kind !== "new" && (
+      {hasRange && <RangeBar verdict={verdict} price={price} />}
+      {verdict.kind !== "new" && (
         <p className="price-note">
-          Only {verdict.daysTracked} days of history so far, so this gets more reliable every night.
+          Based on {verdict.daysTracked} day{verdict.daysTracked === 1 ? "" : "s"} of prices
+          {verdict.daysTracked < 30 ? ". It gets sharper every night." : ` since ${formatDay(verdict.since)}.`}
         </p>
       )}
     </section>
@@ -148,12 +212,34 @@ function StoreComparison({
   currentId: number;
   query: string;
 }) {
-  const sorted = [...listings].sort((a, b) => a.price_cents - b.price_cents);
-  const cheapest = sorted[0].price_cents;
+  const sorted = [...listings].sort(
+    (a, b) => Number(b.in_stock) - Number(a.in_stock) || a.price_cents - b.price_cents,
+  );
+  // Out-of-stock listings are shown but never called cheapest.
+  const buyable = sorted.filter((l) => l.in_stock);
+  const cheapest = buyable[0] ?? null;
+  const priciest = buyable[buyable.length - 1] ?? null;
+  const current = listings.find((l) => l.product_id === currentId) ?? null;
+  const top = Math.max(...listings.map((l) => l.price_cents));
+  const name = (l: LatestPrice) => BANNER_SHORT[l.banner_slug] ?? l.retailer_name;
+
+  let pill: string | null = null;
+  if (cheapest && priciest && priciest.price_cents > cheapest.price_cents) {
+    pill =
+      current && current.in_stock && current.price_cents > cheapest.price_cents
+        ? `${formatCents(current.price_cents - cheapest.price_cents)} less at ${name(cheapest)}`
+        : `Save ${formatCents(priciest.price_cents - cheapest.price_cents)} vs ${name(priciest)}`;
+  }
+
   return (
-    <section className="store-compare" aria-labelledby="compare-title">
-      <h2 id="compare-title">Same item at other stores</h2>
-      <p>Matched by the product code the stores share. Latest recorded price at each.</p>
+    <section className="store-compare" id="compare" aria-labelledby="compare-title">
+      <div className="store-compare-header">
+        <div>
+          <h2 id="compare-title">Same item at other stores</h2>
+          <p>Matched by the product code the stores share. Latest recorded price at each.</p>
+        </div>
+        {pill && <span className="save-pill">{pill}</span>}
+      </div>
       <ul>
         {sorted.map((listing) => {
           const unit = formatUnitPrice(
@@ -162,6 +248,8 @@ function StoreComparison({
             listing.comparison_unit,
           );
           const isCurrent = listing.product_id === currentId;
+          const isCheapest =
+            cheapest !== null && buyable.length > 1 && listing.in_stock && listing.price_cents === cheapest.price_cents;
           return (
             <li key={listing.product_id} className={isCurrent ? "is-current" : undefined}>
               <span className="store-dot" style={{ background: BANNER_COLORS[listing.banner_slug] ?? "#53617e" }} aria-hidden="true" />
@@ -173,8 +261,15 @@ function StoreComparison({
                     {bannerLabel(listing.banner_slug, listing.retailer_name)}
                   </Link>
                 )}
+                {isCheapest && <small className="cheapest-badge">Cheapest</small>}
                 {isCurrent && <small>This listing</small>}
-                {listing.price_cents === cheapest && sorted.length > 1 && <small className="cheapest-badge">Cheapest</small>}
+                {!listing.in_stock && <small className="stock-badge">Out of stock</small>}
+              </span>
+              <span className="store-compare-bar" aria-hidden="true">
+                <span
+                  className={isCheapest ? "is-cheapest" : undefined}
+                  style={{ width: `${(listing.price_cents / top) * 100}%` }}
+                />
               </span>
               <span className="store-compare-price">
                 <strong>{formatCents(listing.price_cents)}</strong>
@@ -210,6 +305,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       key: `p${listing.product_id}`,
       label: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
       color: BANNER_COLORS[listing.banner_slug] ?? "#53617e",
+      current: listing.price_cents,
       spans: spansFor(listing.product_id),
       primary: listing.product_id === id,
     }))
@@ -240,27 +336,37 @@ export default async function ProductPage({ params, searchParams }: Props) {
           ) : (
             <>
               <header className="product-heading">
-                <p className="section-label">{bannerLabel(product.banner_slug, product.retailer_name)}</p>
+                <StoreChip row={product} />
                 <h1>{product.raw_name}</h1>
                 <p>{[product.brand, product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
               </header>
 
               <div className="product-grid">
-                <PriceCard product={product} quantity={basket.get(product.product_id) ?? 0} />
-                <VerdictCard verdict={verdict} />
+                <PriceCard
+                  product={product}
+                  quantity={basket.get(product.product_id) ?? 0}
+                  verdict={verdict}
+                  storeCount={allListings.length}
+                />
+                <VerdictCard verdict={verdict} price={product.price_cents} />
               </div>
 
               <section className="chart-card" aria-labelledby="history-title">
-                <h2 id="history-title">Price history</h2>
-                <p>
-                  {series.length > 1
-                    ? "This item at every store that carries it. Hover or tap for the price on each day."
-                    : "Hover or tap for the price on each day."}
-                </p>
                 {history.error ? (
-                  <div role="alert" className="data-alert">Price history is unavailable right now.</div>
+                  <>
+                    <h2 id="history-title">Price history</h2>
+                    <div role="alert" className="data-alert">Price history is unavailable right now.</div>
+                  </>
                 ) : (
-                  <PriceChart series={series} />
+                  <PriceChart
+                    series={series}
+                    titleId="history-title"
+                    subtitle={
+                      series.length > 1
+                        ? "This item at every store that carries it. Hover or tap for each day."
+                        : "Hover or tap for the price on each day."
+                    }
+                  />
                 )}
               </section>
 

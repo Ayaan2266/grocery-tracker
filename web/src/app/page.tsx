@@ -7,13 +7,49 @@ import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
+import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
   PAGE_SIZE,
   getCoverage,
+  getRecentHistory,
   searchProducts,
+  type LatestPrice,
   type SortOrder,
 } from "@/lib/queries";
+
+/** Days drawn in each row's sparkline, and days its badge looks back over. */
+const TREND_DAYS = 7;
+const BADGE_DAYS = 30;
+
+type RowHistory = { trend: (number | null)[]; badge: Badge | null };
+
+/**
+ * Sparklines and badges for a page of results, from one batch of queries.
+ * Each row is measured back from its own latest day, so a store whose run is
+ * a day behind is not drawn with a missing last day. The fetch window is set
+ * by the freshest row, so one stale listing cannot stretch it for the rest;
+ * a stale row just gets a shorter look back.
+ */
+async function rowHistories(rows: LatestPrice[]): Promise<Map<number, RowHistory>> {
+  const out = new Map<number, RowHistory>();
+  if (rows.length === 0) return out;
+  const latest = Math.max(...rows.map((r) => dayNumber(r.observed_on)));
+  const history = await getRecentHistory(
+    rows.map((r) => r.product_id),
+    isoDay(latest - BADGE_DAYS + 1),
+  );
+  if (!history.data) return out;
+  for (const row of rows) {
+    const spans = history.data.filter((s) => s.product_id === row.product_id);
+    const recent = windowSpans(spans, row.observed_on, BADGE_DAYS);
+    out.set(row.product_id, {
+      trend: dailyPrices(recent, row.observed_on, TREND_DAYS),
+      badge: badgeFor(recent, row.price_cents),
+    });
+  }
+  return out;
+}
 
 const staples = [
   { label: "Milk", term: "milk" },
@@ -70,6 +106,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     readBasket(),
   ]);
   const prices = results.data?.rows ?? [];
+  const histories = await rowHistories(prices);
   const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
   const error = results.error ?? (!query ? coverage.error : null);
   const productHref = (id: number) => `/product/${id}?${new URLSearchParams({ q: query })}`;
@@ -132,6 +169,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           row={row}
                           href={productHref(row.product_id)}
                           quantity={basket.get(row.product_id) ?? 0}
+                          trend={histories.get(row.product_id)?.trend}
+                          badge={histories.get(row.product_id)?.badge}
                         />
                       ))}
                     </ul>

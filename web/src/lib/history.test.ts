@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { chartPoints, dayNumber, isoDay, summarize, type Span } from "./history.ts";
+import {
+  badgeFor,
+  chartPoints,
+  dailyPrices,
+  dayNumber,
+  isoDay,
+  latestDeal,
+  latestSpan,
+  rangePercent,
+  summarize,
+  windowSpans,
+  type Span,
+} from "./history.ts";
 
 function span(first: string, last: string, price: number): Span {
   return {
@@ -79,4 +91,55 @@ test("a day a product went unseen is null, not a price", () => {
     points.map((p) => p.a),
     [500, null, 500],
   );
+});
+
+test("windowing clips spans to the last N days", () => {
+  const clipped = windowSpans(
+    [span("2026-09-01", "2026-09-20", 500), span("2026-09-21", "2026-09-30", 450)],
+    "2026-09-30",
+    14,
+  );
+  assert.deepEqual(
+    clipped.map((s) => [s.first_observed_on, s.last_confirmed_on, s.price_cents]),
+    [
+      ["2026-09-17", "2026-09-20", 500],
+      ["2026-09-21", "2026-09-30", 450],
+    ],
+  );
+});
+
+test("daily prices carry a span across its days and leave unseen days empty", () => {
+  const values = dailyPrices(
+    [span("2026-09-24", "2026-09-26", 500), span("2026-09-28", "2026-09-30", 450)],
+    "2026-09-30",
+    7,
+  );
+  assert.deepEqual(values, [500, 500, 500, null, 450, 450, 450]);
+});
+
+test("badges read the verdict in a few words", () => {
+  const spans = [span("2026-09-21", "2026-09-26", 619), span("2026-09-27", "2026-09-30", 599)];
+  assert.deepEqual(badgeFor(spans, 599), { label: "Lowest in 10 days", tone: "good" });
+  assert.deepEqual(badgeFor([span("2026-09-21", "2026-09-30", 500)], 500), {
+    label: "Steady price",
+    tone: "neutral",
+  });
+  assert.equal(badgeFor([span("2026-09-30", "2026-09-30", 500)], 500), null);
+});
+
+test("range positions are clamped and survive a flat range", () => {
+  assert.equal(rangePercent(599, 599, 619), 0);
+  assert.equal(rangePercent(609, 599, 619), 50);
+  assert.equal(rangePercent(700, 599, 619), 100);
+  assert.equal(rangePercent(500, 500, 500), 50);
+});
+
+test("the latest span and the latest deal are found by date, not by order", () => {
+  const sale = { ...span("2026-09-25", "2026-09-27", 549), was_price_cents: 644 };
+  const hidden = { ...span("2026-09-10", "2026-09-12", 199), implied_regular_cents: 230 };
+  const spans = [span("2026-09-28", "2026-09-30", 644), sale, hidden, span("2026-09-21", "2026-09-24", 644)];
+  assert.equal(latestSpan(spans)?.first_observed_on, "2026-09-28");
+  assert.deepEqual(latestDeal(spans), { span: sale, regular: 644, declared: true });
+  assert.deepEqual(latestDeal([hidden]), { span: hidden, regular: 230, declared: false });
+  assert.equal(latestDeal([span("2026-09-21", "2026-09-24", 644)]), null);
 });

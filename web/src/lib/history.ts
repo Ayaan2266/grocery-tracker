@@ -127,3 +127,87 @@ export function spanOn(spans: Span[], day: number): Span | undefined {
     (s) => dayNumber(s.first_observed_on) <= day && day <= dayNumber(s.last_confirmed_on),
   );
 }
+
+/**
+ * The spans covering the `days` days ending on `endIso`, clipped to that
+ * window. Used for the search rows, which only fetch recent history.
+ */
+export function windowSpans(spans: Span[], endIso: string, days: number): Span[] {
+  const end = dayNumber(endIso);
+  const start = end - days + 1;
+  return spans
+    .filter((s) => dayNumber(s.last_confirmed_on) >= start && dayNumber(s.first_observed_on) <= end)
+    .map((s) => ({
+      ...s,
+      first_observed_on: isoDay(Math.max(dayNumber(s.first_observed_on), start)),
+      last_confirmed_on: isoDay(Math.min(dayNumber(s.last_confirmed_on), end)),
+    }));
+}
+
+/**
+ * One value per day for the `days` days ending on `endIso`: the price that
+ * day, or null when the product was not seen. The input to a sparkline.
+ */
+export function dailyPrices(spans: Span[], endIso: string, days: number): (number | null)[] {
+  const end = dayNumber(endIso);
+  const out: (number | null)[] = [];
+  for (let day = end - days + 1; day <= end; day += 1) {
+    out.push(spanOn(spans, day)?.price_cents ?? null);
+  }
+  return out;
+}
+
+export type Badge = { label: string; tone: "good" | "neutral" | "bad" };
+
+/** A one-line verdict for a search row, from recent history only. */
+export function badgeFor(spans: Span[], current: number): Badge | null {
+  const verdict = summarize(spans, current);
+  if (!verdict) return null;
+  switch (verdict.kind) {
+    case "lowest":
+      return { label: `Lowest in ${verdict.daysTracked} days`, tone: "good" };
+    case "below":
+      return { label: "Below typical", tone: "good" };
+    case "above":
+      return { label: "Above typical", tone: "bad" };
+    case "steady":
+      return { label: "Steady price", tone: "neutral" };
+    default:
+      return null;
+  }
+}
+
+/** Where a price sits between low and high, as a percentage from 0 to 100. */
+export function rangePercent(price: number, low: number, high: number): number {
+  if (high <= low) return 50;
+  return Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100));
+}
+
+/** The most recent span: the one today's price comes from. */
+export function latestSpan(spans: Span[]): Span | undefined {
+  let latest: Span | undefined;
+  for (const span of spans) {
+    if (!latest || span.last_confirmed_on > latest.last_confirmed_on) latest = span;
+  }
+  return latest;
+}
+
+export type Deal = {
+  span: Span;
+  regular: number;
+  /** True when the store printed the regular price; false when it is inferred. */
+  declared: boolean;
+};
+
+/** The most recent stretch sold below a regular price, for the graph's deal tag. */
+export function latestDeal(spans: Span[]): Deal | null {
+  let found: Deal | null = null;
+  for (const span of spans) {
+    const regular = span.was_price_cents ?? span.implied_regular_cents ?? null;
+    if (regular === null || regular <= span.price_cents) continue;
+    if (!found || span.last_confirmed_on > found.span.last_confirmed_on) {
+      found = { span, regular, declared: span.was_price_cents !== null };
+    }
+  }
+  return found;
+}

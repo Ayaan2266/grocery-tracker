@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 
 import { changeQuantity, clearBasket, removeFromBasket } from "@/app/basket/actions";
 import { SearchForm } from "@/components/search-form";
@@ -41,9 +41,132 @@ function QuantityControls({ productId, quantity }: { productId: number; quantity
       </form>
       <form action={removeFromBasket}>
         <input type="hidden" name="productId" value={productId} />
-        <button type="submit" className="qty-remove" aria-label="Remove from basket"><Trash2 size={15} aria-hidden="true" /></button>
+        <button type="submit" className="qty-remove" aria-label="Remove from basket"><X size={15} aria-hidden="true" /></button>
       </form>
     </div>
+  );
+}
+
+type StoreTotal = { store: Store; total: number; carried: number; missing: number; outOfStock: number };
+
+function coverageNote({ missing, outOfStock }: StoreTotal): string {
+  const parts: string[] = [];
+  if (missing > 0) parts.push(`Missing ${missing} item${missing === 1 ? "" : "s"}`);
+  if (outOfStock > 0) parts.push(`${outOfStock} out of stock`);
+  return parts.length > 0 ? parts.join(" · ") : "Has everything";
+}
+
+/** "Old Cheddar at Loblaws, the rest at Superstore": where the cheapest mix buys each product. */
+function mixDescription(lines: Line[], storeName: (id: number) => string): string {
+  const byStore = new Map<number, string[]>();
+  for (const line of lines) {
+    if (!line.cheapest) continue;
+    const names = byStore.get(line.cheapest.store_id) ?? [];
+    names.push(line.product.raw_name);
+    byStore.set(line.cheapest.store_id, names);
+  }
+  const groups = [...byStore.entries()].sort((a, b) => b[1].length - a[1].length);
+  if (groups.length === 0) return "";
+  if (groups.length === 1) return `Everything at ${storeName(groups[0][0])}`;
+  const [main, ...others] = groups;
+  const parts = others.map(([id, names]) => `${names.join(", ")} at ${storeName(id)}`);
+  parts.push(main[1].length > 1 ? `the rest at ${storeName(main[0])}` : `${main[1][0]} at ${storeName(main[0])}`);
+  return parts.join(", ");
+}
+
+function BasketSummary({
+  lines,
+  totals,
+  bestComplete,
+  mixTotal,
+  comparable,
+  storeName,
+}: {
+  lines: Line[];
+  totals: StoreTotal[];
+  bestComplete: StoreTotal | null;
+  mixTotal: number;
+  comparable: boolean;
+  storeName: (id: number) => string;
+}) {
+  if (!comparable) {
+    const total = lines.reduce((sum, line) => sum + line.product.price_cents * line.quantity, 0);
+    return (
+      <aside className="basket-summary" aria-label="Basket total">
+        <h2>Basket total</h2>
+        <p className="basket-summary-total">{formatCents(total)}</p>
+        <p className="price-note">
+          None of these products is listed at more than one store yet, so there is nothing to
+          compare. Store totals appear as soon as two stores carry the same item.
+        </p>
+      </aside>
+    );
+  }
+  const top = Math.max(...totals.map((t) => t.total), 1);
+  const saving = bestComplete ? bestComplete.total - mixTotal : 0;
+  const mixNote = mixDescription(lines, storeName);
+  return (
+    <aside className="basket-summary" aria-label="Store totals">
+      <h2>Store totals</h2>
+      <ul className="store-totals">
+        {totals.map((t) => {
+          const isBest = bestComplete?.store.id === t.store.id;
+          return (
+            <li key={t.store.id} className={isBest ? "is-best" : undefined}>
+              <span className="store-dot" style={{ background: BANNER_COLORS[t.store.slug] ?? "#53617e" }} aria-hidden="true" />
+              <strong>{t.store.name}</strong>
+              <small>{coverageNote(t)}</small>
+              <span className="store-totals-amount">{formatCents(t.total)}</span>
+              <span className="store-totals-bar" aria-hidden="true">
+                <span style={{ width: `${(t.total / top) * 100}%` }} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {bestComplete ? (
+        <div className="summary-card summary-best">
+          <p className="section-label">Best single shop</p>
+          <p className="summary-card-amount">
+            {bestComplete.store.name} · {formatCents(bestComplete.total)}
+          </p>
+          <p>Everything on your list in one trip.</p>
+        </div>
+      ) : (
+        <div className="summary-card">
+          <p className="section-label">Best single shop</p>
+          <p>No one store has everything in stock. The cheapest mix below covers what it can.</p>
+        </div>
+      )}
+      <div className="summary-card summary-mix">
+        <p className="section-label">Cheapest mix</p>
+        <p className="summary-card-amount">
+          {formatCents(mixTotal)}
+          {saving > 0 && <> · saves {formatCents(saving)}</>}
+        </p>
+        {mixNote && <p>{mixNote}.</p>}
+      </div>
+    </aside>
+  );
+}
+
+function StoreCell({ line, store }: { line: Line; store: Store }) {
+  const listing = line.byStore.get(store.id);
+  const unavailable = line.outOfStock.get(store.id);
+  const isCheapest = listing && line.byStore.size > 1 && listing.price_cents === line.cheapest?.price_cents;
+  return (
+    <li className={isCheapest ? "store-cell is-cheapest" : "store-cell"}>
+      <span className="store-dot" style={{ background: BANNER_COLORS[store.slug] ?? "#53617e" }} aria-hidden="true" />
+      <span className="store-cell-name">{store.name}</span>
+      {listing ? (
+        <span className="store-cell-price">
+          <strong>{formatCents(listing.price_cents * line.quantity)}</strong>
+          {line.quantity > 1 && <small>{formatCents(listing.price_cents)} each</small>}
+        </span>
+      ) : (
+        <small className={unavailable ? "stock-label" : undefined}>{unavailable ? "Out of stock" : "Not listed"}</small>
+      )}
+    </li>
   );
 }
 
@@ -94,17 +217,20 @@ export default async function BasketPage() {
       return { product, quantity: basket.get(product.product_id) ?? 1, byStore, outOfStock, cheapest };
     });
 
-  const totals = storeList.map((store) => {
+  const totals: StoreTotal[] = storeList.map((store) => {
     let total = 0;
     let carried = 0;
+    let outOfStock = 0;
     for (const line of lines) {
       const listing = line.byStore.get(store.id);
       if (listing) {
         total += listing.price_cents * line.quantity;
         carried += 1;
+      } else if (line.outOfStock.has(store.id)) {
+        outOfStock += 1;
       }
     }
-    return { store, total, carried };
+    return { store, total, carried, outOfStock, missing: lines.length - carried - outOfStock };
   });
   const complete = totals.filter((t) => t.carried === lines.length && lines.length > 0);
   const bestComplete = complete.sort((a, b) => a.total - b.total)[0] ?? null;
@@ -112,6 +238,7 @@ export default async function BasketPage() {
   const mixTotal = mixLines.reduce((sum, line) => sum + line.cheapest!.price_cents * line.quantity, 0);
   const comparable = lines.some((line) => line.byStore.size + line.outOfStock.size > 1);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const storeName = (id: number) => stores.get(id)?.name ?? "another store";
 
   return (
     <main>
@@ -130,7 +257,7 @@ export default async function BasketPage() {
               <h1>Where is your list cheapest?</h1>
               <p>
                 {lines.length > 0
-                  ? `${lines.length} product${lines.length === 1 ? "" : "s"}, ${itemCount} item${itemCount === 1 ? "" : "s"} in total. Prices are the latest recorded at each store.`
+                  ? `${lines.length} product${lines.length === 1 ? "" : "s"} · ${itemCount} item${itemCount === 1 ? "" : "s"} · latest recorded prices`
                   : "Add groceries from any search and compare the total at each store."}
               </p>
             </div>
@@ -148,98 +275,42 @@ export default async function BasketPage() {
           {lines.length === 0 ? (
             <EmptyBasket />
           ) : (
-            <>
-              {comparable && (
-                <div className="basket-totals">
-                  {totals.map(({ store, total, carried }) => {
-                    const isBest = bestComplete?.store.id === store.id;
-                    return (
-                      <div key={store.id} className={isBest ? "basket-total is-best" : "basket-total"}>
-                        <span className="store-dot" style={{ background: BANNER_COLORS[store.slug] ?? "#53617e" }} aria-hidden="true" />
-                        <p>{store.name}</p>
-                        <strong>{formatCents(total)}</strong>
-                        <small>
-                          {carried === lines.length
-                            ? "Has everything"
-                            : `${carried} of ${lines.length} products`}
-                        </small>
-                        {isBest && <em>Cheapest for the whole list</em>}
+            <div className="basket-layout">
+              <BasketSummary
+                lines={lines}
+                totals={totals}
+                bestComplete={bestComplete}
+                mixTotal={mixTotal}
+                comparable={comparable}
+                storeName={storeName}
+              />
+              <div className="basket-items">
+                <ul className="basket-list">
+                  {lines.map((line) => (
+                    <li key={line.product.product_id} className="basket-item">
+                      <div className="basket-item-head">
+                        <div>
+                          <h2>
+                            <Link href={`/product/${line.product.product_id}`}>{line.product.raw_name}</Link>
+                          </h2>
+                          <p>{[line.product.brand, line.product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+                        </div>
+                        <QuantityControls productId={line.product.product_id} quantity={line.quantity} />
                       </div>
-                    );
-                  })}
-                  <div className="basket-total basket-mix">
-                    <p>Cheapest mix</p>
-                    <strong>{formatCents(mixTotal)}</strong>
-                    <small>Each product where it costs least</small>
-                    {bestComplete && bestComplete.total > mixTotal && (
-                      <em>Saves {formatCents(bestComplete.total - mixTotal)} if you split the shop</em>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="basket-table-wrap">
-                <table className="basket-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Product</th>
-                      {comparable
-                        ? storeList.map((store) => <th scope="col" key={store.id}>{store.name}</th>)
-                        : <th scope="col">Price</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line) => (
-                      <tr key={line.product.product_id}>
-                        <th scope="row">
-                          <Link href={`/product/${line.product.product_id}`}>{line.product.raw_name}</Link>
-                          <small>{[line.product.brand, line.product.package_size].filter(Boolean).join(" · ")}</small>
-                          <QuantityControls productId={line.product.product_id} quantity={line.quantity} />
-                        </th>
-                        {comparable ? (
-                          storeList.map((store) => {
-                            const listing = line.byStore.get(store.id);
-                            const unavailable = line.outOfStock.get(store.id);
-                            const isCheapest =
-                              listing && line.byStore.size > 1 && listing.price_cents === line.cheapest?.price_cents;
-                            return (
-                              <td key={store.id} data-label={store.name} className={isCheapest ? "is-cheapest" : undefined}>
-                                {listing ? (
-                                  <>
-                                    <strong>{formatCents(listing.price_cents * line.quantity)}</strong>
-                                    {line.quantity > 1 && <small>{formatCents(listing.price_cents)} each</small>}
-                                  </>
-                                ) : unavailable ? (
-                                  <small className="stock-label">Out of stock</small>
-                                ) : (
-                                  <small>Not listed</small>
-                                )}
-                              </td>
-                            );
-                          })
-                        ) : (
-                          <td data-label="Price">
-                            <strong>{formatCents(line.product.price_cents * line.quantity)}</strong>
-                            <small>{BANNER_SHORT[line.product.banner_slug] ?? line.product.retailer_name}</small>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {!comparable && (
+                      <ul className="store-cells" aria-label={`${line.product.raw_name} at each store`}>
+                        {storeList.map((store) => (
+                          <StoreCell key={store.id} line={line} store={store} />
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
                 <p className="price-note">
-                  None of these products is listed at more than one store yet, so there is nothing to
-                  compare. Store totals appear as soon as two stores carry the same item.
+                  Out-of-stock listings are left out of the totals. Prices are recorded snapshots, not
+                  checkout quotes.
                 </p>
-              )}
-              <p className="price-note">
-                Out-of-stock listings are left out of the totals. Prices are recorded snapshots, not
-                checkout quotes.
-              </p>
-            </>
+              </div>
+            </div>
           )}
         </article>
 
