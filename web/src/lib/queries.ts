@@ -59,25 +59,138 @@ function escapeLikePattern(term: string): string {
   return term.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
+export type SortOrder = "price" | "value";
+
+export const PAGE_SIZE = 60;
+/** A "Show more" link can ask for at most this many rows in one request. */
+export const MAX_RESULTS = 600;
+
+export type SearchPage = { rows: LatestPrice[]; hasMore: boolean };
+
+/**
+ * One page of search results, cheapest first.
+ *
+ * "price" is the shelf price. "value" is the unit price, which puts a 4 L jug
+ * and a 1 L carton on the same scale. Products with no unit price go last
+ * there rather than first, since nothing is known about their value.
+ *
+ * Asks for one row more than it shows, which is how "Show more" knows there
+ * is more without a second count query.
+ */
 export async function searchProducts(
   term: string,
-  limit = 60,
-): Promise<Result<LatestPrice[]>> {
+  { sort = "price", limit = PAGE_SIZE }: { sort?: SortOrder; limit?: number } = {},
+): Promise<Result<SearchPage>> {
   const trimmed = term.trim();
-  if (!trimmed) return { data: [], error: null };
+  if (!trimmed) return { data: { rows: [], hasMore: false }, error: null };
 
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const capped = Math.min(Math.max(limit, 1), MAX_RESULTS);
+  let query = supabase
+    .from("product_latest_price")
+    .select("*")
+    .ilike("raw_name", `%${escapeLikePattern(trimmed)}%`);
+  query =
+    sort === "value"
+      ? query
+          .order("unit_price_cents", { ascending: true, nullsFirst: false })
+          .order("price_cents", { ascending: true })
+      : query.order("price_cents", { ascending: true });
+  const { data, error } = await query.order("product_id").limit(capped + 1);
+
+  if (error) return { data: null, error: error.message };
+  const rows = (data ?? []) as LatestPrice[];
+  return { data: { rows: rows.slice(0, capped), hasMore: rows.length > capped }, error: null };
+}
+
+/** One product with its latest price, or null when there is no such product. */
+export async function getProduct(productId: number): Promise<Result<LatestPrice | null>> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
   const { data, error } = await supabase
     .from("product_latest_price")
     .select("*")
-    .ilike("raw_name", `%${escapeLikePattern(trimmed)}%`)
-    .order("price_cents", { ascending: true })
-    .limit(limit);
+    .eq("product_id", productId)
+    .maybeSingle();
+
+  if (error) return { data: null, error: error.message };
+  return { data: (data as LatestPrice) ?? null, error: null };
+}
+
+/**
+ * Latest prices for products, by id. Used by the basket, which stores ids.
+ */
+export async function getProducts(productIds: number[]): Promise<Result<LatestPrice[]>> {
+  if (productIds.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("product_latest_price")
+    .select("*")
+    .in("product_id", productIds);
 
   if (error) return { data: null, error: error.message };
   return { data: (data ?? []) as LatestPrice[], error: null };
+}
+
+/**
+ * Every store's listing of these retailer SKUs.
+ *
+ * All three banners run on the same PCX platform, so an identical product
+ * carries the same product code at each one that stocks it. This is how a
+ * product page finds the same item elsewhere and how the basket prices a list
+ * at each store. A code no other store carries simply comes back once, and
+ * the page shows no comparison rather than a wrong one.
+ */
+export async function getListingsBySku(skus: string[]): Promise<Result<LatestPrice[]>> {
+  if (skus.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("product_latest_price")
+    .select("*")
+    .in("retailer_sku", skus);
+
+  if (error) return { data: null, error: error.message };
+  return { data: (data ?? []) as LatestPrice[], error: null };
+}
+
+/**
+ * One stretch of unchanged values for one product, from `price_spans`.
+ *
+ * Read directly rather than through the daily `price_observations` view: a
+ * year of one item at three stores is over a thousand daily rows, which is
+ * past Supabase's default response cap, while the same history as spans is a
+ * few dozen rows.
+ */
+export type PriceSpan = {
+  product_id: number;
+  first_observed_on: string;
+  last_confirmed_on: string;
+  price_cents: number;
+  was_price_cents: number | null;
+  implied_regular_cents?: number | null;
+  in_stock: boolean;
+};
+
+export async function getPriceHistory(productIds: number[]): Promise<Result<PriceSpan[]>> {
+  if (productIds.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("price_spans")
+    .select("*")
+    .in("product_id", productIds)
+    .order("first_observed_on", { ascending: true });
+
+  if (error) return { data: null, error: error.message };
+  return { data: (data ?? []) as PriceSpan[], error: null };
 }
 
 export async function getCoverage(): Promise<Result<Coverage | null>> {

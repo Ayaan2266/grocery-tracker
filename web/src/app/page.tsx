@@ -1,14 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ChartNoAxesCombined, Search, ShoppingBasket, Tag } from "lucide-react";
-import { getCoverage, searchProducts, type LatestPrice } from "@/lib/queries";
-import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
+import { ArrowDown, ArrowRight, ChartNoAxesCombined, ShoppingBasket, Tag } from "lucide-react";
 
-const BANNER_LABELS: Record<string, string> = {
-  nofrills: "No Frills",
-  superstore: "Real Canadian Superstore",
-  loblaw: "Loblaws",
-};
+import { PriceRow, estimatedRegular } from "@/components/price-row";
+import { SearchForm } from "@/components/search-form";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { readBasket } from "@/lib/basket";
+import {
+  MAX_RESULTS,
+  PAGE_SIZE,
+  getCoverage,
+  searchProducts,
+  type SortOrder,
+} from "@/lib/queries";
 
 const staples = [
   { label: "Milk", term: "milk" },
@@ -16,108 +21,79 @@ const staples = [
   { label: "Bananas", term: "banana" },
 ];
 
-function estimatedRegular(row: LatestPrice): number | null {
-  return row.was_price_cents === null ? (row.implied_regular_cents ?? null) : null;
+type SearchParams = { q?: string | string[]; sort?: string | string[]; n?: string | string[] };
+
+function first(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) ?? "";
 }
 
-function SearchForm({ query }: { query: string }) {
+function searchHref(query: string, sort: SortOrder, count = PAGE_SIZE): string {
+  const params = new URLSearchParams({ q: query });
+  if (sort !== "price") params.set("sort", sort);
+  if (count > PAGE_SIZE) params.set("n", String(count));
+  return `/?${params}`;
+}
+
+function SortToggle({ query, sort }: { query: string; sort: SortOrder }) {
+  const options: { value: SortOrder; label: string }[] = [
+    { value: "price", label: "Cheapest price" },
+    { value: "value", label: "Best value per 100 g / ml" },
+  ];
   return (
-    <form action="/#prices" method="get" role="search" className="search-form">
-      <Search size={25} strokeWidth={2} aria-hidden="true" />
-      <input
-        type="search"
-        name="q"
-        defaultValue={query}
-        placeholder="Search milk, cheddar, bananas..."
-        aria-label="Search grocery prices"
-        enterKeyHint="search"
-      />
-      <button type="submit" aria-label="Search prices">
-        <span>Search prices</span>
-        <ArrowRight size={21} aria-hidden="true" />
-      </button>
-    </form>
+    <div className="sort-toggle" role="group" aria-label="Sort results">
+      {options.map((option) => (
+        <Link
+          key={option.value}
+          href={`${searchHref(query, option.value)}#prices`}
+          aria-current={sort === option.value ? "true" : undefined}
+          scroll={false}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </div>
   );
 }
 
-function PriceRow({ row }: { row: LatestPrice }) {
-  const estimated = estimatedRegular(row);
-  const unitPrice = formatUnitPrice(
-    row.unit_price_cents,
-    row.comparison_quantity,
-    row.comparison_unit,
-  );
+export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const query = first(params.q).trim();
+  const sort: SortOrder = first(params.sort) === "value" ? "value" : "price";
+  const requested = Number.parseInt(first(params.n), 10);
+  const count = Number.isFinite(requested)
+    ? Math.min(Math.max(requested, PAGE_SIZE), MAX_RESULTS)
+    : PAGE_SIZE;
 
-  return (
-    <li className="price-row">
-      <div className="price-row-product">
-        <h3>{row.raw_name}</h3>
-        <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
-      </div>
-      <div className="price-row-store">
-        <strong>{BANNER_LABELS[row.banner_slug] ?? row.retailer_name}</strong>
-        <span>Recorded {formatDay(row.observed_on)}</span>
-      </div>
-      <div className="price-row-amount">
-        <strong>{formatCents(row.price_cents)}</strong>
-        {row.was_price_cents !== null && (
-          <span className="sale-label">Store sale · was {formatCents(row.was_price_cents)}</span>
-        )}
-        {estimated !== null && (
-          <span className="estimate-label" title="Estimated from the store's own unit price. The store does not mark this as a sale.">
-            Usually ~{formatCents(estimated)}*
-          </span>
-        )}
-        {unitPrice && <span>{unitPrice}</span>}
-        {!row.in_stock && <span className="stock-label">Out of stock</span>}
-      </div>
-    </li>
-  );
-}
-
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string | string[] }>;
-}) {
-  const { q = "" } = await searchParams;
-  const query = typeof q === "string" ? q.trim() : "";
-  const [results, coverage] = await Promise.all([searchProducts(query), getCoverage()]);
-  const prices = results.data ?? [];
+  const [results, coverage, basket] = await Promise.all([
+    searchProducts(query, { sort, limit: count }),
+    getCoverage(),
+    readBasket(),
+  ]);
+  const prices = results.data?.rows ?? [];
+  const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
   const error = results.error ?? (!query ? coverage.error : null);
+  const productHref = (id: number) => `/product/${id}?${new URLSearchParams({ q: query })}`;
 
   return (
     <main>
       <a className="skip-link" href="#prices">Skip to prices</a>
       <div className="site-shell" id="top">
         <div className="hero-wrap">
-        <header className="site-header">
-          <Link className="brand" href="/" aria-label="Loonie home">
-            <Image src="/brand/loonie-mark.svg" alt="" width={48} height={48} priority />
-            <span>Loonie</span>
-          </Link>
-          <nav aria-label="Main navigation">
-            <a href="#prices">Prices</a>
-            <a href={query ? "/#how-it-works" : "#how-it-works"}>How it works</a>
-          </nav>
-          <span className="header-note">Made for Canadian shoppers <span aria-hidden="true">♥</span></span>
-        </header>
+          <SiteHeader />
 
-        <section className="hero" aria-labelledby="hero-title">
-          <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
-          <p className="eyebrow">Same groceries. Smarter choices. <span aria-hidden="true">✦</span></p>
-          <h1 id="hero-title">Grocery prices have a story<span className="gold-stop">.</span></h1>
-          <p className="hero-description">
-            Find out if today is a good day to buy.
-          </p>
-          <SearchForm query={query} />
-          <div className="staples" aria-label="Try a staple">
-            <span>Try searching</span>
-            {staples.map((item) => (
-              <Link href={"/?q=" + encodeURIComponent(item.term) + "#prices"} key={item.term}>{item.label}</Link>
-            ))}
-          </div>
-        </section>
+          <section className="hero" aria-labelledby="hero-title">
+            <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
+            <p className="eyebrow">Same groceries. Smarter choices. <span aria-hidden="true">✦</span></p>
+            <h1 id="hero-title">Grocery prices have a story<span className="gold-stop">.</span></h1>
+            <p className="hero-description">Find out if today is a good day to buy.</p>
+            <SearchForm query={query} />
+            <div className="staples" aria-label="Try a staple">
+              <span>Try searching</span>
+              {staples.map((item) => (
+                <Link href={`/?q=${encodeURIComponent(item.term)}#prices`} key={item.term}>{item.label}</Link>
+              ))}
+            </div>
+          </section>
         </div>
 
         <section className="prices-section" id="prices">
@@ -132,23 +108,55 @@ export default async function Home({
                 <div>
                   <p className="section-label">Latest recorded prices</p>
                   <h2>Results for “{query}”</h2>
-                  <p>Each result is an individual store listing, sorted by price.</p>
+                  <p>
+                    Each result is one store’s listing. Open one to see its price history.
+                  </p>
                 </div>
                 <Link href="/" className="clear-search">Clear search <ArrowRight size={18} aria-hidden="true" /></Link>
               </div>
               {!error && (
                 <>
-                  <p className="result-count">{prices.length} result{prices.length === 1 ? "" : "s"}</p>
+                  <div className="results-toolbar">
+                    <p className="result-count">
+                      {prices.length}
+                      {hasMore ? "+" : ""} result{prices.length === 1 ? "" : "s"}
+                    </p>
+                    {prices.length > 1 && <SortToggle query={query} sort={sort} />}
+                  </div>
                   {prices.length > 0 ? (
-                    <ul className="price-list">{prices.map((row) => <PriceRow key={row.product_id} row={row} />)}</ul>
+                    <ul className="price-list">
+                      {prices.map((row, index) => (
+                        <PriceRow
+                          key={row.product_id}
+                          id={`result-${index}`}
+                          row={row}
+                          href={productHref(row.product_id)}
+                          quantity={basket.get(row.product_id) ?? 0}
+                        />
+                      ))}
+                    </ul>
                   ) : (
                     <div className="empty-state">
                       <p>No products found for “{query}”.</p>
                       <p>Try a simpler search, such as <Link href="/?q=milk#prices">milk</Link> or <Link href="/?q=banana#prices">banana</Link>.</p>
                     </div>
                   )}
+                  {hasMore && (
+                    <Link
+                      className="show-more"
+                      href={`${searchHref(query, sort, count + PAGE_SIZE)}#result-${count}`}
+                      scroll={false}
+                    >
+                      Show more results <ArrowDown size={18} aria-hidden="true" />
+                    </Link>
+                  )}
                   {prices.some((row) => estimatedRegular(row) !== null) && (
                     <p className="price-note">* “Usually” is an approximate regular price inferred from that store’s unit price. The store does not label it as a sale.</p>
+                  )}
+                  {sort === "value" && prices.length > 0 && (
+                    <p className="price-note">
+                      Best value compares price per 100 g, per 100 ml, or each. Items with no unit price are listed last.
+                    </p>
                   )}
                 </>
               )}
@@ -166,20 +174,20 @@ export default async function Home({
                 <article className="feature-card feature-card-yellow">
                   <ShoppingBasket size={36} strokeWidth={2.2} aria-hidden="true" />
                   <h3>Find a price</h3>
-                  <p>Search real grocery listings from Canadian stores.</p>
+                  <p>Search real grocery listings from Canadian stores, cheapest first.</p>
                   <Link href="/?q=milk#prices">Try a search <ArrowRight size={18} aria-hidden="true" /></Link>
                 </article>
                 <article className="feature-card feature-card-lilac">
                   <ChartNoAxesCombined size={36} strokeWidth={2.2} aria-hidden="true" />
-                  <h3>See the context</h3>
-                  <p>Check when a price was recorded and which store listed it.</p>
-                  <span>Clarity at a glance</span>
+                  <h3>See the history</h3>
+                  <p>Every listing has a price graph, so you can tell a good price from a normal one.</p>
+                  <Link href="/?q=cheddar#prices">Find a price graph <ArrowRight size={18} aria-hidden="true" /></Link>
                 </article>
                 <article className="feature-card feature-card-pink">
                   <Tag size={36} strokeWidth={2.2} aria-hidden="true" />
-                  <h3>Spot a sale</h3>
-                  <p>Sale labels stay clear, so you know what is actually marked down.</p>
-                  <span>Smarter choices</span>
+                  <h3>Price your basket</h3>
+                  <p>Add your list and see which store is cheapest for all of it.</p>
+                  <Link href="/basket">Open your basket <ArrowRight size={18} aria-hidden="true" /></Link>
                 </article>
               </div>
               <div className="home-bottom">
@@ -188,7 +196,7 @@ export default async function Home({
                   <h3>The best place to start is your own grocery list.</h3>
                   <p>Milk, cheese, bananas — search a staple and see the latest recorded listings.</p>
                   <div className="home-bottom-links">
-                    {staples.map((item) => <Link key={item.term} href={"/?q=" + encodeURIComponent(item.term) + "#prices"}>{item.label}<ArrowRight size={17} aria-hidden="true" /></Link>)}
+                    {staples.map((item) => <Link key={item.term} href={`/?q=${encodeURIComponent(item.term)}#prices`}>{item.label}<ArrowRight size={17} aria-hidden="true" /></Link>)}
                   </div>
                 </div>
                 <div className="banana-card" aria-hidden="true">
@@ -208,11 +216,7 @@ export default async function Home({
           </section>
         )}
 
-        <footer id="about" className="site-footer">
-          <div className="footer-brand"><Image src="/brand/loonie-mark.svg" alt="" width={28} height={28} /><strong>Loonie</strong></div>
-          <p>Independent, non-commercial project. Prices are recorded snapshots, not checkout quotes. Not affiliated with any retailer.</p>
-          <a href="#top">Back to top ↑</a>
-        </footer>
+        <SiteFooter />
       </div>
     </main>
   );
