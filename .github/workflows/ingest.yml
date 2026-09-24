@@ -2,9 +2,13 @@ name: Nightly ingest
 
 on:
   schedule:
-    # 07:10 UTC = 03:10 ET. Off the hour on purpose: GitHub's scheduler is
-    # heavily contended at :00 and jobs get delayed or dropped.
+    # Asks for 07:10 UTC = 03:10 ET. Off the hour on purpose: GitHub's scheduler
+    # is heavily contended at :00. It is a request, not a start time: runs have
+    # started 5+ hours late (12:42 UTC) and can be dropped, so nothing here may
+    # depend on when, or whether, a given run happens.
     - cron: "10 7 * * *"
+    # Monthly keepalive. Only the keepalive job runs on this one.
+    - cron: "41 10 11 * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,15 +16,16 @@ on:
         type: boolean
         default: false
 
-# Never run two ingests at once. A queued run that overlaps the previous one
-# would double the request rate against an API we are deliberately being gentle
-# with.
-concurrency:
-  group: ingest
-  cancel-in-progress: false
-
 jobs:
   ingest:
+    if: github.event.schedule != '41 10 11 * *'
+    # Never run two ingests at once. A queued run that overlaps the previous one
+    # would double the request rate against an API we are deliberately being
+    # gentle with. Scoped to this job so a keepalive run can never hold up or
+    # replace a queued ingest, whenever the two happen to land.
+    concurrency:
+      group: ingest
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -40,3 +45,20 @@ jobs:
           INGEST_RATE_LIMIT_SECONDS: "1.0"
         run: |
           python -m ingest.run ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  # GitHub disables scheduled workflows in a public repo after 60 days without
+  # repository activity, and the nightly runs themselves don't count. Enabling
+  # the workflow through the API resets that clock without a commit. Being late
+  # doesn't matter here; a dropped month would put the next run past day 60, and
+  # only a push in between would cover that.
+  keepalive:
+    if: github.event.schedule == '41 10 11 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/ingest.yml/enable"
