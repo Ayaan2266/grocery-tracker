@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Loonie loon coin">
+  <circle cx="60" cy="60" r="56" fill="#FFE975"/>
+  <circle cx="60" cy="60" r="50" fill="none" stroke="#FFF8D8" stroke-width="2.5"/>
+  <path d="M22 82c10-4 17-4 27 0s17 4 27 0 17-4 27 0" fill="none" stroke="#ED304B" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M24 68c6-10 19-16 33-14 14 2 20 8 27 1 5-5 5-13 5-19 0-4 1-9 5-10 5-2 10 2 10 7 0 5-5 7-7 11-2 17-10 26-21 30-17 7-38 2-52-6Z" fill="#0B49BD"/>
+  <path d="m103 31 13 2-13 4Z" fill="#0B49BD"/>
+  <path d="M87 42c4 2 7 2 10 1" stroke="#FFE975" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="97" cy="30" r="1.8" fill="#ED304B"/>
+  <path d="M39 62c7-2 14-1 20 3" stroke="#FFE975" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
