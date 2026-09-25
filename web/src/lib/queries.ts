@@ -35,6 +35,18 @@ export type LatestPrice = {
    * null) on a database without migration 0007.
    */
   implied_regular_cents?: number | null;
+  /**
+   * True when the unit price was worked out by migration 0008 for a price
+   * recorded before 2026-09-24, rather than stored with it.
+   */
+  unit_price_backfilled?: boolean;
+  /**
+   * Cross-store matching keys from ingest/match.py; see lib/matching.ts.
+   * Absent on a database without migration 0010, null where the package
+   * size does not parse.
+   */
+  identity_key?: string | null;
+  substitute_key?: string | null;
 };
 
 export type Coverage = {
@@ -138,23 +150,61 @@ export async function getProducts(productIds: number[]): Promise<Result<LatestPr
 }
 
 /**
- * Every store's listing of these retailer SKUs.
+ * PostgREST `in` list with every value quoted. Match keys contain "." and
+ * "|", and quoting is what keeps a "." from being read as syntax.
+ */
+function inList(values: string[]): string {
+  return `(${values.map((v) => `"${v.replace(/["\\]/g, "\\$&")}"`).join(",")})`;
+}
+
+/**
+ * Every listing that may be the same item as one of these products: each
+ * store's listing of their product codes, plus every listing that shares one
+ * of their identity keys. lib/matching.ts decides which of them are.
  *
  * All three banners run on the same PCX platform, so an identical product
- * carries the same product code at each one that stocks it. This is how a
- * product page finds the same item elsewhere and how the basket prices a list
- * at each store. A code no other store carries simply comes back once, and
- * the page shows no comparison rather than a wrong one.
+ * usually carries the same code at each one that stocks it. When it does not
+ * (Superstore lists some national-brand and No Name items under its own
+ * codes), the identity key finds it. A product no other store carries simply
+ * comes back once, and the page shows no comparison rather than a wrong one.
  */
-export async function getListingsBySku(skus: string[]): Promise<Result<LatestPrice[]>> {
-  if (skus.length === 0) return { data: [], error: null };
+export async function getSameItemCandidates(
+  products: LatestPrice[],
+): Promise<Result<LatestPrice[]>> {
+  if (products.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const skus = [...new Set(products.map((p) => p.retailer_sku))];
+  const keys = [...new Set(products.map((p) => p.identity_key).filter((k): k is string => !!k))];
+  const [bySku, byKey] = await Promise.all([
+    supabase.from("product_latest_price").select("*").in("retailer_sku", skus),
+    keys.length > 0
+      ? supabase.from("product_latest_price").select("*").filter("identity_key", "in", inList(keys))
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const error = bySku.error ?? byKey.error;
+  if (error) return { data: null, error: error.message };
+
+  const unique = new Map<number, LatestPrice>();
+  for (const row of [...(bySku.data ?? []), ...(byKey.data ?? [])] as LatestPrice[]) {
+    unique.set(row.product_id, row);
+  }
+  return { data: [...unique.values()], error: null };
+}
+
+/** Listings that share a substitute key: similar items, never the same one. */
+export async function getSimilarCandidates(keys: string[]): Promise<Result<LatestPrice[]>> {
+  if (keys.length === 0) return { data: [], error: null };
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
   const { data, error } = await supabase
     .from("product_latest_price")
     .select("*")
-    .in("retailer_sku", skus);
+    .filter("substitute_key", "in", inList(keys))
+    .order("unit_price_cents", { ascending: true, nullsFirst: false })
+    .limit(100);
 
   if (error) return { data: null, error: error.message };
   return { data: (data ?? []) as LatestPrice[], error: null };

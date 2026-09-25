@@ -65,7 +65,7 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 
-from ingest.normalize import parse_package
+from ingest.normalize import Package, parse_package
 
 Basis = Literal["identity", "substitute"]
 
@@ -83,13 +83,16 @@ STOPWORDS = frozenset({"a", "an", "and", "by", "for", "in", "of", "the", "with"}
 PACKAGING_WORDS = frozenset({"100%", "bag", "club", "count", "ct", "family", "jug", "pack", "size"})
 
 # A size or count written into the name: "150 ml", "2 lb bag", "95mL",
-# "12 Pack", "2x1.25 l". Removed so a name that states its size agrees with
-# one that does not.
+# "12 Pack", "4-Pack", "2x1.25 l". Dropped when the package already measures
+# the product by weight or volume, so a name that restates its size agrees
+# with one that does not. Kept when the package only counts it: No Name
+# napkins "500 Pack" and "250 Pack" are both packaged as "1 ea", and the name
+# is the only place the difference is written.
 _SIZE_IN_NAME = re.compile(
     r"\b\d+(?:\.\d+)?\s*(?:x\s*\d+(?:\.\d+)?\s*)?"
     r"(?:g|kg|mg|ml|l|lb|lbs|oz|litres?|liters?)\b"
 )
-_COUNT_IN_NAME = re.compile(r"\b\d+\s*(?:pack|pk|count|ct|pcs)\b")
+_COUNT_IN_NAME = re.compile(r"\b(\d+)[\s-]*(?:pack|pk|count|ct|pcs)\b")
 # Milk fat, "M.F.", restates the percentage beside it.
 _MILK_FAT = re.compile(r"\bm\.?\s*f\b\.?")
 # "Partly Skimmed Milk 2%" is Canadian labelling for 2% milk. Only dropped
@@ -147,14 +150,25 @@ def brand_key(brand: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", _fold(brand))
 
 
-def name_tokens(raw_name: str, brand: str | None = None) -> frozenset[str]:
+def name_tokens(
+    raw_name: str, brand: str | None = None, package: Package | None = None
+) -> frozenset[str]:
     """The words of a product name that describe the product."""
     text = _fold(raw_name)
     text = text.replace("&", " and ").replace("+", " and ")
     text = _POSSESSIVE.sub("", text).replace("'", "").replace("’", "")
     text = _PERCENT.sub(r"\1%", text)
-    text = _SIZE_IN_NAME.sub(" ", text)
-    text = _COUNT_IN_NAME.sub(" ", text)
+    if package is not None and package.unit != "ea":
+        text = _SIZE_IN_NAME.sub(" ", text)
+        text = _COUNT_IN_NAME.sub(" ", text)
+    else:
+        # Counted packages keep what the name says, unless it only restates
+        # the package: "Large Size Eggs 12 Pack" is packaged as "12 ea".
+        counted = package.total if package is not None else None
+        text = _COUNT_IN_NAME.sub(
+            lambda m: " " if counted is not None and Decimal(m.group(1)) == counted else m[0],
+            text,
+        )
     text = _MILK_FAT.sub(" ", text)
     if "%" in text:
         text = _PARTLY_SKIMMED.sub(" ", text)
@@ -198,7 +212,7 @@ def keys(
     package = parse_package(package_size) if package_size else None
     if package is None:
         return None, None
-    words = name_tokens(raw_name, brand)
+    words = name_tokens(raw_name, brand, package)
     if not words:
         return None, None
 

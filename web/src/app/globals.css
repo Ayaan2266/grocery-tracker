@@ -423,3 +423,9 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
   .store-cell-name { margin-right: auto; }
   .basket-summary { padding: 18px; }
 }
+
+/* Similar items reuse the store comparison rows; the size sits where the bar does. */
+.similar-size { color: var(--muted); font-size: 13px; font-weight: 700; }
+@media (max-width: 600px) {
+  .similar-items .similar-size { grid-area: bar; }
+}

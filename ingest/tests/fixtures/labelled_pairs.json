@@ -1,0 +1,3805 @@
+{
+ "_about": "Pairs of real listings from the catalogue as sampled on 2026-09-25, labelled by hand. identity: the same product in the same package. substitute: a different product a shopper looking for the other would accept without surprise -- same kind, same variant (flavour, fat, organic, lactose free), same pack format, a similar size. different: anything else. Where it was unclear, the label says so in a note. Sources: neighbour = the most similar same-size listing at another store by trigram similarity, which the matcher had no part in choosing; proposal = pairs the matcher proposed over the whole catalogue; hard case = near misses picked from the staples listing. ambiguous_identity marks a pair whose identity key another SKU at the same store also held in the catalogue, which the matcher never treats as an identity.",
+ "labelled": "2026-09-25; review welcome",
+ "pairs": [
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Milk 2 Go",
+    "name": "1% Chocolate Reduced Sugar Partly Skimmed Milk",
+    "package_size": "473 ml"
+   },
+   "right": {
+    "brand": "Milk 2 Go",
+    "name": "1% Chocolate Partly Skimmed Milk",
+    "package_size": "473 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "10 Wheat Tortillas",
+    "package_size": "320 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Whole Grain Whole Wheat Large Tortillas",
+    "package_size": "334 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Wonder",
+    "name": "100% Whole Wheat English Muffins",
+    "package_size": "342 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Whole Wheat English Muffins",
+    "package_size": "342 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Dairyland",
+    "name": "14% Sour Cream",
+    "package_size": "500 ml"
+   },
+   "right": {
+    "brand": "Beatrice",
+    "name": "14% Sour Cream",
+    "package_size": "500 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Dairyland",
+    "name": "3.25% Ultrafiltered Homogenized Milk",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "3.25% Ultrafiltered Homogenized Milk",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Bens",
+    "name": "BISTRO EXPRESS Brown Basmati Rice",
+    "package_size": "240 g"
+   },
+   "right": {
+    "brand": "Bens",
+    "name": "BISTRO EXPRESS Basmati Coconut Rice",
+    "package_size": "240 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Balzac's",
+    "name": "Blend Ground Coffee Can",
+    "package_size": "300 g"
+   },
+   "right": {
+    "brand": "Starbucks",
+    "name": "Via Caramel Flavoured Ground Coffee Bag",
+    "package_size": "311 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Dainty",
+    "name": "Brown Basmati Rice",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": "Dainty",
+    "name": "Basmati Rice",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Burger Buns Gigantico",
+    "package_size": "8x71.0 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Gigantico Burger Buns",
+    "package_size": "8x71.0 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Carrot + Orange + Pineapple Cold Pressed Juice with Probiotics for Gut Health",
+    "package_size": "333 ml"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Beet + Carrot + Apple Cold Pressed Juice with Probiotics for Gut Health",
+    "package_size": "333 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Chicken Divan Breaded Boneless Broccoli and Cheese Filled Chicken Breasts",
+    "package_size": "560 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Chicken Kyiv Breaded Boneless Garlic-Herb Butter Filled Chicken Breasts",
+    "package_size": "560 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "Club Pack Chicken Thighs, Bone-In",
+    "package_size": "2 kg"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Club Pack Chicken Breasts, Boneless Skinless",
+    "package_size": "2 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Campbell's",
+    "name": "Condensed Soup Yellow Thai Curry",
+    "package_size": "284 ml"
+   },
+   "right": {
+    "brand": "Campbell's",
+    "name": "Condensed Soup Tomato",
+    "package_size": "284 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Green Giant",
+    "name": "Cut Wax Beans",
+    "package_size": "398 ml"
+   },
+   "right": {
+    "brand": "Green Giant",
+    "name": "Cut Green Beans",
+    "package_size": "398 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Violife",
+    "name": "Dairy Free Chives Cream Cheese",
+    "package_size": "200 g"
+   },
+   "right": {
+    "brand": "Violife",
+    "name": "Dairy Free Cream Cheese",
+    "package_size": "200 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Tim Hortons",
+    "name": "Dark Roast Coffee",
+    "package_size": "300 g"
+   },
+   "right": {
+    "brand": "Maxwell House",
+    "name": "Dark Roast Coffee 100% Compostable Pods",
+    "package_size": "292 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Eggs, Large",
+    "package_size": "12 ea"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Large Size Eggs 12 Pack",
+    "package_size": "12 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Free From Naturally Smoked Bacon",
+    "package_size": "375 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Maple Flavoured Naturally Smoked Bacon",
+    "package_size": "375 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": null,
+    "name": "Fresh Orange Juice",
+    "package_size": "1.5 l"
+   },
+   "right": {
+    "brand": "Oasis",
+    "name": "Orange Juice No Pulp, Not from Concentrate",
+    "package_size": "1.5 l"
+   },
+   "note": "fresh-squeezed vs not-from-concentrate, pulp unstated"
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Fresh Scent Disinfectant Wipes",
+    "package_size": "75 ea"
+   },
+   "right": {
+    "brand": "Clorox",
+    "name": "Wipes Disinfecting, Fresh Scent",
+    "package_size": "75 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Minute Rice",
+    "name": "Fully Cooked Rice Hot Honey Chicken Flavour Medium",
+    "package_size": "250 g"
+   },
+   "right": {
+    "brand": "Minute Rice",
+    "name": "Fully Cooked Rice White Rice",
+    "package_size": "250 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "Garlic Salt Club Size",
+    "package_size": "1.05 kg"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Sliced Almonds Club Size",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Quality",
+    "name": "Garlic, Minced",
+    "package_size": "750 g"
+   },
+   "right": {
+    "brand": "Suraj",
+    "name": "Garlic Paste",
+    "package_size": "750 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Schweppes",
+    "name": "Ginger Ale Zero Sugar",
+    "package_size": "12x355.0 ml"
+   },
+   "right": {
+    "brand": "Canada Dry",
+    "name": "Ginger Ale Zero Sugar",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "San J",
+    "name": "Gluten-Free Teriyaki Sauce",
+    "package_size": "296 ml"
+   },
+   "right": {
+    "brand": "Kikkoman",
+    "name": "Gluten Free Soy Sauce",
+    "package_size": "296 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": null,
+    "name": "Great British Reserve Cheese, Cheddar",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "Black Diamond",
+    "name": "Old Cheddar Cheese Bar",
+    "package_size": "400 g"
+   },
+   "note": "reserve vs old cheddar"
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Farmer's Market",
+    "name": "Greenhouse Peppers",
+    "package_size": "1 ea"
+   },
+   "right": {
+    "brand": null,
+    "name": "Green Peppers 4-Pack",
+    "package_size": "1 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Dare",
+    "name": "Holiday Crackers Original",
+    "package_size": "180 g"
+   },
+   "right": {
+    "brand": "Christie",
+    "name": "Holiday Crackers",
+    "package_size": "180 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "Honey Graham Wafers",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "Christie",
+    "name": "Honey Maid Graham Wafer Crumbs",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Tastie",
+    "name": "Jasmine Rice Milagrosa",
+    "package_size": "18.144 kg"
+   },
+   "right": {
+    "brand": "Jasmine Gold",
+    "name": "Jasmine Rice",
+    "package_size": "18 kg"
+   },
+   "note": "40 lb vs 18 kg"
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "J and J",
+    "name": "Kosher Margarine, Quarters",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Margarine",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Foremost",
+    "name": "Large Size Eggs 18 Pack",
+    "package_size": "18 ea"
+   },
+   "right": {
+    "brand": "Gray Ridge",
+    "name": "Premium Large Eggs",
+    "package_size": "18 ea"
+   },
+   "note": "premium vs regular large eggs"
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Lee Kum Kee",
+    "name": "Less Sodium Soy Sauce 150 ml",
+    "package_size": "150 ml"
+   },
+   "right": {
+    "brand": "Kikkoman",
+    "name": "Less Sodium Soy Sauce",
+    "package_size": "148 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Dairyland",
+    "name": "Light Cottage Cheese",
+    "package_size": "500 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "1% M.F. Light Cottage Cheese",
+    "package_size": "500 g"
+   },
+   "note": "fat content of the unlabelled one unknown"
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Low Fat 3 % M.F. Sour Cream",
+    "package_size": "250 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Light 5% M.F. Sour Cream",
+    "package_size": "250 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Lantic",
+    "name": "Maple Sugar",
+    "package_size": "220 g"
+   },
+   "right": {
+    "brand": "Gefen",
+    "name": "Pure Maple Syrup",
+    "package_size": "227 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Balderson",
+    "name": "Marble Cheddar Cheese",
+    "package_size": "280 g"
+   },
+   "right": {
+    "brand": "Balderson",
+    "name": "Old Cheddar Cheese",
+    "package_size": "280 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "identity",
+   "left": {
+    "brand": null,
+    "name": "Medium Ground Beef, 2 Pack",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "Medium Ground Beef, 2 Pack",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Harvest",
+    "name": "Mild Breakfast Round Sausage",
+    "package_size": "250 g"
+   },
+   "right": {
+    "brand": "Marcangelo",
+    "name": "Mild Breakfast Round Sausage",
+    "package_size": "250 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "M&M's",
+    "name": "Mini Milk Chocolate Candies, Sharing Bag",
+    "package_size": "165 g"
+   },
+   "right": {
+    "brand": "M&M's",
+    "name": "Peanut Milk Chocolate Candies, Sharing Bag",
+    "package_size": "165 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Saputo",
+    "name": "Mozzarellissima Pizza Mozzarella Cheese",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "Saputo",
+    "name": "Mozzarellissima Pizza Mozzarella Shredded Cheese",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Liebers",
+    "name": "Mushroom Pieces & Stems",
+    "package_size": "227 g"
+   },
+   "right": {
+    "brand": "Shwartz",
+    "name": "Mushrooms, Stems and Pieces",
+    "package_size": "227 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Burnbrae Farms",
+    "name": "Naturegg Omega 3 Brown Eggs, Large",
+    "package_size": "12 ea"
+   },
+   "right": {
+    "brand": "Goldegg",
+    "name": "Omega 3 Brown Eggs, Large",
+    "package_size": "12 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Sakura Maple",
+    "name": "Organic 100% Pure Maple Syrup",
+    "package_size": "375 ml"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organics 100% Pure Maple Syrup",
+    "package_size": "375 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Olympic",
+    "name": "Organic Milk 3.25% Jug",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "3.25% Organic Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": null,
+    "name": "Organic Rainbow Carrots",
+    "package_size": "1 ea"
+   },
+   "right": {
+    "brand": null,
+    "name": "Organic Carrots Bunched",
+    "package_size": "1 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "identity",
+   "left": {
+    "brand": "PC Organics",
+    "name": "Organic Whole Milk 3.25% M.F.",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organic Whole Milk 3.25% M.F.",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Seaquest",
+    "name": "Pacific White Shrimp Cooked, Club Size",
+    "package_size": "680 g"
+   },
+   "right": {
+    "brand": "Seaquest",
+    "name": "Pacific White Shrimp Club Size",
+    "package_size": "680 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Beatrice",
+    "name": "Partly Skimmed Milk 2%",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organic Partly Skimmed Milk 2% M.F.",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Farmer's Market",
+    "name": "Pink Lady Apples, 5 lb Bag",
+    "package_size": "2.27 kg"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Red Potatoes, 5 lb Bag",
+    "package_size": "2.268 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Kernels",
+    "name": "Popcorn Seasoning, Sassy Salt & Vinegar",
+    "package_size": "110 g"
+   },
+   "right": {
+    "brand": "Kernels",
+    "name": "Popcorn Seasoning Dill Pickle",
+    "package_size": "110 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Paldo",
+    "name": "Ramen Noodles, Lobster",
+    "package_size": "480 g"
+   },
+   "right": {
+    "brand": "T&T",
+    "name": "3-Minute Ramen Noodles",
+    "package_size": "504 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Grace",
+    "name": "Rice Long Grain White",
+    "package_size": "2 kg"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Long Grain White Rice",
+    "package_size": "2 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Davidoff",
+    "name": "Rich Aroma Instant Coffee",
+    "package_size": "100 g"
+   },
+   "right": {
+    "brand": "Nescafe",
+    "name": "RICH Decaffeinated Instant Coffee",
+    "package_size": "100 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Lilydale",
+    "name": "Sausage Chicken",
+    "package_size": "375 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Smoked Chicken Sausage, Spinach & Feta",
+    "package_size": "375 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "WaterWipes",
+    "name": "Sensitive Newborn & Baby Wipes, 99.9% Water, Unscented & Hypoallergenic, 360 Count",
+    "package_size": "360 ea"
+   },
+   "right": {
+    "brand": "Huggies",
+    "name": "Baby Wipes, Natural Care Sensitive, UNSCENTED, 2 Refill Packs, 352 Wipes",
+    "package_size": "352 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": null,
+    "name": "Sliced Whole Wheat Bread",
+    "package_size": "383 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "Whole Wheat Bread",
+    "package_size": "383 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Smoky Bacon Mayo Sandwich Spread",
+    "package_size": "300 ml"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Chipotle Mayo Sandwich Spread",
+    "package_size": "300 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "substitute",
+   "left": {
+    "brand": "Cashmere",
+    "name": "Soft & Thick Toilet Paper, 24 Triple Rolls = 72 Single Rolls",
+    "package_size": "24 ea"
+   },
+   "right": {
+    "brand": "Purex",
+    "name": "Soft & Thick Toilet Paper, 24 Triple Rolls = 72 Single Rolls",
+    "package_size": "24 ea"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Ziggy's",
+    "name": "Stuffed Mammoth Olives",
+    "package_size": "500 ml"
+   },
+   "right": {
+    "brand": "Ziggy's",
+    "name": "Mammoth Olives, Pitted",
+    "package_size": "500 ml"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Angie's",
+    "name": "Sweet & Salty Kettle Corn Barbecue Flavoured",
+    "package_size": "156 g"
+   },
+   "right": {
+    "brand": "SkinnyPop Popcorn",
+    "name": "Popcorn Sweet & Salty Kettle",
+    "package_size": "150 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Johnvince Foods",
+    "name": "Sweetened Banana Chips",
+    "package_size": "225 g"
+   },
+   "right": {
+    "brand": "Farmer's Market",
+    "name": "Banana Chips",
+    "package_size": "220 g"
+   },
+   "note": "sweetening of the second unstated"
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Saputo",
+    "name": "Tex Mex Shredded Cheese",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "Saputo",
+    "name": "Mozzarellissima Pizza Mozzarella Shredded Cheese",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Golden Fluff",
+    "name": "Tortilla Chips Hot Salsa Flavored",
+    "package_size": "283 g"
+   },
+   "right": {
+    "brand": "Doritos",
+    "name": "Roll'd Fiery Lime Flavoured Rolled Tortilla Chips",
+    "package_size": "280 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Gefen",
+    "name": "Vanilla Sugar",
+    "package_size": "340 g"
+   },
+   "right": {
+    "brand": "Swerve",
+    "name": "Brown Sugar",
+    "package_size": "340 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Christie",
+    "name": "Wheat Thins Sweet Potato Crackers, thin, crispy wheat crackers with great taste and a big crunch",
+    "package_size": "175 g"
+   },
+   "right": {
+    "brand": "RW Garcia",
+    "name": "3 Seed Sweet Potato Crackers",
+    "package_size": "180 g"
+   }
+  },
+  {
+   "source": "neighbour",
+   "label": "different",
+   "left": {
+    "brand": "Montreal Kosher",
+    "name": "Whole Wheat Frozen Challah Bread, Extra Special",
+    "package_size": "567 g"
+   },
+   "right": {
+    "brand": "Wonder",
+    "name": "Whole Wheat Bread",
+    "package_size": "570 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "12 Grain Bagels",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Bagels, 12-Grain",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Sufra",
+    "name": "Halal Boneless Skinless Chicken Thighs",
+    "package_size": "736 g"
+   },
+   "right": {
+    "brand": "Sufra",
+    "name": "Halal Boneless Skinless Chicken Thighs",
+    "package_size": "736 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Bagel Plain, 6 Pack",
+    "package_size": "510 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Bagel Plain 6 Pack",
+    "package_size": "510 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Butcher's Choice",
+    "name": "Medium Ground Beef",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Butcher's Choice",
+    "name": "Medium Ground Beef",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": null,
+    "name": "Medium Ground Beef, 2 Pack",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "Medium Ground Beef, 2 Pack",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Casa Mendosa",
+    "name": "Whole Wheat Large Tortillas",
+    "package_size": "640 g"
+   },
+   "right": {
+    "brand": "Casa Mendosa",
+    "name": "Whole Wheat Large Tortillas",
+    "package_size": "640 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Bagel Whole Wheat",
+    "package_size": "510 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Bagel Whole Wheat",
+    "package_size": "510 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Distilled Water",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Distilled Water",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": null,
+    "name": "White Bread",
+    "package_size": "383 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "White Bread",
+    "package_size": "383 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Air Chilled Whole Chicken",
+    "package_size": "1.7 kg"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Air Chilled Whole Chicken",
+    "package_size": "1.7 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Casa Mendosa",
+    "name": "Whole Wheat 7\" Medium Tortillas",
+    "package_size": "340 g"
+   },
+   "right": {
+    "brand": "Casa Mendosa",
+    "name": "Whole Wheat 7\" Medium Tortillas",
+    "package_size": "340 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Brisk",
+    "name": "Lemon Iced Tea",
+    "package_size": "24x355.0 ml"
+   },
+   "right": {
+    "brand": "Brisk",
+    "name": "Lemon Iced Tea",
+    "package_size": "24x355.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Spinach Tortillas",
+    "package_size": "384 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Spinach Tortillas",
+    "package_size": "384 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Original English Muffins",
+    "package_size": "342 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Original English Muffins",
+    "package_size": "342 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Tortillas Original",
+    "package_size": "650 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Original Tortillas",
+    "package_size": "650 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Mc Dairy",
+    "name": "Cottage Cheese Pressed 0.8 % M.F.",
+    "package_size": "500 g"
+   },
+   "right": {
+    "brand": "Mc Dairy",
+    "name": "Cottage Cheese Pressed 0.8 % M.F.",
+    "package_size": "500 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Maple Leaf",
+    "name": "Boneless Skinless Chicken Breasts, Raised on Canadian Farms",
+    "package_size": "1 ea"
+   },
+   "right": {
+    "brand": "Maple Leaf",
+    "name": "Boneless Skinless Chicken Breasts, Raised on Canadian Farms",
+    "package_size": "1 ea"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Rolling Meadow",
+    "name": "Whole Milk 3.8% M.F.",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Rolling Meadow",
+    "name": "Whole Milk 3.8% M.F.",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Gigantico Burger Buns",
+    "package_size": "8x71.0 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Burger Buns Gigantico",
+    "package_size": "8x71.0 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Country Harvest",
+    "name": "Cinnamon Raisin Bagel",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Country Harvest",
+    "name": "Cinnamon Raisin Bagel",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Johnvince Foods",
+    "name": "Roasted Peanuts, Unsalted",
+    "package_size": "300 g"
+   },
+   "right": {
+    "brand": "Johnvince Foods",
+    "name": "Roasted Unsalted Peanuts",
+    "package_size": "300 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Lactantia",
+    "name": "Lactose Free Partly Skimmed Milk 1%",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Milk Lactose Free 1% Partly Skimmed",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Butcher's Choice",
+    "name": "Lean Ground Beef",
+    "package_size": "0.45 kg"
+   },
+   "right": {
+    "brand": "Butcher's Choice",
+    "name": "Lean Ground Beef",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Casa Mendosa",
+    "name": "Original 10 Large Tortillas",
+    "package_size": "640 g"
+   },
+   "right": {
+    "brand": "Casa Mendosa",
+    "name": "Original 10\" Large Tortillas",
+    "package_size": "640 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "D'Italiano",
+    "name": "Gusto! Everything & Herbs Bagels",
+    "package_size": "540 g"
+   },
+   "right": {
+    "brand": "D'Italiano",
+    "name": "Gusto! Everything & Herbs Bagels",
+    "package_size": "540 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "D'Italiano",
+    "name": "Gusto! Original Bagels",
+    "package_size": "540 g"
+   },
+   "right": {
+    "brand": "D'Italiano",
+    "name": "Gusto! Original Bagels",
+    "package_size": "540 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Country Harvest",
+    "name": "Everything Bagel",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Country Harvest",
+    "name": "Everything Bagel",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Country Harvest",
+    "name": "14 Grains Bagels",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Country Harvest",
+    "name": "14 Grains Bagel",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Gigantico® Jalapeno Sausage Buns",
+    "package_size": "432 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Gigantico Jalapeno Sausage Buns",
+    "package_size": "432 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Butcher's Choice",
+    "name": "Extra Lean Ground Beef",
+    "package_size": "0.45 kg"
+   },
+   "right": {
+    "brand": "Butcher's Choice",
+    "name": "Extra Lean Ground Beef",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Casa Mendosa",
+    "name": "Tortillas Triple Baked 50/50 Corn-Wheat",
+    "package_size": "204 g"
+   },
+   "right": {
+    "brand": "Casa Mendosa",
+    "name": "Tortillas Triple Baked 50/50 Corn-Wheat",
+    "package_size": "204 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "PC Organics",
+    "name": "Organic Partly Skimmed Milk 2% M.F.",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organic Partly Skimmed Milk 2% M.F.",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "PC Organics",
+    "name": "Organic Whole Milk 3.25% M.F.",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organic Whole Milk 3.25% M.F.",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Gigantico Sausage Buns",
+    "package_size": "432 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Gigantico Sausage Buns",
+    "package_size": "432 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Country Harvest",
+    "name": "Original Bagels",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Country Harvest",
+    "name": "Original Bagels",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "100% Pure Canola Oil",
+    "package_size": "946 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "100% Pure Canola Oil",
+    "package_size": "946 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Bagel Cinnamon Raisin, 6 pack",
+    "package_size": "510 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Bagel Cinnamon Raisin 6 Pack",
+    "package_size": "510 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Margarine",
+    "package_size": "907 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Margarine",
+    "package_size": "907 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Blueberry Bagel 6 Pack",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Blueberry Bagel",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "No Name",
+    "name": "Margarine",
+    "package_size": "1.36 kg"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Margarine",
+    "package_size": "1.36 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Ruffles",
+    "name": "Potato Chips, Regular",
+    "package_size": "200 g"
+   },
+   "right": {
+    "brand": "Ruffles",
+    "name": "Regular Potato Chips",
+    "package_size": "200 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Sufra",
+    "name": "Whole Chicken Halal",
+    "package_size": "1.7 kg"
+   },
+   "right": {
+    "brand": "Sufra",
+    "name": "Halal Whole Chicken",
+    "package_size": "1.7 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "identity",
+   "left": {
+    "brand": "Johnvince Foods",
+    "name": "Roasted Peanuts, Salted",
+    "package_size": "300 g"
+   },
+   "right": {
+    "brand": "Johnvince Foods",
+    "name": "Roasted Salted Peanuts",
+    "package_size": "300 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Zero Sugar Cola",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "Pepsi",
+    "name": "Zero Sugar Cola",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "1 Ply Napkins 500 Pack Club Size",
+    "package_size": "1 ea"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "1 Ply Napkins 250 Pack",
+    "package_size": "1 ea"
+   },
+   "note": "500 vs 250 napkins; both packaged as 1 ea"
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Spaghettini Pasta",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Catelli",
+    "name": "Pasta Spaghettini",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Tomato Ketchup",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Violife",
+    "name": "Dairy Free Cheddar Cheese Shreds",
+    "package_size": "200 g"
+   },
+   "right": {
+    "brand": "Daiya",
+    "name": "Dairy Free Cheddar Cheese Shreds",
+    "package_size": "200 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Tomato Paste",
+    "package_size": "156 ml"
+   },
+   "right": {
+    "brand": "Mutti",
+    "name": "Tomato Paste",
+    "package_size": "156 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Neilson",
+    "name": "Chocolate Milk",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "Beatrice",
+    "name": "Chocolate Milk",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Zero Sugar Ginger Ale 12 Pack",
+    "package_size": "12x355.0 ml"
+   },
+   "right": {
+    "brand": "Schweppes",
+    "name": "Ginger Ale Zero Sugar",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Artificial Vanilla Extract",
+    "package_size": "250 ml"
+   },
+   "right": {
+    "brand": "Club House",
+    "name": "Artificial Vanilla Extract",
+    "package_size": "250 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Baby Dill with Garlic Pickles",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Strubs",
+    "name": "Baby Dill Pickles Garlic",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Armstrong",
+    "name": "Pizza Mozzarella Shredded Cheese",
+    "package_size": "320 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Pizza Mozzarella Shredded Cheese",
+    "package_size": "320 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "100% Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "Kriti Gold",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Smooth Peanut Butter, Club Size",
+    "package_size": "2 kg"
+   },
+   "right": {
+    "brand": "Kraft",
+    "name": "Smooth Peanut Butter",
+    "package_size": "2 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Strubs",
+    "name": "Baby Dill Pickles Garlic",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Strubs",
+    "name": "Dill & Garlic Pickles Baby Dills",
+    "package_size": "1 l"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Ice River Springs",
+    "name": "Natural Spring Water",
+    "package_size": "24x500.0 ml"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Natural Spring Water 24 Pack",
+    "package_size": "24x500.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Capilano",
+    "name": "Liquid Honey",
+    "package_size": "500 g"
+   },
+   "right": {
+    "brand": "Tamam",
+    "name": "Liquid Honey",
+    "package_size": "500 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Unbleached All-Purpose Flour",
+    "package_size": "2.5 kg"
+   },
+   "right": {
+    "brand": "Robin Hood",
+    "name": "Unbleached All Purpose Flour",
+    "package_size": "2.5 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Seaquest",
+    "name": "Pacific White Shrimp",
+    "package_size": "300 g"
+   },
+   "right": {
+    "brand": "Seaquest",
+    "name": "Pacific White Shrimp",
+    "package_size": "300 g"
+   },
+   "note": "same name, different SKUs: probably different shrimp counts",
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Baby Dill with Garlic Pickles",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Baby Dill Pickles With Garlic",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Jalapeno Flavour Kettle Cooked Potato Chips",
+    "package_size": "200 g"
+   },
+   "right": {
+    "brand": "Miss Vickies",
+    "name": "Jalapeño flavour kettle cooked potato chips 200g",
+    "package_size": "200 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Pepsi",
+    "name": "Diet Cola",
+    "package_size": "12x355.0 ml"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Diet Cola 12 Pack",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Pastene",
+    "name": "San Marzano Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "Allessia",
+    "name": "San Marzano Tomato",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Lantic",
+    "name": "Icing Sugar",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "Rogers",
+    "name": "Icing Sugar",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Rooster",
+    "name": "Medium Firm Tofu",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Sunrise",
+    "name": "Tofu, Medium Firm",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Kraft",
+    "name": "Real Mayonnaise",
+    "package_size": "890 ml"
+   },
+   "right": {
+    "brand": "Hellmann's",
+    "name": "Real Mayonnaise",
+    "package_size": "890 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Kraft",
+    "name": "Smooth Light Peanut Butter",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Smooth Light Peanut Butter",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Beatrice",
+    "name": "Partly Skimmed Milk 2%",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "All-Purpose Flour",
+    "package_size": "10 kg"
+   },
+   "right": {
+    "brand": "Five Roses",
+    "name": "All Purpose Flour Club Pack",
+    "package_size": "10 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Cut Green Beans",
+    "package_size": "398 ml"
+   },
+   "right": {
+    "brand": "Green Giant",
+    "name": "Cut Green Beans",
+    "package_size": "398 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Crushed Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "Aylmer",
+    "name": "Tomatoes, Crushed",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Condensed Cream of Mushroom Soup",
+    "package_size": "284 ml"
+   },
+   "right": {
+    "brand": "Campbell's",
+    "name": "Cream of Mushroom Condensed Soup",
+    "package_size": "284 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gallo",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Colavita",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Dempster's",
+    "name": "100% Whole Wheat Bread",
+    "package_size": "675 g"
+   },
+   "right": {
+    "brand": "Wonder",
+    "name": "100% Whole Wheat Bread",
+    "package_size": "675 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Beatrice",
+    "name": "2% Milk",
+    "package_size": "237 ml"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "237 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Olympic",
+    "name": "Organic Milk 3.25% Jug",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "3.25% Organic Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Baby Dill Pickles",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Baby Dill Pickles",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Basmati Rice",
+    "package_size": "1.6 kg"
+   },
+   "right": {
+    "brand": "Bens",
+    "name": "Basmati Rice",
+    "package_size": "1.6 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Original English Muffins",
+    "package_size": "342 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Original English Muffins",
+    "package_size": "342 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Chicken Broth",
+    "package_size": "900 ml"
+   },
+   "right": {
+    "brand": "Campbell's",
+    "name": "Chicken Broth",
+    "package_size": "900 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Farmer's Market",
+    "name": "Butter Croissant",
+    "package_size": "270 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "Butter Croissant, 6 Pack",
+    "package_size": "270 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Putter's",
+    "name": "Dill Pickle Kosher",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Bubbies",
+    "name": "Kosher Dill Pickles",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Armstrong",
+    "name": "Medium Cheddar Cheese",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "Cracker Barrel",
+    "name": "Medium Cheddar Cheese",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Mayonnaise",
+    "package_size": "890 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Mayonnaise",
+    "package_size": "890 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Lactantia",
+    "name": "Unsalted Butter",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Unsalted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Daawat",
+    "name": "Basmati Rice",
+    "package_size": "4 kg"
+   },
+   "right": {
+    "brand": "Daawat",
+    "name": "Basmati Rice",
+    "package_size": "4 kg"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Old Cheddar Cheese",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Old Cheddar Cheese",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": null,
+    "name": "Medium Ground Beef",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "Butcher's Choice",
+    "name": "Medium Ground Beef",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Armstrong",
+    "name": "Old Cheddar Shredded Cheese",
+    "package_size": "320 g"
+   },
+   "right": {
+    "brand": "Cracker Barrel",
+    "name": "Old Cheddar Shredded Cheese",
+    "package_size": "320 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Vegetable Oil",
+    "package_size": "3 l"
+   },
+   "right": {
+    "brand": "Saporito",
+    "name": "Vegetable Oil",
+    "package_size": "3 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Canada Dry",
+    "name": "Ginger Ale, 6 Pack",
+    "package_size": "6x710.0 ml"
+   },
+   "right": {
+    "brand": "Schweppes",
+    "name": "Ginger Ale",
+    "package_size": "6x710.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Sliced Mushrooms",
+    "package_size": "284 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Sliced Mushrooms",
+    "package_size": "284 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Beatrice",
+    "name": "Homogenized Milk 3.25%",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "The A2 Milk Company",
+    "name": "3.25% M.F. Homogenized Milk",
+    "package_size": "2 l"
+   },
+   "note": "A2 protein milk; debatable"
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Armstrong",
+    "name": "Old Cheddar Cheese",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Old Cheddar Cheese",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Ferma",
+    "name": "Mixed Vegetables",
+    "package_size": "750 g"
+   },
+   "right": {
+    "brand": "Green Giant",
+    "name": "Mixed Vegetables",
+    "package_size": "750 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Cracker Barrel",
+    "name": "Pizza Mozzarella Cheese",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Pizza Mozzarella Cheese",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Small Shells",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": "Italpasta",
+    "name": "Small Shells",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Suraj",
+    "name": "Lentils",
+    "package_size": "540 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Lentils",
+    "package_size": "540 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Organics",
+    "name": "Organic Partly Skimmed Milk 1% M.F.",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Olympic",
+    "name": "Organic 1% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Tomato Paste",
+    "package_size": "156 ml"
+   },
+   "right": {
+    "brand": "Hunt's",
+    "name": "Tomato Paste",
+    "package_size": "156 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PB&Me",
+    "name": "Powdered Peanut Butter",
+    "package_size": "453 g"
+   },
+   "right": {
+    "brand": "PB&Me",
+    "name": "Powdered Peanut Butter",
+    "package_size": "453 g"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Club House",
+    "name": "Artificial Vanilla Extract",
+    "package_size": "125 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Artificial Vanilla Extract",
+    "package_size": "125 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Beatrice",
+    "name": "Skim Milk 0%",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "0% Skim Milk",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Marca Pina",
+    "name": "Soy Sauce",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Kung Fu",
+    "name": "Soy Sauce",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Kraft",
+    "name": "Original Coating Mix",
+    "package_size": "142 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Original Coating Mix",
+    "package_size": "142 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Campbell's",
+    "name": "Condensed Soup Chicken Noodle",
+    "package_size": "284 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Condensed Chicken Noodle Soup",
+    "package_size": "284 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Neilson",
+    "name": "18% Table Cream",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Table Cream 18%",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Original Waffles",
+    "package_size": "560 g"
+   },
+   "right": {
+    "brand": "Kelloggs",
+    "name": "Waffles, Original,",
+    "package_size": "560 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Violife",
+    "name": "Dairy Free Mozzarella Cheese Shreds",
+    "package_size": "200 g"
+   },
+   "right": {
+    "brand": "Daiya",
+    "name": "Dairy Free Mozzarella Cheese Shreds",
+    "package_size": "200 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Alfredo Pasta Sauce",
+    "package_size": "410 ml"
+   },
+   "right": {
+    "brand": "Classico",
+    "name": "Alfredo Pasta Sauce",
+    "package_size": "410 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "GoldSeal",
+    "name": "Salmon Sockeye",
+    "package_size": "213 g"
+   },
+   "right": {
+    "brand": "Clover Leaf",
+    "name": "Sockeye Salmon",
+    "package_size": "213 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Queen St. Bakery",
+    "name": "Chia and Flax Bagel",
+    "package_size": "464 g"
+   },
+   "right": {
+    "brand": "Queen St. Bakery",
+    "name": "Chia and Flax Bagel",
+    "package_size": "464 g"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Caesar Dressing",
+    "package_size": "475 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Caesar Dressing",
+    "package_size": "475 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Clover Leaf",
+    "name": "Flaked Light Tuna, Spicy Thai Chili",
+    "package_size": "85 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Spicy Thai Chili Flaked Light Tuna",
+    "package_size": "85 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Premier",
+    "name": "Basa Fillets",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "Seaquest",
+    "name": "Basa Fillets",
+    "package_size": "400 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Crisco",
+    "name": "All Vegetables Shortening",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "All-Vegetable Shortening",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Aylmer",
+    "name": "Tomatoes Diced, No Salt Added",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "Unico",
+    "name": "Diced Tomatoes, No Salt Added",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Unsalted Butter",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Unsalted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Pepsi",
+    "name": "Diet Cola",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Diet Cola",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Penne Rigate Pasta",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Catelli",
+    "name": "Pasta Penne Rigate",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Rio Mare",
+    "name": "Tuna, Solid Light In Olive Oil",
+    "package_size": "3x80.0 g"
+   },
+   "right": {
+    "brand": "Callipo",
+    "name": "Solid Light Tuna, Olive Oil",
+    "package_size": "3x80.0 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gourmet Garden",
+    "name": "Garlic Paste",
+    "package_size": "80 g"
+   },
+   "right": {
+    "brand": "Gourmet Garden",
+    "name": "Paste Garlic",
+    "package_size": "80 g"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Green Giant",
+    "name": "Mixed Vegetables",
+    "package_size": "750 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Mixed Vegetables",
+    "package_size": "750 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Cola 12 Pack",
+    "package_size": "12x355.0 ml"
+   },
+   "right": {
+    "brand": "Pepsi",
+    "name": "Cola",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Organics",
+    "name": "Organic Crunchy Peanut Butter",
+    "package_size": "500 g"
+   },
+   "right": {
+    "brand": "Nuts to You",
+    "name": "Organic Peanut Butter Crunchy",
+    "package_size": "500 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Marcangelo",
+    "name": "Original Breakfast Pork Sausage",
+    "package_size": "375 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Original Pork Breakfast Sausages",
+    "package_size": "375 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Splendido",
+    "name": "Prosciutto",
+    "package_size": "100 g"
+   },
+   "right": {
+    "brand": "San Daniele",
+    "name": "Prosciutto",
+    "package_size": "100 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Zero Sugar Cola 12 Pack",
+    "package_size": "12x355.0 ml"
+   },
+   "right": {
+    "brand": "Pepsi",
+    "name": "Zero Sugar Cola",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Campbell's",
+    "name": "Vegetable Broth",
+    "package_size": "900 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Vegetable Broth",
+    "package_size": "900 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Whole Kernel Corn",
+    "package_size": "341 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Whole Kernel Corn",
+    "package_size": "341 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Quality",
+    "name": "Chickpeas",
+    "package_size": "1.8 kg"
+   },
+   "right": {
+    "brand": "Suraj",
+    "name": "Chickpeas",
+    "package_size": "1.8 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Dunya Harvest",
+    "name": "Chickpeas",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Chickpeas",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Frenchs",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Baby Dill Pickles with Garlic",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Strubs",
+    "name": "Dill & Garlic Pickles Baby Dills",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Harvest",
+    "name": "Original Breakfast Pork Sausage",
+    "package_size": "375 g"
+   },
+   "right": {
+    "brand": "Marcangelo",
+    "name": "Original Breakfast Pork Sausage",
+    "package_size": "375 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Green Lentils",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": "Dunya Harvest",
+    "name": "Green Lentils",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Liebers",
+    "name": "Extra Light Olive Oil",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Gallo",
+    "name": "Olive Oil, Extra Light",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Chick Peas",
+    "package_size": "540 ml"
+   },
+   "right": {
+    "brand": "Clic",
+    "name": "Chick Peas",
+    "package_size": "540 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Heluva",
+    "name": "French Onion Sour Cream Dip",
+    "package_size": "250 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "French Onion Sour Cream Dip",
+    "package_size": "250 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Shepherd's Pie",
+    "package_size": "900 g"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Shepherd's Pie",
+    "package_size": "900 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Teriyaki Experience",
+    "name": "Teriyaki Sauce",
+    "package_size": "350 ml"
+   },
+   "right": {
+    "brand": "P.F. Chang's",
+    "name": "Teriyaki Sauce",
+    "package_size": "350 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Caesar Salad Kit",
+    "package_size": "282 g"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Caesar Salad Kit",
+    "package_size": "282 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Irini",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "100% Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Tamam",
+    "name": "Red Kidney Beans",
+    "package_size": "540 ml"
+   },
+   "right": {
+    "brand": "Grace",
+    "name": "Red Kidney Beans",
+    "package_size": "540 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Mild Sugar Cured Bacon",
+    "package_size": "375 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Mild Sugar Cured Bacon",
+    "package_size": "375 g"
+   },
+   "ambiguous_identity": true
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Ancestral",
+    "name": "Apple Cider Vinegar 1 L",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Apple Cider Vinegar",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gallo",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "100% Extra Virgin Olive Oil",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Cream Cheese Product with Strawberry",
+    "package_size": "227 g"
+   },
+   "right": {
+    "brand": "Philadelphia",
+    "name": "Strawberry Cream Cheese Product",
+    "package_size": "227 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Armstrong",
+    "name": "Pizza Mozzarella Shredded Cheese",
+    "package_size": "320 g"
+   },
+   "right": {
+    "brand": "Black Diamond",
+    "name": "Pizza Mozzarella Shredded Cheese",
+    "package_size": "320 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Saporito",
+    "name": "Canola Oil",
+    "package_size": "3 l"
+   },
+   "right": {
+    "brand": "Canola Harvest",
+    "name": "Canola Oil",
+    "package_size": "3 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Fruit Blend",
+    "package_size": "2 kg"
+   },
+   "right": {
+    "brand": "President's Choice",
+    "name": "Fruit Blend",
+    "package_size": "2 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Black Beans",
+    "package_size": "540 ml"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Black Beans",
+    "package_size": "540 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Tomato Sauce",
+    "package_size": "680 ml"
+   },
+   "right": {
+    "brand": "Hunt's",
+    "name": "Tomato Sauce",
+    "package_size": "680 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "President's Choice",
+    "name": "Maple and Brown Sugar Flavour Instant Oatmeal",
+    "package_size": "344 g"
+   },
+   "right": {
+    "brand": "Quaker",
+    "name": "Maple & Brown Sugar Flavour Instant Oatmeal",
+    "package_size": "344 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Pardes Farms",
+    "name": "Strawberry",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": null,
+    "name": "Strawberries 1LB",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Quick 100% Whole Grain Oats",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "Robin Hood",
+    "name": "100% Whole Grains Quick Oats",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Mr Goudas",
+    "name": "Table Salt Iodized",
+    "package_size": "1 kg"
+   },
+   "right": {
+    "brand": "Windsor",
+    "name": "Iodized Table Salt",
+    "package_size": "1 kg"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Unico",
+    "name": "Black Beans",
+    "package_size": "540 ml"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Black Beans",
+    "package_size": "540 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "PC Blue Menu",
+    "name": "Whole Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "Aylmer",
+    "name": "Tomatoes Whole",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Tamam",
+    "name": "Liquid Honey",
+    "package_size": "500 g"
+   },
+   "right": {
+    "brand": "Peace River Honey",
+    "name": "Liquid Honey",
+    "package_size": "500 g"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "No Name",
+    "name": "Condensed Vegetable Soup",
+    "package_size": "284 ml"
+   },
+   "right": {
+    "brand": "Campbell's",
+    "name": "Condensed Soup Vegetable",
+    "package_size": "284 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Gallo",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "500 ml"
+   },
+   "right": {
+    "brand": "Irini",
+    "name": "Extra Virgin Olive Oil",
+    "package_size": "500 ml"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Strubs",
+    "name": "Dill & Garlic Pickles Baby Dills",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Baby Dill Pickles With Garlic",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "proposal",
+   "label": "substitute",
+   "left": {
+    "brand": "Magic Baking Powder",
+    "name": "Baking Powder",
+    "package_size": "450 g"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Baking Powder",
+    "package_size": "450 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Neilson",
+    "name": "2% Microfiltered Milk",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Neilson",
+    "name": "2% Lactose Free Milk",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Dairyland",
+    "name": "Lactose Free 2% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Organic Meadow",
+    "name": "Milk, 2%",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Olympic",
+    "name": "Organic Milk 2% Jug",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "PC Organics",
+    "name": "Organic Partly Skimmed Milk 2% M.F.",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Beatrice",
+    "name": "Partly Skimmed Milk 2%",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Rolling Meadow",
+    "name": "Partly Skimmed Milk 2% M.F.",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "4 l"
+   },
+   "note": "grass-fed brand; debatable"
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Lactantia",
+    "name": "PūrFiltre Milk 2% Partly Skimmed",
+    "package_size": "2 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "2 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Mehadrin",
+    "name": "Kosher 2% Milk",
+    "package_size": "1 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "1 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Liberte",
+    "name": "Goat Milk, 2% M.F",
+    "package_size": "4 l"
+   },
+   "right": {
+    "brand": "Neilson",
+    "name": "2% Milk",
+    "package_size": "4 l"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Fairlife",
+    "name": "Milk 2%",
+    "package_size": "1.5 l"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Lactose Free Partly Skimmed Milk 2%",
+    "package_size": "1.5 l"
+   },
+   "note": "Fairlife is lactose free; its name does not say so"
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup Lower Sodium",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "PC Blue Menu",
+    "name": "Low Sodium Ketchup",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "375 ml"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup Glass Bottle",
+    "package_size": "375 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup No Sugar Added",
+    "package_size": "750 ml"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "750 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Heinz",
+    "name": "Zero Tomato Ketchup Style Sauce",
+    "package_size": "375 ml"
+   },
+   "right": {
+    "brand": "Heinz",
+    "name": "Tomato Ketchup",
+    "package_size": "375 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Unsalted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Gay Lea",
+    "name": "Butter Sticks, Salted",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Lactantia",
+    "name": "Salted Butter Sticks",
+    "package_size": "4x113.0 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Becel",
+    "name": "Chef's Signature with 8% Clarified Butter, Salted",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Lactantia",
+    "name": "Lactose Free Butter Salted",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Dairyland",
+    "name": "Creamery Butter Salted",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Organic Meadow",
+    "name": "Organic Butter, Salted",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Salted Butter",
+    "package_size": "454 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Earth Balance",
+    "name": "Butter Sticks",
+    "package_size": "454 g"
+   },
+   "right": {
+    "brand": "Gay Lea",
+    "name": "Butter Sticks, Salted",
+    "package_size": "454 g"
+   },
+   "note": "vegan spread"
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Unico",
+    "name": "Diced Tomatoes, No Salt Added",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "substitute",
+   "left": {
+    "brand": "Aylmer",
+    "name": "Original Diced Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Muir Glen",
+    "name": "Organic Diced Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Hunt's",
+    "name": "Heirloom Diced Tomatoes",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Aylmer",
+    "name": "Diced Tomatoes with Italian Spices",
+    "package_size": "796 ml"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Diced Tomatoes",
+    "package_size": "796 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "Large Size Eggs 12 Pack",
+    "package_size": "12 ea"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Extra Large Size Eggs 12 Pack",
+    "package_size": "12 ea"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "No Name",
+    "name": "Large Size Eggs 12 Pack",
+    "package_size": "12 ea"
+   },
+   "right": {
+    "brand": "No Name",
+    "name": "Large Size Brown Eggs 12 Pack",
+    "package_size": "12 ea"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Pepsi",
+    "name": "Cola",
+    "package_size": "6x710.0 ml"
+   },
+   "right": {
+    "brand": "Pepsi",
+    "name": "Cola",
+    "package_size": "12x355.0 ml"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Farmer's Market",
+    "name": "Butter Croissant",
+    "package_size": "270 g"
+   },
+   "right": {
+    "brand": "Farmer's Market",
+    "name": "Butter Croissants Mini",
+    "package_size": "336 g"
+   }
+  },
+  {
+   "source": "hard case",
+   "label": "different",
+   "left": {
+    "brand": "Tuscanini",
+    "name": "Diced Tomatoes",
+    "package_size": "400 g"
+   },
+   "right": {
+    "brand": "Tuscanini",
+    "name": "Diced Tomatoes",
+    "package_size": "688 g"
+   }
+  }
+ ]
+}
