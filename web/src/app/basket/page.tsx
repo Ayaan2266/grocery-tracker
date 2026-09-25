@@ -7,7 +7,8 @@ import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
-import { getListingsBySku, getProducts, type LatestPrice } from "@/lib/queries";
+import { sameItemListings } from "@/lib/matching";
+import { getProducts, getSameItemCandidates, type LatestPrice } from "@/lib/queries";
 import { BANNER_COLORS, BANNER_SHORT } from "@/lib/stores";
 import { formatCents } from "@/lib/utils";
 
@@ -188,7 +189,7 @@ export default async function BasketPage() {
   const ids = [...basket.keys()];
   const products = await getProducts(ids);
   const items = (products.data ?? []).filter((p) => basket.has(p.product_id));
-  const listings = await getListingsBySku([...new Set(items.map((p) => p.retailer_sku))]);
+  const listings = await getSameItemCandidates(items);
   const error = products.error ?? listings.error;
 
   // Every store any item is listed at, in a stable order.
@@ -209,8 +210,9 @@ export default async function BasketPage() {
     .map((product) => {
       const byStore = new Map<number, LatestPrice>();
       const outOfStock = new Map<number, LatestPrice>();
-      for (const listing of listings.data ?? [product]) {
-        if (listing.retailer_sku !== product.retailer_sku) continue;
+      // The same item only: its code, or its unambiguous identity key. A similar
+      // product is never priced into a store's total as if it were this one.
+      for (const { listing } of sameItemListings(product, listings.data ?? [])) {
         (listing.in_stock ? byStore : outOfStock).set(listing.store_id, listing);
       }
       const cheapest = [...byStore.values()].sort((a, b) => a.price_cents - b.price_cents)[0] ?? null;

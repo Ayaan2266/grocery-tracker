@@ -267,9 +267,10 @@ def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
 
     try:
         with db.connect(database_url) as conn:
+            db.check_schema(conn)
             for target in stores:
                 db.resolve_store_id(conn, target.banner, target.store_code)
-    except db.UnknownStore as exc:
+    except (db.UnknownStore, db.SchemaOutOfDate) as exc:
         return str(exc)
     except db.psycopg.ProgrammingError:
         # psycopg quotes the offending part of the connection string, which is

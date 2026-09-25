@@ -137,18 +137,29 @@ def spans(conn, retailer_sku: str, store_code: str = "3131") -> list[tuple[date,
         return cur.fetchall()
 
 
-def test_migrations_seed_three_verified_stores(conn) -> None:
+def test_migrations_seed_every_verified_store(conn) -> None:
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT s.store_code, r.banner_slug
+            SELECT s.store_code, r.banner_slug, s.postal_code
               FROM stores s JOIN retailers r ON r.id = s.retailer_id
              ORDER BY s.id
         """)
         assert cur.fetchall() == [
-            ("3131", "nofrills"),
-            ("1516", "superstore"),
-            ("1032", "loblaw"),
+            ("3131", "nofrills", "L4K 0C1"),
+            ("1516", "superstore", "R3N 2A1"),
+            ("1032", "loblaw", "L3P 1W2"),
+            ("0552", "zehrs", "L9P 1N2"),
+            ("1436", "fortinos", "M6A 3B4"),
+            ("8711", "maxi", "J9J 3Z4"),
         ]
+
+
+def test_every_targeted_store_has_a_row(conn) -> None:
+    """A store in targets.json with no row fails preflight and costs a night."""
+    from ingest.run import load_targets
+
+    for target in load_targets().stores:
+        db.resolve_store_id(conn, target.banner, target.store_code)
 
 
 def test_a_batch_writes_products_and_observations(conn) -> None:
@@ -852,3 +863,308 @@ class TestImpliedRegularPrice:
 
         assert result.spans_opened == 1
         assert len(spans(conn, "MANGO_EA", "1516")) == 2
+
+
+class TestUnitPriceBackfill:
+    """0008. Unit prices for spans written before the shelf-price code ran.
+
+    Checked on a copy shaped like production on 2026-09-24: stub-era spans
+    with no unit price, API-first spans from the morning of 2026-09-23, and
+    spans from 2026-09-24 that must be left exactly as they are.
+    """
+
+    BACKFILL_MIGRATION = "0008_unit_price_backfill.sql"
+    D21, D23, D24 = date(2026, 9, 21), date(2026, 9, 23), date(2026, 9, 24)
+
+    # sku: (package_size, size parsed by Python?, first_observed_on, price_cents,
+    #       stored unit_price_cents, comparison_unit, comparison_quantity, source)
+    SPANS = {
+        # Stub era: no unit price, and no size_value either -- the stub parser
+        # wrote NULL next to a readable package size.
+        "MANGO_EA": ("960 ml", False, D21, 150, None, None, None, "none"),
+        "COLA_EA": ("12x355.0 ml", False, D21, 1099, None, None, None, "none"),
+        "RICE_EA": ("8 kg", True, D21, 1999, None, None, None, "none"),
+        # API first: an undeclared deal priced at the regular rate, and a
+        # per-1000 g figure. Both have a package size, so both are re-derived.
+        "NECTAR_EA": ("960 ml", True, D23, 150, 24, "ml", 100, "api"),
+        "TURKEY_EA": ("175 g", True, D23, 633, 3618, "g", 1000, "api"),
+        # API first with no readable size: the API's figure is all there is,
+        # rescaled from per 10 ml onto per 100 ml.
+        "SPRAY_EA": ("1 sh", False, D23, 499, 12, "ml", 10, "api"),
+        # Nothing to work with at all.
+        "FOIL_EA": ("30 m", False, D21, 499, None, None, None, "none"),
+        # Written by today's code: left alone.
+        "BREAD_EA": ("675 g", True, D24, 297, 44, "g", 100, "derived"),
+    }
+
+    @pytest.fixture
+    def migrated(self, schema_conn):
+        from ingest.normalize import parse_package_size
+
+        apply_migrations(schema_conn, before=self.BACKFILL_MIGRATION)
+        with schema_conn.cursor() as cur:
+            store_id = db.resolve_store_id(schema_conn, "nofrills", "3131")
+            for run_on in (self.D21, self.D23, self.D24):
+                cur.execute(
+                    "INSERT INTO ingest_runs (store_id, run_on) VALUES (%s, %s)", (store_id, run_on)
+                )
+            for sku, (pkg, parsed, day, price, unit, cu, cq, source) in self.SPANS.items():
+                size = parse_package_size(pkg) if parsed else None
+                cur.execute(
+                    """
+                    INSERT INTO products
+                        (store_id, retailer_sku, raw_name, package_size, size_value, size_unit)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                    """,
+                    (store_id, sku, sku, pkg, size[0] if size else None, size[1] if size else None),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO price_spans
+                        (product_id, first_observed_on, last_confirmed_on, price_cents,
+                         unit_price_cents, comparison_unit, comparison_quantity, unit_price_source)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (cur.fetchone()[0], day, day, price, unit, cu, cq, source),
+                )
+        schema_conn.commit()
+        apply_migrations(schema_conn, after="0007_implied_regular_price.sql")
+        return schema_conn
+
+    def latest(self, conn) -> dict[str, tuple]:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT retailer_sku, unit_price_cents, comparison_unit, comparison_quantity,
+                       unit_price_source, unit_price_backfilled
+                  FROM product_latest_price
+                """
+            )
+            return {sku: rest for sku, *rest in cur.fetchall()}
+
+    def test_every_span_gets_what_todays_code_would_have_stored(self, migrated) -> None:
+        from ingest.normalize import derive_unit_price, parse_package_size
+
+        latest = self.latest(migrated)
+        for sku in ("MANGO_EA", "COLA_EA", "RICE_EA", "NECTAR_EA", "TURKEY_EA"):
+            pkg, _parsed, _day, price, *_rest = self.SPANS[sku]
+            size_value, size_unit = parse_package_size(pkg)
+            expected = derive_unit_price(price, size_value, size_unit)
+            assert latest[sku] == [
+                expected.cents,
+                expected.unit,
+                expected.quantity,
+                "derived",
+                True,
+            ], sku
+
+    def test_the_undeclared_deal_is_priced_at_the_shelf_price_not_the_regular_one(
+        self, migrated
+    ) -> None:
+        """Mango Nectar, $1.50 for 960 ml: 16c/100 ml, not the API's 24c."""
+        assert self.latest(migrated)["NECTAR_EA"][0] == 16
+
+    def test_an_api_figure_with_no_size_is_rescaled_onto_the_common_basis(self, migrated) -> None:
+        assert self.latest(migrated)["SPRAY_EA"] == [120, "ml", 100, "api", True]
+
+    def test_a_span_with_nothing_to_go_on_keeps_no_unit_price(self, migrated) -> None:
+        assert self.latest(migrated)["FOIL_EA"] == [None, None, None, "none", False]
+
+    def test_spans_from_the_shelf_price_code_are_untouched(self, migrated) -> None:
+        assert self.latest(migrated)["BREAD_EA"] == [44, "g", 100, "derived", False]
+
+    def test_stored_prices_are_not_rewritten(self, migrated) -> None:
+        with migrated.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.retailer_sku, s.unit_price_cents, s.unit_price_source
+                  FROM price_spans s JOIN products p ON p.id = s.product_id
+                 WHERE p.retailer_sku IN ('MANGO_EA', 'NECTAR_EA')
+                 ORDER BY 1
+                """
+            )
+            assert cur.fetchall() == [("MANGO_EA", None, "none"), ("NECTAR_EA", 24, "api")]
+
+    def test_the_daily_view_carries_the_correction_on_every_day(self, migrated) -> None:
+        with migrated.cursor() as cur:
+            cur.execute(
+                """
+                SELECT o.observed_on, o.unit_price_cents, o.unit_price_backfilled
+                  FROM price_observations o JOIN products p ON p.id = o.product_id
+                 WHERE p.retailer_sku = 'MANGO_EA'
+                """
+            )
+            assert cur.fetchall() == [(self.D21, 16, True)]
+
+    def test_the_correction_is_frozen(self, migrated) -> None:
+        with migrated.cursor() as cur, pytest.raises(psycopg.errors.RaiseException):
+            cur.execute("UPDATE unit_price_backfill SET unit_price_cents = 1")
+        migrated.rollback()
+        with migrated.cursor() as cur, pytest.raises(psycopg.errors.RaiseException):
+            cur.execute("DELETE FROM unit_price_backfill")
+
+    def test_anon_reads_it_through_the_views_and_cannot_write_it(self, migrated) -> None:
+        with migrated.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT count(*) FROM product_latest_price WHERE unit_price_backfilled")
+            assert cur.fetchone()[0] == 6
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(
+                    "INSERT INTO unit_price_backfill VALUES (1, '2026-09-21', 1, 'g', 100, 'api')"
+                )
+
+
+@pytest.mark.parametrize(
+    "package_size",
+    [
+        "500 g",
+        "1.89 l",
+        "4 L",
+        " 454 g ",
+        "12x355.0 ml",
+        "6 x 710 ml",
+        "2×1.25 l",
+        "1 ea",
+        "2.27 kg",
+        "0.5 kg",
+        "160x9.0 ml",
+        "3 m",
+        "40 sh",
+        "",
+        "approx 450 g",
+        "450g",
+        "1.5KG",
+        "12 x 0 ml",
+        "500\u00a0g",
+        "1\u202fl",
+        "6\u2009x\u2009710 ml",
+    ],
+)
+def test_the_sql_parser_in_0008_agrees_with_normalize(schema_conn, package_size) -> None:
+    """0008 refuses to run if its SQL parser disagrees with the Python one on a
+    size Python parsed; and where Python parses nothing, it must not either."""
+    from ingest.normalize import parse_package_size
+
+    apply_migrations(schema_conn, before="0008_unit_price_backfill.sql")
+    parsed = parse_package_size(package_size)
+    with schema_conn.cursor() as cur:
+        store_id = db.resolve_store_id(schema_conn, "nofrills", "3131")
+        cur.execute("INSERT INTO ingest_runs (store_id, run_on) VALUES (%s, %s)", (store_id, DAY))
+        cur.execute(
+            """
+            INSERT INTO products (store_id, retailer_sku, raw_name, package_size, size_value,
+                                  size_unit)
+            VALUES (%s, 'X_EA', 'X', %s, %s, %s) RETURNING id
+            """,
+            (store_id, package_size, *(parsed or (None, None))),
+        )
+        cur.execute(
+            """
+            INSERT INTO price_spans (product_id, first_observed_on, last_confirmed_on,
+                                     price_cents)
+            VALUES (%s, %s, %s, 1000)
+            """,
+            (cur.fetchone()[0], DAY, DAY),
+        )
+    schema_conn.commit()
+
+    apply_migrations(schema_conn, after="0007_implied_regular_price.sql")
+
+    with schema_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM unit_price_backfill")
+        assert cur.fetchone()[0] == (1 if parsed else 0)
+
+
+def test_0008_refuses_to_run_when_the_parsers_disagree(schema_conn) -> None:
+    apply_migrations(schema_conn, before="0008_unit_price_backfill.sql")
+    with schema_conn.cursor() as cur:
+        store_id = db.resolve_store_id(schema_conn, "nofrills", "3131")
+        cur.execute(
+            """
+            INSERT INTO products (store_id, retailer_sku, raw_name, package_size, size_value,
+                                  size_unit)
+            VALUES (%s, 'X_EA', 'X', '1 l', 999, 'ml')
+            """,
+            (store_id,),
+        )
+    schema_conn.commit()
+
+    with pytest.raises(psycopg.errors.RaiseException, match="disagrees"):
+        apply_migrations(schema_conn, after="0007_implied_regular_price.sql")
+    schema_conn.rollback()
+    with schema_conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('unit_price_backfill')")
+        assert cur.fetchone()[0] is None, "nothing may be left behind"
+
+
+def test_the_schema_check_names_the_missing_migration(schema_conn) -> None:
+    apply_migrations(schema_conn, before="0009_product_match_keys.sql")
+    with pytest.raises(db.SchemaOutOfDate, match="0009"):
+        db.check_schema(schema_conn)
+
+
+def test_the_schema_check_passes_once_every_migration_is_applied(conn) -> None:
+    db.check_schema(conn)
+
+
+class TestMatchKeys:
+    """0009. The nightly write stores ingest/match.py's keys with the product."""
+
+    def milk(self, sku: str, brand: str, name: str) -> NormalizedPrice:
+        return replace(
+            make_row(1),
+            retailer_sku=sku,
+            brand=brand,
+            raw_name=name,
+            package_size="4 l",
+            size_value=Decimal(4000),
+            size_unit="ml",
+        )
+
+    def test_keys_are_written_and_read_back_through_the_view(self, conn) -> None:
+        nofrills = db.resolve_store_id(conn, "nofrills", "3131")
+        superstore = db.resolve_store_id(conn, "superstore", "1516")
+        db.write_store_observations(conn, nofrills, [self.milk("N_EA", "Neilson", "2% Milk")], DAY)
+        db.write_store_observations(
+            conn, superstore, [self.milk("B_EA", "Beatrice", "Partly Skimmed Milk 2%")], DAY
+        )
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT retailer_sku, identity_key, substitute_key
+                  FROM product_latest_price ORDER BY retailer_sku
+                """
+            )
+            rows = cur.fetchall()
+        assert rows == [
+            ("B_EA", "beatrice|2% milk|1|4000ml", "2% milk|1|4000ml"),
+            ("N_EA", "neilson|2% milk|1|4000ml", "2% milk|1|4000ml"),
+        ]
+
+    def test_keys_follow_a_renamed_product(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [self.milk("N_EA", "Neilson", "2% Milk")], DAY)
+        renamed = self.milk("N_EA", "Neilson", "2% Microfiltered Milk")
+        db.write_store_observations(conn, store_id, [renamed], date(2026, 9, 22))
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT substitute_key FROM products WHERE retailer_sku = 'N_EA'")
+            assert cur.fetchone()[0] == "2% microfiltered milk|1|4000ml"
+
+    def test_a_package_that_does_not_parse_gets_no_keys(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        weighed = replace(make_row(1), retailer_sku="STEAK_KG", package_size=None)
+        db.write_store_observations(conn, store_id, [weighed], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT identity_key, substitute_key FROM products")
+            assert cur.fetchone() == (None, None)
+
+    def test_anon_can_read_the_keys(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [self.milk("N_EA", "Neilson", "2% Milk")], DAY)
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT identity_key FROM product_latest_price")
+            assert cur.fetchone()[0] == "neilson|2% milk|1|4000ml"

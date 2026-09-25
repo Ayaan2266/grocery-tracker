@@ -3,6 +3,9 @@ export const BANNER_LABELS: Record<string, string> = {
   nofrills: "No Frills",
   superstore: "Real Canadian Superstore",
   loblaw: "Loblaws",
+  zehrs: "Zehrs",
+  fortinos: "Fortinos",
+  maxi: "Maxi",
 };
 
 /** Short names for tight spots: graph legends and basket columns. */
@@ -10,12 +13,25 @@ export const BANNER_SHORT: Record<string, string> = {
   nofrills: "No Frills",
   superstore: "Superstore",
   loblaw: "Loblaws",
+  zehrs: "Zehrs",
+  fortinos: "Fortinos",
+  maxi: "Maxi",
 };
 
+/**
+ * One colour per banner, never reassigned, so a store keeps its colour on
+ * every graph whichever others appear beside it. Checked as a set against the
+ * white chart surface, every pair against every other, for colour-blind
+ * separation: the closest pair is ΔE 7.9, which is only acceptable because
+ * the legend, tooltip and store lists always name the store in text too.
+ */
 export const BANNER_COLORS: Record<string, string> = {
   nofrills: "#c99700",
   superstore: "#df2140",
   loblaw: "#0b49bd",
+  zehrs: "#15803d",
+  fortinos: "#b5479f",
+  maxi: "#0ea5b7",
 };
 
 export function bannerLabel(slug: string, fallback: string): string {

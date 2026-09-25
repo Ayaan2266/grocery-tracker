@@ -27,6 +27,10 @@ class FakeConnection:
     def __exit__(self, *_exc: object) -> bool:
         return False
 
+    def execute(self, _sql: str) -> None:
+        """The schema check: every column it asks for exists."""
+        return None
+
 
 @pytest.fixture(autouse=True)
 def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,6 +49,20 @@ def test_reports_a_connection_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert problem is not None
     assert "password authentication failed" in problem
+
+
+def test_reports_a_migration_that_has_not_been_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(db, "connect", lambda _url: FakeConnection())
+
+    def out_of_date(_conn) -> None:
+        raise db.SchemaOutOfDate('column "identity_key" does not exist. Apply 0009')
+
+    monkeypatch.setattr(db, "check_schema", out_of_date)
+
+    problem = preflight("postgresql://fine", STORES)
+
+    assert problem is not None
+    assert "0009" in problem
 
 
 def test_reports_a_store_that_no_migration_has_added(monkeypatch: pytest.MonkeyPatch) -> None:

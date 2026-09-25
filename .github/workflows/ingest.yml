@@ -11,14 +11,35 @@ on:
     - cron: "41 10 11 * *"
   workflow_dispatch:
     inputs:
+      task:
+        description: >-
+          ingest: the nightly job. probe-stores: list a banner's stores and
+          canary-check their codes (API only, writes nothing).
+          catalogue-sample: print what cross-store matching has to work with
+          (read-only SQL). match-report: print the pairs ingest/match.py would
+          make across the whole catalogue (read-only). migrate: apply the
+          migrations named below, in order (WRITES to the database).
+        type: choice
+        options: [ingest, probe-stores, catalogue-sample, match-report, migrate]
+        default: ingest
       dry_run:
-        description: "Fetch and normalize without writing to Postgres"
+        description: "ingest only: fetch and normalize without writing to Postgres"
         type: boolean
         default: false
+      probe:
+        description: "probe-stores only: arguments for python -m ingest.stores"
+        type: string
+        default: "discover zehrs fortinos maxi --near 43.6534,-79.3839"
+      migrations:
+        description: "migrate only: migration numbers to apply, in order, e.g. 0008 0009 0010"
+        type: string
+        default: ""
 
 jobs:
   ingest:
-    if: github.event.schedule != '41 10 11 * *'
+    if: >-
+      github.event.schedule != '41 10 11 * *'
+      && (github.event_name != 'workflow_dispatch' || inputs.task == 'ingest')
     # Never run two ingests at once. A queued run that overlaps the previous one
     # would double the request rate against an API we are deliberately being
     # gentle with. Scoped to this job so a keepalive run can never hold up or
@@ -27,7 +48,9 @@ jobs:
       group: ingest
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Six stores at 1 req/sec is about 17 minutes of requests. A full run must
+    # fit in half of this (ingest/tests/test_targets.py reads it from here).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +68,106 @@ jobs:
           INGEST_RATE_LIMIT_SECONDS: "1.0"
         run: |
           python -m ingest.run ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  # A new banner's store code has to be proved before a migration adds it: a
+  # wrong one returns 200 with zero results, like a store with nothing in
+  # stock. A dozen requests at the usual floor. Not in the ingest concurrency
+  # group, where a pending run replaces the one already queued: this must never
+  # be what displaces a nightly ingest.
+  probe-stores:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'probe-stores'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: Probe store codes
+        env:
+          PCX_API_KEY: ${{ secrets.PCX_API_KEY }}
+          INGEST_RATE_LIMIT_SECONDS: "1.0"
+          # Through the environment, never interpolated into the script.
+          PROBE_ARGS: ${{ inputs.probe }}
+        run: |
+          set -f
+          python -m ingest.stores $PROBE_ARGS
+
+  catalogue-sample:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'catalogue-sample'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # The file's first statement makes the transaction read-only.
+      - name: Sample the catalogue
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -f db/queries/catalogue_sample.sql
+
+  match-report:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'match-report'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      # The connection is opened read-only.
+      - name: Report match candidates
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m ingest.match report --limit 150
+
+  # Applies db/migrations files by number, the same psql command the migrations
+  # README gives, with the connection string the nightly run already uses. Each
+  # file is its own transaction, so one that fails changes nothing; the run
+  # stops there. Safe beside a nightly ingest: a migration that needs a lock
+  # the ingest holds waits the few seconds one store's write takes.
+  migrate:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'migrate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Through the environment, never interpolated into the script.
+          MIGRATIONS: ${{ inputs.migrations }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MIGRATIONS// }" ]; then
+            echo "Name the migrations to apply, e.g. 0008 0009 0010."
+            exit 1
+          fi
+          for number in $MIGRATIONS; do
+            if ! [[ "$number" =~ ^[0-9]{4}$ ]]; then
+              echo "Not a migration number: $number"
+              exit 1
+            fi
+            files=(db/migrations/"$number"_*.sql)
+            if [ "${#files[@]}" -ne 1 ] || [ ! -f "${files[0]}" ]; then
+              echo "No single migration numbered $number"
+              exit 1
+            fi
+            echo "::group::${files[0]}"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "${files[0]}"
+            echo "::endgroup::"
+          done
 
   # GitHub disables scheduled workflows in a public repo after 60 days without
   # repository activity, and the nightly runs themselves don't count. Enabling

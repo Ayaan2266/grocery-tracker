@@ -33,6 +33,7 @@ from datetime import date
 
 import psycopg
 
+from ingest.match import keys
 from ingest.normalize import NormalizedPrice
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,10 @@ log = logging.getLogger(__name__)
 
 class UnknownStore(RuntimeError):
     """A targets.json store has no matching row in the `stores` table."""
+
+
+class SchemaOutOfDate(RuntimeError):
+    """The database is missing a column this code writes: a migration is unapplied."""
 
 
 RESOLVE_STORE = """
@@ -57,23 +62,34 @@ SELECT s.id
 # chunk into a single statement.
 CHUNK_SIZE = 1000
 
+# identity_key and substitute_key are ingest/match.py's reading of the same
+# name, brand and package, so they are refreshed along with them.
 UPSERT_PRODUCTS = """
 INSERT INTO products (
-    store_id, retailer_sku, raw_name, brand, package_size, size_value, size_unit
+    store_id, retailer_sku, raw_name, brand, package_size, size_value, size_unit,
+    identity_key, substitute_key
 )
-SELECT %(store_id)s, u.sku, u.name, u.brand, u.pkg, u.size_value, u.size_unit
+SELECT %(store_id)s, u.sku, u.name, u.brand, u.pkg, u.size_value, u.size_unit,
+       u.identity_key, u.substitute_key
   FROM unnest(
            %(skus)s::text[], %(names)s::text[], %(brands)s::text[],
-           %(pkgs)s::text[], %(size_values)s::numeric[], %(size_units)s::text[]
-       ) AS u(sku, name, brand, pkg, size_value, size_unit)
+           %(pkgs)s::text[], %(size_values)s::numeric[], %(size_units)s::text[],
+           %(identity_keys)s::text[], %(substitute_keys)s::text[]
+       ) AS u(sku, name, brand, pkg, size_value, size_unit, identity_key, substitute_key)
 ON CONFLICT (store_id, retailer_sku) DO UPDATE
-   SET raw_name     = EXCLUDED.raw_name,
-       brand        = EXCLUDED.brand,
-       package_size = EXCLUDED.package_size,
-       size_value   = EXCLUDED.size_value,
-       size_unit    = EXCLUDED.size_unit
+   SET raw_name       = EXCLUDED.raw_name,
+       brand          = EXCLUDED.brand,
+       package_size   = EXCLUDED.package_size,
+       size_value     = EXCLUDED.size_value,
+       size_unit      = EXCLUDED.size_unit,
+       identity_key   = EXCLUDED.identity_key,
+       substitute_key = EXCLUDED.substitute_key
 RETURNING retailer_sku, id
 """
+
+# The newest columns the writes depend on. Selecting them costs nothing and
+# fails with the column's name when a migration has not been applied.
+SCHEMA_CHECK = "SELECT identity_key, substitute_key FROM products LIMIT 0"
 
 RUN_DATES = """
 SELECT max(run_on) FILTER (WHERE run_on < %(observed_on)s),
@@ -200,6 +216,18 @@ def connect(database_url: str) -> psycopg.Connection:
     return psycopg.connect(database_url, autocommit=False, prepare_threshold=None)
 
 
+def check_schema(conn: psycopg.Connection) -> None:
+    """Raise SchemaOutOfDate unless every column the writes use exists."""
+    try:
+        conn.execute(SCHEMA_CHECK)
+    except psycopg.errors.UndefinedColumn as exc:
+        conn.rollback()
+        raise SchemaOutOfDate(
+            f"{exc.diag.message_primary}. Apply db/migrations/0009_product_match_keys.sql "
+            "(and any other migration not yet applied) before running this code."
+        ) from exc
+
+
 def resolve_store_id(conn: psycopg.Connection, banner_slug: str, store_code: str) -> int:
     row = conn.execute(RESOLVE_STORE, (banner_slug, store_code)).fetchone()
     if row is None:
@@ -260,6 +288,7 @@ def write_store_observations(
             for start in range(0, len(batch), CHUNK_SIZE):
                 chunk = batch[start : start + CHUNK_SIZE]
 
+                match_keys = [keys(r.brand, r.raw_name, r.package_size) for r in chunk]
                 cur.execute(
                     UPSERT_PRODUCTS,
                     {
@@ -270,6 +299,8 @@ def write_store_observations(
                         "pkgs": [r.package_size for r in chunk],
                         "size_values": [r.size_value for r in chunk],
                         "size_units": [r.size_unit for r in chunk],
+                        "identity_keys": [identity for identity, _ in match_keys],
+                        "substitute_keys": [substitute for _, substitute in match_keys],
                     },
                 )
                 product_ids = {sku: pid for sku, pid in cur.fetchall()}

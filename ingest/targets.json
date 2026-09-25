@@ -9,12 +9,27 @@
     {
       "banner": "superstore",
       "store_code": "1516",
-      "label": "Real Canadian Superstore"
+      "label": "Real Canadian Superstore - Winnipeg Kenaston"
     },
     {
       "banner": "loblaw",
       "store_code": "1032",
-      "label": "Loblaws"
+      "label": "Loblaws - Markham Bullock Drive"
+    },
+    {
+      "banner": "zehrs",
+      "store_code": "0552",
+      "label": "Zehrs - Uxbridge"
+    },
+    {
+      "banner": "fortinos",
+      "store_code": "1436",
+      "label": "Fortinos - North York Lawrence"
+    },
+    {
+      "banner": "maxi",
+      "store_code": "8711",
+      "label": "Maxi - Aylmer Vanier"
     }
   ],
   "canary_terms": ["milk", "bread", "eggs"],

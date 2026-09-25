@@ -21,6 +21,18 @@ Drop it once you have compared the two:
 DROP TABLE price_observations_daily_v1;
 ```
 
+`0008`, `0009` and `0010` go in before the code that uses them is merged: the
+nightly run writes the columns `0009` adds, and ingests the stores `0010` adds.
+Preflight checks both and stops the night before any API request if either is
+missing. `0008` prints how many unit prices it filled in, and refuses to
+commit if its package-size parser disagrees with `ingest/normalize.py`.
+
+```bash
+for f in 0008 0009 0010; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/${f}_*.sql
+done
+```
+
 Rules:
 
 - Never edit an applied migration. Add a new one.

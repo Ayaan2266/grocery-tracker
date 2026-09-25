@@ -11,7 +11,14 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
 import { rangePercent, summarize, type Verdict } from "@/lib/history";
-import { getListingsBySku, getPriceHistory, getProduct, type LatestPrice } from "@/lib/queries";
+import { sameItemListings, similarListings, type SameItem } from "@/lib/matching";
+import {
+  getPriceHistory,
+  getProduct,
+  getSameItemCandidates,
+  getSimilarCandidates,
+  type LatestPrice,
+} from "@/lib/queries";
 import { BANNER_COLORS, BANNER_SHORT, bannerLabel } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
@@ -204,14 +211,16 @@ function VerdictCard({ verdict, price }: { verdict: Verdict | null; price: numbe
 }
 
 function StoreComparison({
-  listings,
+  items,
   currentId,
   query,
 }: {
-  listings: LatestPrice[];
+  items: SameItem<LatestPrice>[];
   currentId: number;
   query: string;
 }) {
+  const listings = items.map((item) => item.listing);
+  const otherCode = new Set(items.filter((item) => !item.byCode).map((item) => item.listing.product_id));
   const sorted = [...listings].sort(
     (a, b) => Number(b.in_stock) - Number(a.in_stock) || a.price_cents - b.price_cents,
   );
@@ -236,7 +245,10 @@ function StoreComparison({
       <div className="store-compare-header">
         <div>
           <h2 id="compare-title">Same item at other stores</h2>
-          <p>Matched by the product code the stores share. Latest recorded price at each.</p>
+          <p>
+            Matched by the product code the stores share, or by the same brand, name and package
+            under another code. Latest recorded price at each.
+          </p>
         </div>
         {pill && <span className="save-pill">{pill}</span>}
       </div>
@@ -263,6 +275,7 @@ function StoreComparison({
                 )}
                 {isCheapest && <small className="cheapest-badge">Cheapest</small>}
                 {isCurrent && <small>This listing</small>}
+                {otherCode.has(listing.product_id) && <small>Another product code</small>}
                 {!listing.in_stock && <small className="stock-badge">Out of stock</small>}
               </span>
               <span className="store-compare-bar" aria-hidden="true">
@@ -283,6 +296,47 @@ function StoreComparison({
   );
 }
 
+/**
+ * Other brands and codes with the same description, size and pack. Never
+ * called the same item: the heading says so, and the unit price leads.
+ */
+function SimilarItems({ items, query }: { items: LatestPrice[]; query: string }) {
+  return (
+    <section className="store-compare similar-items" aria-labelledby="similar-title">
+      <div className="store-compare-header">
+        <div>
+          <h2 id="similar-title">Similar items</h2>
+          <p>
+            Other brands with the same description and size. Not the same product, so compare the unit
+            price. Cheapest per unit first.
+          </p>
+        </div>
+      </div>
+      <ul>
+        {items.map((item) => {
+          const unit = formatUnitPrice(item.unit_price_cents, item.comparison_quantity, item.comparison_unit);
+          return (
+            <li key={item.product_id}>
+              <span className="store-dot" style={{ background: BANNER_COLORS[item.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+              <span className="store-compare-name">
+                <Link href={`/product/${item.product_id}?${new URLSearchParams({ q: query })}`}>
+                  {[item.brand, item.raw_name].filter(Boolean).join(" ")}
+                </Link>
+                <small>{BANNER_SHORT[item.banner_slug] ?? item.retailer_name}</small>
+              </span>
+              <span className="similar-size">{item.package_size}</span>
+              <span className="store-compare-price">
+                <strong>{unit ?? formatCents(item.price_cents)}</strong>
+                {unit && <small>{formatCents(item.price_cents)}</small>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export default async function ProductPage({ params, searchParams }: Props) {
   const id = parseId((await params).id);
   if (id === null) notFound();
@@ -293,9 +347,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
   if (productResult.data === null && productResult.error === null) notFound();
   const product = productResult.data;
 
-  const listings = product ? await getListingsBySku([product.retailer_sku]) : null;
-  const allListings = listings?.data ?? (product ? [product] : []);
-  const history = await getPriceHistory(allListings.map((l) => l.product_id));
+  const candidates = product ? await getSameItemCandidates([product]) : null;
+  const sameItems = product ? sameItemListings(product, candidates?.data ?? []) : [];
+  const allListings = sameItems.map((item) => item.listing);
+  const [history, similarCandidates] = await Promise.all([
+    getPriceHistory(allListings.map((l) => l.product_id)),
+    getSimilarCandidates(product?.substitute_key ? [product.substitute_key] : []),
+  ]);
+  const similar = product
+    ? similarListings(product, similarCandidates.data ?? [], new Set(allListings.map((l) => l.product_id)))
+    : [];
 
   const spansFor = (productId: number) =>
     (history.data ?? []).filter((span) => span.product_id === productId);
@@ -371,8 +432,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
               </section>
 
               {allListings.length > 1 && (
-                <StoreComparison listings={allListings} currentId={product.product_id} query={query} />
+                <StoreComparison items={sameItems} currentId={product.product_id} query={query} />
               )}
+
+              {similar.length > 0 && <SimilarItems items={similar} query={query} />}
             </>
           )}
         </article>
