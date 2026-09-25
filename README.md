@@ -152,8 +152,8 @@ Maintained honestly. Overclaiming reads as junior.
   item at every store that carries it, by the product code the stores share
   or, where Superstore lists it under its own code, by brand, name and exact
   package. A second section lists similar items (other brands with the same
-  description and size) by unit price, and those never count in a basket
-  total. Against 270 hand-labelled real pairs
+  description and size) by unit price, and the basket points out one per line
+  when it is cheaper per unit; neither ever counts in a basket total. Against 270 hand-labelled real pairs
   (`ingest/tests/fixtures/labelled_pairs.json`, labelled by hand, worth a
   second look) no identity and no substitute was wrong, but on the pairs
   picked without the matcher's help it found 14 of 22 real matches. It misses
@@ -172,8 +172,9 @@ Maintained honestly. Overclaiming reads as junior.
   1516, ingested since day one, turned out to be Kenaston in Winnipeg when
   the store list was finally read (`0010`); the other five are in Ontario and
   Gatineau. It is why Superstore carries Beatrice where the Ontario stores
-  carry Neilson. Comparing it with a Vaughan No Frills is honest about
-  prices but not about where anyone can shop. More stores are a migration and
+  carry Neilson. Every price on the site now says which store and place it
+  was recorded at, and the home page lists all six, but nothing yet lets you
+  pick the stores near you. More stores are a migration and
   a line in `targets.json` each; `python -m ingest.stores` finds and proves
   the codes.
 - **Unit prices before 2026-09-24 are reconstructed.** The runs before then

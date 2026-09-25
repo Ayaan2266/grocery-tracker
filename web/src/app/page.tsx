@@ -7,12 +7,14 @@ import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
+import { BANNER_COLORS, BANNER_SHORT, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
   PAGE_SIZE,
   getCoverage,
   getRecentHistory,
+  getStores,
   searchProducts,
   type LatestPrice,
   type SortOrder,
@@ -100,11 +102,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     ? Math.min(Math.max(requested, PAGE_SIZE), MAX_RESULTS)
     : PAGE_SIZE;
 
-  const [results, coverage, basket] = await Promise.all([
+  const [results, coverage, basket, stores] = await Promise.all([
     searchProducts(query, { sort, limit: count }),
     getCoverage(),
     readBasket(),
+    getStores(),
   ]);
+  const storeList = stores.data ?? [];
   const prices = results.data?.rows ?? [];
   const histories = await rowHistories(prices);
   const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
@@ -213,7 +217,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                 <article className="feature-card feature-card-yellow">
                   <ShoppingBasket size={36} strokeWidth={2.2} aria-hidden="true" />
                   <h3>Find a price</h3>
-                  <p>Search real grocery listings from Canadian stores, cheapest first.</p>
+                  <p>
+                    Search real listings from{" "}
+                    {storeList.length > 1 ? `${storeList.length} Canadian grocery chains` : "Canadian grocery stores"},
+                    cheapest first.
+                  </p>
                   <Link href="/?q=milk#prices">Try a search <ArrowRight size={18} aria-hidden="true" /></Link>
                 </article>
                 <article className="feature-card feature-card-lilac">
@@ -225,7 +233,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                 <article className="feature-card feature-card-pink">
                   <Tag size={36} strokeWidth={2.2} aria-hidden="true" />
                   <h3>Price your basket</h3>
-                  <p>Add your list and see which store is cheapest for all of it.</p>
+                  <p>Add your list and see which store is cheapest for all of it, plus similar items that cost less.</p>
                   <Link href="/basket">Open your basket <ArrowRight size={18} aria-hidden="true" /></Link>
                 </article>
               </div>
@@ -252,6 +260,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             <p><strong>{coverage.data.products.toLocaleString("en-CA")}</strong><span>products tracked</span></p>
             <p><strong>{coverage.data.observations.toLocaleString("en-CA")}</strong><span>price observations</span></p>
             <p><strong>{coverage.data.days.toLocaleString("en-CA")}</strong><span>days of history</span></p>
+            {storeList.length > 0 && (
+              <p><strong>{storeList.length}</strong><span>stores checked nightly</span></p>
+            )}
+            {storeList.length > 0 && (
+              <div className="coverage-stores">
+                <p>One store per chain, checked every night. Prices differ between locations, so every price says where it was recorded.</p>
+                <ul>
+                  {storeList.map((store) => (
+                    <li key={store.id} className="store-chip">
+                      <i style={{ background: BANNER_COLORS[store.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+                      {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
+                      {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         )}
 

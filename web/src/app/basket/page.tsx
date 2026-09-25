@@ -7,14 +7,19 @@ import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { readBasket } from "@/lib/basket";
-import { sameItemListings } from "@/lib/matching";
-import { getProducts, getSameItemCandidates, type LatestPrice } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT } from "@/lib/stores";
-import { formatCents } from "@/lib/utils";
+import { sameItemListings, similarListings } from "@/lib/matching";
+import {
+  getProducts,
+  getSameItemCandidates,
+  getSimilarCandidates,
+  type LatestPrice,
+} from "@/lib/queries";
+import { BANNER_COLORS, BANNER_SHORT, storeArea, storeName } from "@/lib/stores";
+import { formatCents, formatUnitPrice } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Basket | Loonie" };
 
-type Store = { id: number; slug: string; name: string };
+type Store = { id: number; slug: string; name: string; area: string | null };
 
 type Line = {
   product: LatestPrice;
@@ -24,6 +29,8 @@ type Line = {
   /** Listed but out of stock, so shown and left out of the totals. */
   outOfStock: Map<number, LatestPrice>;
   cheapest: LatestPrice | null;
+  /** A different product, at any store, cheaper per unit than this one anywhere. Never totalled. */
+  cheaperSimilar: LatestPrice | null;
 };
 
 function QuantityControls({ productId, quantity }: { productId: number; quantity: number }) {
@@ -118,6 +125,7 @@ function BasketSummary({
               <strong>{t.store.name}</strong>
               <small>{coverageNote(t)}</small>
               <span className="store-totals-amount">{formatCents(t.total)}</span>
+              {t.store.area && <span className="store-totals-area">{t.store.area}</span>}
               <span className="store-totals-bar" aria-hidden="true">
                 <span style={{ width: `${(t.total / top) * 100}%` }} />
               </span>
@@ -131,7 +139,10 @@ function BasketSummary({
           <p className="summary-card-amount">
             {bestComplete.store.name} · {formatCents(bestComplete.total)}
           </p>
-          <p>Everything on your list in one trip.</p>
+          <p>
+            Everything on your list in one trip
+            {bestComplete.store.area ? ` to ${bestComplete.store.name} ${bestComplete.store.area}` : ""}.
+          </p>
         </div>
       ) : (
         <div className="summary-card">
@@ -156,9 +167,11 @@ function StoreCell({ line, store }: { line: Line; store: Store }) {
   const unavailable = line.outOfStock.get(store.id);
   const isCheapest = listing && line.byStore.size > 1 && listing.price_cents === line.cheapest?.price_cents;
   return (
-    <li className={isCheapest ? "store-cell is-cheapest" : "store-cell"}>
-      <span className="store-dot" style={{ background: BANNER_COLORS[store.slug] ?? "#53617e" }} aria-hidden="true" />
-      <span className="store-cell-name">{store.name}</span>
+    <li className={isCheapest ? "store-cell is-cheapest" : "store-cell"} title={store.area ?? undefined}>
+      <span className="store-cell-name">
+        <span className="store-dot" style={{ background: BANNER_COLORS[store.slug] ?? "#53617e" }} aria-hidden="true" />
+        {store.name}
+      </span>
       {listing ? (
         <span className="store-cell-price">
           <strong>{formatCents(listing.price_cents * line.quantity)}</strong>
@@ -168,6 +181,30 @@ function StoreCell({ line, store }: { line: Line; store: Store }) {
         <small className={unavailable ? "stock-label" : undefined}>{unavailable ? "Out of stock" : "Not listed"}</small>
       )}
     </li>
+  );
+}
+
+/**
+ * "Similar for less": the cheapest different product with the same
+ * description and size, when it beats this one's best unit price. A
+ * suggestion only; the totals above never include it.
+ */
+function CheaperSimilar({ line }: { line: Line }) {
+  const similar = line.cheaperSimilar;
+  if (!similar) return null;
+  const unit = formatUnitPrice(similar.unit_price_cents, similar.comparison_quantity, similar.comparison_unit);
+  const ours = line.cheapest
+    ? formatUnitPrice(line.cheapest.unit_price_cents, line.cheapest.comparison_quantity, line.cheapest.comparison_unit)
+    : null;
+  return (
+    <p className="similar-hint">
+      <span className="similar-hint-label">Similar for less</span>
+      <Link href={`/product/${similar.product_id}`}>
+        {[similar.brand, similar.raw_name].filter(Boolean).join(" ")}
+      </Link>{" "}
+      at {storeName(similar.banner_slug, similar.retailer_name, similar.store_label)} · {formatCents(similar.price_cents)}
+      {unit && ours && <> · {unit} against {ours}</>}
+    </p>
   );
 }
 
@@ -189,7 +226,12 @@ export default async function BasketPage() {
   const ids = [...basket.keys()];
   const products = await getProducts(ids);
   const items = (products.data ?? []).filter((p) => basket.has(p.product_id));
-  const listings = await getSameItemCandidates(items);
+  const [listings, similarCandidates] = await Promise.all([
+    getSameItemCandidates(items),
+    getSimilarCandidates([
+      ...new Set(items.map((p) => p.substitute_key).filter((k): k is string => !!k)),
+    ]),
+  ]);
   const error = products.error ?? listings.error;
 
   // Every store any item is listed at, in a stable order.
@@ -199,6 +241,7 @@ export default async function BasketPage() {
       id: listing.store_id,
       slug: listing.banner_slug,
       name: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
+      area: storeArea(listing.store_label),
     });
   }
   const storeList = [...stores.values()].sort((a, b) => a.id - b.id);
@@ -212,11 +255,34 @@ export default async function BasketPage() {
       const outOfStock = new Map<number, LatestPrice>();
       // The same item only: its code, or its unambiguous identity key. A similar
       // product is never priced into a store's total as if it were this one.
-      for (const { listing } of sameItemListings(product, listings.data ?? [])) {
+      const same = sameItemListings(product, listings.data ?? []);
+      for (const { listing } of same) {
         (listing.in_stock ? byStore : outOfStock).set(listing.store_id, listing);
       }
       const cheapest = [...byStore.values()].sort((a, b) => a.price_cents - b.price_cents)[0] ?? null;
-      return { product, quantity: basket.get(product.product_id) ?? 1, byStore, outOfStock, cheapest };
+      const [similar] = similarListings(
+        product,
+        similarCandidates.data ?? [],
+        new Set(same.map((s) => s.listing.product_id)),
+        1,
+      );
+      const cheaperSimilar =
+        similar &&
+        cheapest &&
+        similar.unit_price_cents !== null &&
+        cheapest.unit_price_cents !== null &&
+        similar.comparison_unit === cheapest.comparison_unit &&
+        similar.unit_price_cents < cheapest.unit_price_cents
+          ? similar
+          : null;
+      return {
+        product,
+        quantity: basket.get(product.product_id) ?? 1,
+        byStore,
+        outOfStock,
+        cheapest,
+        cheaperSimilar,
+      };
     });
 
   const totals: StoreTotal[] = storeList.map((store) => {
@@ -240,7 +306,13 @@ export default async function BasketPage() {
   const mixTotal = mixLines.reduce((sum, line) => sum + line.cheapest!.price_cents * line.quantity, 0);
   const comparable = lines.some((line) => line.byStore.size + line.outOfStock.size > 1);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const storeName = (id: number) => stores.get(id)?.name ?? "another store";
+  // Where each part of the cheapest mix is bought, place included: a mix can
+  // span stores a long way apart.
+  const storeName = (id: number) => {
+    const store = stores.get(id);
+    if (!store) return "another store";
+    return store.area ? `${store.name} ${store.area}` : store.name;
+  };
 
   return (
     <main>
@@ -304,12 +376,14 @@ export default async function BasketPage() {
                           <StoreCell key={store.id} line={line} store={store} />
                         ))}
                       </ul>
+                      <CheaperSimilar line={line} />
                     </li>
                   ))}
                 </ul>
                 <p className="price-note">
-                  Out-of-stock listings are left out of the totals. Prices are recorded snapshots, not
-                  checkout quotes.
+                  Totals count the same item only: the product code the stores share, or the same brand,
+                  name and package under another code. Similar items are suggestions and never counted.
+                  Out-of-stock listings are left out. Prices are recorded snapshots, not checkout quotes.
                 </p>
               </div>
             </div>

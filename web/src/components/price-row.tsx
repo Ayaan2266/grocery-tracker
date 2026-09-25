@@ -4,7 +4,7 @@ import { BasketButton } from "@/components/basket-button";
 import { Sparkline } from "@/components/sparkline";
 import type { Badge } from "@/lib/history";
 import type { LatestPrice } from "@/lib/queries";
-import { BANNER_COLORS, bannerLabel } from "@/lib/stores";
+import { BANNER_COLORS, bannerLabel, storeArea } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
 /** The regular price behind a deal the store did not declare as a sale. */
@@ -18,11 +18,14 @@ export function percentOff(price: number, regular: number | null): number | null
   return Math.round(((regular - price) / regular) * 100);
 }
 
+/** The store a price was recorded at: banner, and where that store is. */
 export function StoreChip({ row }: { row: LatestPrice }) {
+  const area = storeArea(row.store_label);
   return (
     <span className="store-chip" title={`Recorded ${formatDay(row.observed_on)}`}>
       <i style={{ background: BANNER_COLORS[row.banner_slug] ?? "#53617e" }} aria-hidden="true" />
       {bannerLabel(row.banner_slug, row.retailer_name)}
+      {area && <span className="store-chip-area">{area}</span>}
     </span>
   );
 }
