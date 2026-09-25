@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field
 log = logging.getLogger(__name__)
 
 SEARCH_URL = "https://api.pcexpress.ca/pcx-bff/api/v1/products/search"
+# Unverified; see LoblawClient.pickup_locations.
+PICKUP_LOCATIONS_URL = "https://api.pcexpress.ca/pcx-bff/api/v1/pickup-locations"
 
 DEFAULT_PAGE_SIZE = 48
 DEFAULT_TIMEOUT = 30.0
@@ -218,30 +220,65 @@ class LoblawClient:
         on_date: date | None = None,
     ) -> SearchResponse:
         on_date = on_date or date.today()
-        headers = self._headers(banner)
         body = self._body(banner, store_id, term, page_size=page_size, on_date=on_date)
+        response = self._send(
+            "POST",
+            SEARCH_URL,
+            banner,
+            f"banner={banner} store={store_id} term={term!r}",
+            json=body,
+        )
+        return SearchResponse.model_validate(response.json())
+
+    def pickup_locations(self, banner: str) -> list[dict[str, Any]]:
+        """The banner's store list, as the storefront's store picker loads it.
+
+        NOT YET VERIFIED against the live API. The path and the `bannerIds`
+        parameter are the ones community clients of PCX use; the response
+        shape is unknown, so entries come back as raw dicts and
+        ingest/stores.py reads them defensively. A store code found here is
+        still only trusted after verify_store has seen products at it.
+        """
+        response = self._send(
+            "GET",
+            PICKUP_LOCATIONS_URL,
+            banner,
+            f"pickup-locations banner={banner}",
+            params={"bannerIds": banner},
+        )
+        payload = response.json()
+        if isinstance(payload, dict):
+            # Tolerate a wrapper object around the list.
+            for key in ("results", "locations", "pickupLocations", "data"):
+                if isinstance(payload.get(key), list):
+                    payload = payload[key]
+                    break
+        if not isinstance(payload, list):
+            raise IngestError(
+                f"pickup-locations for {banner} returned {type(payload).__name__}, not a list"
+            )
+        return [entry for entry in payload if isinstance(entry, dict)]
+
+    def _send(
+        self, method: str, url: str, banner: str, context: str, **kwargs: Any
+    ) -> httpx.Response:
+        """One request with the retry and stop-signal rules every call shares."""
+        headers = self._headers(banner)
 
         last_error: Exception | None = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
             self._limiter.wait()
             try:
-                response = self._client.post(SEARCH_URL, json=body, headers=headers)
+                response = self._client.request(method, url, headers=headers, **kwargs)
             except httpx.HTTPError as exc:
                 last_error = exc
-                log.warning(
-                    "%s/%s %r transport error (attempt %d): %s",
-                    banner,
-                    store_id,
-                    term,
-                    attempt,
-                    exc,
-                )
+                log.warning("%s transport error (attempt %d): %s", context, attempt, exc)
                 self._backoff(attempt)
                 continue
 
             if response.status_code in STOP_SIGNAL_STATUS:
                 raise AccessDenied(
-                    f"HTTP {response.status_code} for banner={banner} store={store_id}. "
+                    f"HTTP {response.status_code} for {context}. "
                     f"Stop signal: {_STOP_SIGNAL_REMEDY[response.status_code]}",
                     status_code=response.status_code,
                 )
@@ -250,14 +287,7 @@ class LoblawClient:
                 last_error = httpx.HTTPStatusError(
                     f"HTTP {response.status_code}", request=response.request, response=response
                 )
-                log.warning(
-                    "%s/%s %r HTTP %d (attempt %d)",
-                    banner,
-                    store_id,
-                    term,
-                    response.status_code,
-                    attempt,
-                )
+                log.warning("%s HTTP %d (attempt %d)", context, response.status_code, attempt)
                 self._backoff(attempt)
                 continue
 
@@ -266,17 +296,11 @@ class LoblawClient:
             except httpx.HTTPStatusError as exc:
                 # Callers catch IngestError. A raw httpx error would sail past
                 # every handler in run.py and end the night in a traceback.
-                raise IngestError(
-                    f"unexpected HTTP {response.status_code} for banner={banner} "
-                    f"store={store_id} term={term!r}"
-                ) from exc
+                raise IngestError(f"unexpected HTTP {response.status_code} for {context}") from exc
 
-            return SearchResponse.model_validate(response.json())
+            return response
 
-        raise IngestError(
-            f"Giving up on banner={banner} store={store_id} term={term!r} after "
-            f"{MAX_ATTEMPTS} attempts: {last_error}"
-        )
+        raise IngestError(f"Giving up on {context} after {MAX_ATTEMPTS} attempts: {last_error}")
 
     @staticmethod
     def _backoff(attempt: int) -> None:

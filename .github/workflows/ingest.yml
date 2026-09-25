@@ -11,14 +11,29 @@ on:
     - cron: "41 10 11 * *"
   workflow_dispatch:
     inputs:
+      task:
+        description: >-
+          ingest: the nightly job. probe-stores: list a banner's stores and
+          canary-check their codes (API only, writes nothing).
+          catalogue-sample: print what cross-store matching has to work with
+          (read-only SQL).
+        type: choice
+        options: [ingest, probe-stores, catalogue-sample]
+        default: ingest
       dry_run:
-        description: "Fetch and normalize without writing to Postgres"
+        description: "ingest only: fetch and normalize without writing to Postgres"
         type: boolean
         default: false
+      probe:
+        description: "probe-stores only: arguments for python -m ingest.stores"
+        type: string
+        default: "discover zehrs fortinos maxi --near 43.6534,-79.3839"
 
 jobs:
   ingest:
-    if: github.event.schedule != '41 10 11 * *'
+    if: >-
+      github.event.schedule != '41 10 11 * *'
+      && (github.event_name != 'workflow_dispatch' || inputs.task == 'ingest')
     # Never run two ingests at once. A queued run that overlaps the previous one
     # would double the request rate against an API we are deliberately being
     # gentle with. Scoped to this job so a keepalive run can never hold up or
@@ -45,6 +60,48 @@ jobs:
           INGEST_RATE_LIMIT_SECONDS: "1.0"
         run: |
           python -m ingest.run ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  # A new banner's store code has to be proved before a migration adds it: a
+  # wrong one returns 200 with zero results, like a store with nothing in
+  # stock. A dozen requests at the usual floor. Not in the ingest concurrency
+  # group, where a pending run replaces the one already queued: this must never
+  # be what displaces a nightly ingest.
+  probe-stores:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'probe-stores'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: Probe store codes
+        env:
+          PCX_API_KEY: ${{ secrets.PCX_API_KEY }}
+          INGEST_RATE_LIMIT_SECONDS: "1.0"
+          # Through the environment, never interpolated into the script.
+          PROBE_ARGS: ${{ inputs.probe }}
+        run: |
+          set -f
+          python -m ingest.stores $PROBE_ARGS
+
+  catalogue-sample:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'catalogue-sample'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # The file's first statement makes the transaction read-only.
+      - name: Sample the catalogue
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -f db/queries/catalogue_sample.sql
 
   # GitHub disables scheduled workflows in a public repo after 60 days without
   # repository activity, and the nightly runs themselves don't count. Enabling
