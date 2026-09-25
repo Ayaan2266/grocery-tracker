@@ -19,7 +19,7 @@ import {
   getSimilarCandidates,
   type LatestPrice,
 } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT, bannerLabel } from "@/lib/stores";
+import { BANNER_COLORS, BANNER_SHORT, bannerLabel, storeArea, storeName } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
 type Props = {
@@ -260,6 +260,7 @@ function StoreComparison({
             listing.comparison_unit,
           );
           const isCurrent = listing.product_id === currentId;
+          const area = storeArea(listing.store_label);
           const isCheapest =
             cheapest !== null && buyable.length > 1 && listing.in_stock && listing.price_cents === cheapest.price_cents;
           return (
@@ -273,6 +274,7 @@ function StoreComparison({
                     {bannerLabel(listing.banner_slug, listing.retailer_name)}
                   </Link>
                 )}
+                {area && <span className="store-area">{area}</span>}
                 {isCheapest && <small className="cheapest-badge">Cheapest</small>}
                 {isCurrent && <small>This listing</small>}
                 {otherCode.has(listing.product_id) && <small>Another product code</small>}
@@ -322,7 +324,7 @@ function SimilarItems({ items, query }: { items: LatestPrice[]; query: string })
                 <Link href={`/product/${item.product_id}?${new URLSearchParams({ q: query })}`}>
                   {[item.brand, item.raw_name].filter(Boolean).join(" ")}
                 </Link>
-                <small>{BANNER_SHORT[item.banner_slug] ?? item.retailer_name}</small>
+                <small>{storeName(item.banner_slug, item.retailer_name, item.store_label)}</small>
               </span>
               <span className="similar-size">{item.package_size}</span>
               <span className="store-compare-price">

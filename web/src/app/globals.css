@@ -93,7 +93,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .price-row-product { min-width: 0; }
 .price-row-product h3 { overflow: hidden; margin: 0 0 5px; font-size: 17px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
 .price-row-product p { overflow: hidden; margin: 0; color: var(--muted); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
-.price-row-amount { align-items: end; text-align: right; color: var(--muted); font-size: 12px; }
+.price-row-amount { display: flex; flex-direction: column; align-items: end; text-align: right; color: var(--muted); font-size: 12px; }
 .price-row-amount strong { color: var(--blue-dark); font-size: 25px; font-weight: 850; line-height: 1.05; }
 .price-row-amount .sale-label { color: #ad1630; font-weight: 800; }
 .price-row-amount .estimate-label { color: var(--blue-dark); font-weight: 800; }
@@ -103,7 +103,10 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .empty-state p { margin: 0 0 5px; }
 .empty-state p:last-child { margin-bottom: 0; color: var(--muted); }
 .empty-state a { color: var(--blue-dark); font-weight: 800; }
-.coverage { display: grid; grid-template-columns: repeat(3,1fr); margin-bottom: 44px; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.coverage { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 44px; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.coverage-stores { grid-column: 1 / -1; display: grid; gap: 10px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.coverage-stores > p { margin: 0; color: var(--muted); font-size: 13px; }
+.coverage-stores ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .coverage p { display: flex; align-items: baseline; gap: 10px; margin: 0; }
 .coverage strong { font-size: 25px; font-weight: 850; }
 .coverage span { color: var(--muted); font-size: 13px; }
@@ -164,7 +167,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
   .price-row { grid-template-columns: 1fr auto; gap: 12px; padding: 18px; }
   .price-row-product { grid-column: 1 / -1; }
   .price-row-amount strong { font-size: 21px; }
-  .coverage { gap: 12px; }
+  .coverage { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .coverage strong { font-size: 20px; }
   .coverage span { font-size: 11px; }
   .site-footer { align-items: start; flex-wrap: wrap; gap: 15px; }
@@ -255,6 +258,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .store-compare-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .store-compare-name small { padding: 2px 8px; border-radius: 999px; background: var(--pale-blue); color: var(--muted); font-size: 11px; font-weight: 800; }
 .store-compare-name .cheapest-badge { background: #e3f6ea; color: #17643a; }
+.store-area { color: var(--muted); font-size: 13px; font-weight: 700; }
 .store-compare-price { display: flex; flex-direction: column; align-items: end; }
 .store-compare-price strong { font-size: 20px; font-weight: 850; color: var(--blue-dark); }
 .store-compare-price small { color: var(--muted); font-size: 12px; }
@@ -295,6 +299,8 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .price-row-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 9px; }
 .store-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--navy); font-size: 12px; font-weight: 800; white-space: nowrap; }
 .store-chip i { width: 8px; height: 8px; border-radius: 999px; }
+.store-chip-area { color: var(--muted); font-weight: 700; }
+.store-chip-area::before { content: "·"; margin-right: 6px; }
 .status-badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .status-good { background: #e3f6ea; color: #17643a; }
 .status-neutral { background: var(--white); color: var(--muted); }
@@ -381,14 +387,18 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .basket-item h2 a { color: var(--navy); text-decoration: none; }
 .basket-item h2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .basket-item-head p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
-.store-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
-.store-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 46px; padding: 9px 13px; border: 1px solid transparent; border-radius: 12px; background: var(--white); }
-.store-cell-name { font-size: 13px; font-weight: 800; }
+/* Three across, so six stores make two even rows; name above the price. */
+.store-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.store-cell { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 58px; padding: 9px 13px; border: 1px solid transparent; border-radius: 12px; background: var(--white); }
+.store-cell-name { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; }
 .store-cell-price { display: flex; align-items: baseline; gap: 6px; }
 .store-cell-price strong { color: var(--blue-dark); font-size: 16px; font-weight: 850; }
 .store-cell small { color: var(--muted); font-size: 12px; }
 .store-cell.is-cheapest { border-color: #9fd9b4; background: #e3f6ea; }
 .store-cell.is-cheapest strong { color: #17643a; }
+.similar-hint { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.similar-hint a { color: var(--blue-dark); font-weight: 800; }
+.similar-hint-label { padding: 2px 8px; border-radius: 999px; background: #e3f6ea; color: #17643a; font-size: 11px; font-weight: 850; }
 .basket-summary { grid-area: summary; position: sticky; top: 20px; display: grid; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--white); box-shadow: 0 14px 34px rgba(15,44,110,.1); }
 .basket-summary h2 { margin: 0; font-size: 20px; font-weight: 850; letter-spacing: -.03em; }
 .basket-summary .price-note { margin: 0; }
@@ -398,6 +408,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .store-totals strong { font-size: 14px; font-weight: 850; }
 .store-totals small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .store-totals-amount { color: var(--blue-dark); font-size: 18px; font-weight: 850; }
+.store-totals-area { grid-column: 2 / -1; margin-top: -3px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .store-totals-bar { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: var(--pale-blue); overflow: hidden; }
 .store-totals-bar span { display: block; height: 100%; border-radius: 999px; background: var(--line); }
 .store-totals .is-best .store-totals-amount { color: #17643a; }
@@ -419,7 +430,7 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
   .basket-item { padding: 15px; }
   .basket-item-head { flex-direction: column; gap: 10px; }
   .store-cells { grid-template-columns: 1fr; gap: 6px; }
-  .store-cell { flex-wrap: nowrap; min-height: 0; }
+  .store-cell { flex-direction: row; align-items: center; min-height: 0; }
   .store-cell-name { margin-right: auto; }
   .basket-summary { padding: 18px; }
 }

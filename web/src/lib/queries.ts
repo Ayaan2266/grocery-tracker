@@ -277,6 +277,51 @@ export async function getPriceHistory(productIds: number[]): Promise<Result<Pric
   return { data: (data ?? []) as PriceSpan[], error: null };
 }
 
+/** One store that is ingested every night. */
+export type StoreInfo = {
+  id: number;
+  store_code: string;
+  /** "Real Canadian Superstore - Winnipeg Kenaston": banner, then place. */
+  label: string | null;
+  banner_slug: string;
+  retailer_name: string;
+};
+
+type StoreRow = {
+  id: number;
+  store_code: string;
+  label: string | null;
+  retailers: { banner_slug: string; name: string } | { banner_slug: string; name: string }[] | null;
+};
+
+/** The stores Loonie checks, in the order they were added. */
+export async function getStores(): Promise<Result<StoreInfo[]>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("stores")
+    .select("id, store_code, label, retailers(banner_slug, name)")
+    .eq("active", true)
+    .order("id");
+
+  if (error) return { data: null, error: error.message };
+  const stores = ((data ?? []) as StoreRow[]).flatMap((row) => {
+    const retailer = Array.isArray(row.retailers) ? row.retailers[0] : row.retailers;
+    if (!retailer) return [];
+    return [
+      {
+        id: row.id,
+        store_code: row.store_code,
+        label: row.label,
+        banner_slug: retailer.banner_slug,
+        retailer_name: retailer.name,
+      },
+    ];
+  });
+  return { data: stores, error: null };
+}
+
 export async function getCoverage(): Promise<Result<Coverage | null>> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
