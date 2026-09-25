@@ -16,9 +16,10 @@ on:
           ingest: the nightly job. probe-stores: list a banner's stores and
           canary-check their codes (API only, writes nothing).
           catalogue-sample: print what cross-store matching has to work with
-          (read-only SQL).
+          (read-only SQL). match-report: print the pairs ingest/match.py would
+          make across the whole catalogue (read-only).
         type: choice
-        options: [ingest, probe-stores, catalogue-sample]
+        options: [ingest, probe-stores, catalogue-sample, match-report]
         default: ingest
       dry_run:
         description: "ingest only: fetch and normalize without writing to Postgres"
@@ -102,6 +103,26 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -f db/queries/catalogue_sample.sql
+
+  match-report:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'match-report'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      # The connection is opened read-only.
+      - name: Report match candidates
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m ingest.match report --limit 150
 
   # GitHub disables scheduled workflows in a public repo after 60 days without
   # repository activity, and the nightly runs themselves don't count. Enabling

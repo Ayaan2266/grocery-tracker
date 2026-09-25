@@ -223,22 +223,20 @@ def api_rate(comparison_prices: list[dict[str, Any]]) -> tuple[str, Decimal] | N
     return canonical_unit, value / canonical_quantity
 
 
-def parse_package_size(package_size: str) -> tuple[Decimal, str] | None:
-    """Parse `packageSize` into a canonical (value, unit).
+@dataclass(frozen=True)
+class Package:
+    """A parsed packageSize: how many items, and how much in all of them."""
 
-    The strings are machine-generated and follow one grammar, `<number> <unit>`,
-    with a single multi-pack variant, `<count>x<size> <unit>` (199 rows, e.g.
-    "12x355.0 ml"). No ranges, no "approx", no casing drift.
+    count: Decimal
+    total: Decimal
+    unit: str
 
-    A multi-pack returns the TOTAL, because this feeds the unit price and the
-    shelf price buys the whole pack. `size_value` therefore answers "how much
-    is in the box", not "how big is one of them" -- if matching later needs to
-    tell a 12-pack from a single can, that wants its own pack_count column
-    rather than a second meaning for this one.
 
-    Returns None for anything outside the unit table. None is a good answer:
-    it keeps a guess out of a column that feeds product identity, where a bad
-    parse corrupts match candidates as well as the unit price.
+def parse_package(package_size: str) -> Package | None:
+    """Parse `packageSize` keeping the pack count, which matching needs.
+
+    6x710 ml and 12x355 ml hold the same 4,260 ml and are not the same
+    product. See parse_package_size for the grammar.
     """
     if not package_size:
         return None
@@ -260,7 +258,30 @@ def parse_package_size(package_size: str) -> tuple[Decimal, str] | None:
         return None
 
     canonical_unit, total = canonical
-    return total, canonical_unit
+    return Package(count=count, total=total, unit=canonical_unit)
+
+
+def parse_package_size(package_size: str) -> tuple[Decimal, str] | None:
+    """Parse `packageSize` into a canonical (value, unit).
+
+    The strings are machine-generated and follow one grammar, `<number> <unit>`,
+    with a single multi-pack variant, `<count>x<size> <unit>` (199 rows, e.g.
+    "12x355.0 ml"). No ranges, no "approx", no casing drift.
+
+    A multi-pack returns the TOTAL, because this feeds the unit price and the
+    shelf price buys the whole pack. `size_value` therefore answers "how much
+    is in the box", not "how big is one of them" -- if matching later needs to
+    tell a 12-pack from a single can, that wants its own pack_count column
+    rather than a second meaning for this one.
+
+    Returns None for anything outside the unit table. None is a good answer:
+    it keeps a guess out of a column that feeds product identity, where a bad
+    parse corrupts match candidates as well as the unit price.
+    """
+    package = parse_package(package_size)
+    if package is None:
+        return None
+    return package.total, package.unit
 
 
 def derive_unit_price(price_cents: int, size_value: Decimal, size_unit: str) -> UnitPrice | None:
