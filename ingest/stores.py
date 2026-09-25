@@ -46,17 +46,18 @@ EXIT_ACCESS_DENIED = 2
 # needs; three leaves room for a store that has no online grocery.
 DEFAULT_CHECKS = 3
 
-# The response shape of pickup-locations is unverified, so every field is read
-# from the first of several plausible paths. `discover` prints one raw entry,
-# which is what turns these guesses into a documented contract.
-_ID_PATHS = ("storeId", "id", "storeNumber", "code")
-_NAME_PATHS = ("name", "storeName", "displayName")
-_CITY_PATHS = ("address.town", "address.city", "address.locality")
-_REGION_PATHS = ("address.region", "address.province", "address.regionCode", "address.state")
-_POSTAL_PATHS = ("address.postalCode", "address.zip")
-_LAT_PATHS = ("geoPoint.latitude", "location.latitude", "latitude", "lat")
-_LNG_PATHS = ("geoPoint.longitude", "location.longitude", "longitude", "lng")
-_BANNER_PATHS = ("storeBannerId", "bannerId", "banner")
+# pickup-locations fields, as verified on 2026-09-25 (docs/data-sources.md).
+# Each is read from a short list of paths so that a renamed field degrades to
+# a blank column rather than a crash; `discover` prints the shape of one
+# entry, so a rename is visible in its output.
+_ID_PATHS = ("storeId", "id")
+_NAME_PATHS = ("name",)
+_CITY_PATHS = ("address.town", "address.city")
+_REGION_PATHS = ("address.region",)
+_POSTAL_PATHS = ("address.postalCode",)
+_LAT_PATHS = ("geoPoint.latitude",)
+_LNG_PATHS = ("geoPoint.longitude",)
+_BANNER_PATHS = ("storeBannerId",)
 
 
 @dataclass(frozen=True)
@@ -192,7 +193,6 @@ def discover(
     print(f"  {len(entries)} location(s) returned")
     if entries:
         print("  shape of one entry: " + json.dumps(_shape(entries[0]), sort_keys=True))
-        print("  first entry: " + json.dumps(entries[0], sort_keys=True)[:1500])
 
     stores = [store for entry in entries if (store := parse_location(banner, entry))]
     if not stores:
@@ -205,8 +205,13 @@ def discover(
         verified = verified or status.startswith("VERIFIED")
         where = ", ".join(part for part in (store.city, store.region, store.postal_code) if part)
         distance = f"{km:6.1f} km" if km is not None else ""
-        print(f"  {store.key:<18}{distance:>10}  {store.name[:34]:<34} {where[:32]:<32} {status}")
-    return verified
+        point = f"{store.lat:.5f},{store.lng:.5f}" if store.lat is not None else ""
+        print(
+            f"  {store.key:<18}{distance:>10}  {store.name[:34]:<34} {where[:32]:<32} "
+            f"{point:<21} {status}"
+        )
+    # Listing without checking (--checks 0) succeeds once the list is read.
+    return verified or checks == 0
 
 
 def _point(raw: str) -> tuple[float, float]:

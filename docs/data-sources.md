@@ -9,7 +9,8 @@ headers plus the request body, not by hostname.
 POST https://api.pcexpress.ca/pcx-bff/api/v1/products/search
 ```
 
-Also exists: `POST /pcx-bff/api/v1/products/type-ahead` (autocomplete).
+Also exists: `POST /pcx-bff/api/v1/products/type-ahead` (autocomplete), and
+the store list below.
 
 Confirmed **not** to exist — all return 404: `/api/v1/listing-page`,
 `/api/v1/listingPage`, `/api/v1/search`.
@@ -153,14 +154,56 @@ Query `"2% milk 4l"`, same key, same endpoint, 2026-09-20:
 
 Real store-level divergence on identical products. The premise holds.
 
+### Store list
+
+```
+GET https://api.pcexpress.ca/pcx-bff/api/v1/pickup-locations?bannerIds=zehrs
+```
+
+Same headers as search, with the banner swapped in. Verified live on
+2026-09-25 from a GitHub Actions runner: a bare JSON list, one entry per
+location. 42 for Zehrs, 24 Fortinos, 198 Maxi, 354 No Frills, 119 Superstore,
+48 Loblaws. Fields `ingest/stores.py` reads:
+
+| Field | Use |
+|---|---|
+| `storeId` | The code search takes, e.g. `"0552"`. Text: leading zeros matter. |
+| `storeBannerId` | The banner slug. |
+| `name` | "Zehrs Uxbridge". |
+| `address.town`, `.region`, `.postalCode` | Where it is. `region` is a plain string ("Ontario"). |
+| `geoPoint.latitude`, `.longitude` | Coordinates. |
+
+Also present: `locationType` ("STORE"), `isShoppable`, `visible`,
+`pickupLocationId`, opening hours and departments. A code from this list is a
+candidate, not a verified store: `python -m ingest.stores` canary-searches it
+before calling it one.
+
 ### Banner slugs
 
-Verified: `nofrills`, `superstore`, `loblaw`.
-Unverified (no known-good storeId yet): `zehrs`, `maxi`, `fortinos`, `provigo`,
-`independent`, `valumart`, `wholesaleclub`, `atlantic`, `dominion`.
+Verified: `nofrills`, `superstore`, `loblaw`, `zehrs`, `fortinos`, `maxi`.
+Unverified (no known-good storeId yet): `provigo`, `independent`, `valumart`,
+`wholesaleclub`, `atlantic`, `dominion`.
 
-Known-good store codes: `3131` (No Frills Vaughan), `1516` (Superstore),
-`1032` (Loblaws).
+Known-good store codes, each canary-verified:
+
+| Code | Store | Where |
+|---|---|---|
+| `3131` | No Frills Vaughan (Vince & Franca's) | Vaughan, ON L4K 0C1 |
+| `1516` | Real Canadian Superstore Kenaston | **Winnipeg, MB** R3N 2A1 |
+| `1032` | Loblaws Bullock Drive | Markham, ON L3P 1W2 |
+| `0552` | Zehrs Uxbridge | Uxbridge, ON L9P 1N2 |
+| `1436` | Fortinos North York Lawrence | North York, ON M6A 3B4 |
+| `8711` | Maxi Aylmer Vanier | Gatineau (Aylmer), QC J9J 3Z4 |
+
+Also verified on 2026-09-25 and not ingested: Zehrs `0505` (Bradford) and
+`0536` (St Catharines), Fortinos `7920` (Etobicoke) and `0096` (Woodbridge),
+Maxi `7566` and `8702` (both Hull).
+
+Superstore `1516` was found by hand before the store list was, and nobody
+checked where it was until the list came back. Its catalogue is the Prairie
+one: Beatrice and Dairyland milk rather than Neilson, and its own codes for
+some national-brand and No Name products. That is most of what cross-store
+matching (`ingest/match.py`) has to bridge.
 
 ## Gotchas
 
@@ -190,6 +233,7 @@ Known-good store codes: `3131` (No Frills Vaughan), `1516` (Superstore),
       canary terms and 8.5 minutes of continuous fetching from a GitHub Actions
       runner, with no cookies, no `Origin` header and a datacenter IP. Zero
       403s across two consecutive nights.
-- [ ] **Real store list.** Open the storefront's store picker with a `fetch`
-      interceptor installed and capture the endpoint it calls. That seeds
-      `stores` with postal codes and coordinates instead of hand-found codes.
+- [x] **Real store list.** `pickup-locations`, above. Answered 2026-09-25.
+      Postal codes are in `stores` since `0010`; coordinates are printed by
+      `python -m ingest.stores discover` but not stored yet, since nothing
+      reads them.

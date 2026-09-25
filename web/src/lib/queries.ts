@@ -162,7 +162,7 @@ function inList(values: string[]): string {
  * store's listing of their product codes, plus every listing that shares one
  * of their identity keys. lib/matching.ts decides which of them are.
  *
- * All three banners run on the same PCX platform, so an identical product
+ * Every Loblaw banner runs on the same PCX platform, so an identical product
  * usually carries the same code at each one that stocks it. When it does not
  * (Superstore lists some national-brand and No Name items under its own
  * codes), the identity key finds it. A product no other store carries simply

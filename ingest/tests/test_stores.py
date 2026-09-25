@@ -1,9 +1,8 @@
 """Store discovery tests.
 
-What must hold whatever the unverified store list turns out to look like: a
-code is only called verified when the canary finds products at it, a missing
-or odd store list is reported rather than crashing, and a stop signal still
-stops everything.
+What must hold whatever the store list does next: a code is only called
+verified when the canary finds products at it, a missing or odd store list is
+reported rather than crashing, and a stop signal still stops everything.
 """
 
 from __future__ import annotations
@@ -143,3 +142,14 @@ def test_a_stop_signal_stops_discovery() -> None:
 
     assert code == stores.EXIT_ACCESS_DENIED
     assert route.call_count == 1, "the second banner must not be tried after a 401"
+
+
+@respx.mock
+def test_listing_without_checks_succeeds_without_a_search() -> None:
+    respx.get(loblaw.PICKUP_LOCATIONS_URL).mock(
+        return_value=httpx.Response(200, json=[location("0554")])
+    )
+    search = respx.post(loblaw.SEARCH_URL)
+
+    assert stores.main(["discover", "zehrs", "--checks", "0"]) == stores.EXIT_OK
+    assert search.call_count == 0

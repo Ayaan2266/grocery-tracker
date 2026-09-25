@@ -5,9 +5,9 @@
 
 **Live:** _deploying week 2_
 
-Daily store-level price history for Canadian groceries, across Loblaw-owned
-banners (No Frills, Real Canadian Superstore, Loblaws). It answers two
-questions:
+Daily store-level price history for Canadian groceries, across six
+Loblaw-owned banners (No Frills, Real Canadian Superstore, Loblaws, Zehrs,
+Fortinos, Maxi). It answers two questions:
 
 1. Which store near me is cheapest for this basket right now?
 2. Is today's price actually a good deal, or is it the normal price with a sale
@@ -49,19 +49,22 @@ Total infrastructure cost: $0.
 ## Repository layout
 
 ```
-.github/workflows/    ingest.yml (nightly cron), ci.yml (ruff + pytest + next build)
+.github/workflows/    ingest.yml (nightly cron + manual read-only tasks), ci.yml (ruff + pytest + next build)
 ingest/
-  sources/loblaw.py   rate-limited PCX client, canary store verification
+  sources/loblaw.py   rate-limited PCX client, canary store verification, store list
   normalize.py        unit-price extraction, canonical units, validation
-  match.py            cross-banner product matching
+  match.py            cross-store matching keys, and a read-only report of what they pair
+  stores.py           finds and canary-checks store codes for new banners
   db.py               writes price changes; history is never rewritten
   money.py            dollars to integer cents, in one place
   config.py           environment settings, rate-limit floor
   run.py              CLI entry point
-  targets.json        3 stores x 167 search terms (data, not code)
+  targets.json        6 stores x 167 search terms (data, not code)
   tests/              offline; respx intercepts every outbound request.
-                      test_db_integration.py needs a Postgres and skips without one
+                      test_db_integration.py needs a Postgres and skips without one.
+                      fixtures/labelled_pairs.json: hand-labelled matches
 db/migrations/        numbered SQL
+db/queries/           read-only diagnostics
 web/                  Next.js app
 docs/                 architecture and data-source notes
 ```
@@ -81,7 +84,15 @@ python -m ingest.run --store nofrills/3131           # one store only
 python -m ingest.run                                 # full run, writes to Postgres
 
 ruff check ingest && pytest -q
+
+python -m ingest.stores discover zehrs --near 43.65,-79.38   # list stores, canary-check the nearest 3
+python -m ingest.stores verify zehrs/0552                   # canary-check one code
+python -m ingest.match report                               # what matching pairs, read-only
 ```
+
+The last three need the same secrets as the nightly run, so they also run as
+manual tasks of the `ingest` workflow (Actions -> Nightly ingest -> Run
+workflow -> task). None of them writes anything.
 
 The write-path tests need a real Postgres and skip silently without one. CI
 provides it; locally:
@@ -137,34 +148,40 @@ comparing across dimensions by accident.
 
 Maintained honestly. Overclaiming reads as junior.
 
-- **Store comparisons only match identical products.** Search, product pages
-  with a price-history graph and a "good price?" verdict, and a basket priced at
-  every store all work. But "same item at other stores" and the basket's store
-  totals pair listings by their PCX product code, so they only find the exact
-  same product. A store brand's equivalent is a different code, and pairing
-  those is what `match.py` is for. The basket lives in a cookie, so it belongs
-  to one browser.
+- **Matching favours precision over recall.** A product page shows the same
+  item at every store that carries it, by the product code the stores share
+  or, where Superstore lists it under its own code, by brand, name and exact
+  package. A second section lists similar items (other brands with the same
+  description and size) by unit price, and those never count in a basket
+  total. Against 270 hand-labelled real pairs
+  (`ingest/tests/fixtures/labelled_pairs.json`, labelled by hand, worth a
+  second look) no identity and no substitute was wrong, but on the pairs
+  picked without the matcher's help it found 14 of 22 real matches. It misses
+  anything that differs by one word ("Holiday Crackers Original" against
+  "Holiday Crackers") or a few millilitres (148 ml against 150 ml). Weighed
+  items (the `_KG` codes) are not matched at all. Keys appear on a product the
+  first night it is ingested after `0009`; until then it pairs by code only.
+  The basket lives in a cookie, so it belongs to one browser.
 - **Verdicts rest on days, not months, of history.** Tracking started on
   2026-09-21, so "lowest price recorded" means lowest in that window. The
   product page says how many days it is based on.
 - **Unit price is unavailable for 0.12% of products.** 16 are measured in
   metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
   volume, so they get a NULL rather than a fabricated number.
-- **Cross-banner matching is a skeleton.** `match.py` documents the approach and
-  the identity-vs-substitutability distinction but proposes nothing yet. By
-  design: the spec says not to design matching before there is real messy data
-  to look at. There is now real messy data to look at.
-- **Three banners, three stores.** Zehrs, Maxi and Fortinos need verified
-  store codes first; guessed codes return 200 with zero results, which is
-  indistinguishable from a working store with nothing in stock.
-- **No precision/recall numbers on matching.** They go here once there are
-  hand-labelled pairs to measure against.
-- **Most prices first seen before 2026-09-24 have no unit price.** Every run
-  before 12:43 UTC on 2026-09-23 used code whose unit-price extraction was a
-  stub, and 808 rows from that run took the API's figure, which is wrong on
-  undeclared deals. `unit_price_source` identifies both groups, and unit price
-  is derivable from `price_cents` and `size_value`, both stored, so they can
-  be corrected by a view rather than by rewriting a stored price.
+- **Six banners, one store each, and one of them is in Winnipeg.** Superstore
+  1516, ingested since day one, turned out to be Kenaston in Winnipeg when
+  the store list was finally read (`0010`); the other five are in Ontario and
+  Gatineau. It is why Superstore carries Beatrice where the Ontario stores
+  carry Neilson. Comparing it with a Vaughan No Frills is honest about
+  prices but not about where anyone can shop. More stores are a migration and
+  a line in `targets.json` each; `python -m ingest.stores` finds and proves
+  the codes.
+- **Unit prices before 2026-09-24 are reconstructed.** The runs before then
+  stored none, or the API's figure on the regular price. `0008` works out
+  what today's code would have stored, from the shelf price and package size
+  that were stored, and the views read that instead; `unit_price_backfilled`
+  marks those rows and `price_spans` still holds what was written. Spans with
+  no readable package size keep no unit price.
 - **The regular price on unmarked deals is an estimate.** About a fifth of
   Superstore's products are discounted with no `wasPrice`. Since `0007` their
   regular price is rebuilt from the API's unit price into
@@ -178,6 +195,7 @@ Maintained honestly. Overclaiming reads as junior.
   weekly, and 18x smaller at 5% a night. How often real prices change is
   unknown until a few nights after `0006`; the query in
   [db/migrations/README.md](db/migrations/README.md) gives the real ratio.
+  Six stores instead of three roughly doubles every figure here.
 
 ## Legal
 

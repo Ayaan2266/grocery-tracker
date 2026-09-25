@@ -110,6 +110,14 @@ A unit price must describe the price that was actually charged, so it is
 derived from the shelf price whenever the package size parses. The API fills
 in otherwise and stays as a nightly cross-check.
 
+**Corrections are stored beside history, once.** Spans written before
+2026-09-24 have no unit price, or the API's on the regular price. `0008` put
+the values today's code would have stored in `unit_price_backfill`, computed
+at migration time and frozen by a trigger, and the views read them in place
+of the stored ones with a flag saying so. A view that derived them live from
+`products` would re-scale that history the day a package size was re-worded,
+the same reason `comparison_unit` lives on the span.
+
 **Inferred prices never go in observed columns.** The API's unit price on
 those deals reveals the regular price, and `implied_regular_cents` stores it
 (`0007`). It could have gone into `was_price_cents`, which the frontend
@@ -135,10 +143,25 @@ use the same conversion table, because if they used different ones they could
 disagree about what a gram is and the disagreement would only surface as a
 wrong price comparison months later.
 
-**Matching is a separate, reviewed step.** `match.py` proposes candidates; it
-does not write to `product_matches`. An unreviewed matcher silently poisons
-every downstream price comparison, and a wrong "cheaper at Superstore" claim is
-worse than no claim.
+**Matching is exact keys, measured, and never mixes its two answers.** The
+plan was a matcher that proposes pairs for a person to review. Once there was
+real data (2026-09-25) it was clear nobody would review thousands of pairs,
+and that review was not what kept a wrong claim out: the rule was. On a name
+similarity score, the pairs that must stay apart ("Condensed Soup Yellow Thai
+Curry" and "Condensed Soup Tomato", 0.42) score like the ones that belong
+together. So `match.py` reduces a name to the set of words that describe the
+product and requires those sets to be equal, and writes two keys on each
+product: `identity_key` (brand, words, exact package) and `substitute_key`
+(words, pack count, size, any brand). The review moved to where it can be done
+once and repeated for free: 270 real pairs labelled by hand in
+`ingest/tests/fixtures/labelled_pairs.json`, which fail the build if an
+identity is ever wrong or substitute precision drops under 97%.
+
+The identity/substitute distinction survives into the frontend. A same-item
+comparison and a basket total use the shared product code or an identity key
+that no store holds under two codes; a substitute is only ever shown in its
+own "Similar items" list, by unit price. A wrong "cheaper at Superstore" claim
+is still worse than no claim, which is why recall was traded away for it.
 
 ## Known limitations
 

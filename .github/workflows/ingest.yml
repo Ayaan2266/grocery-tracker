@@ -43,7 +43,9 @@ jobs:
       group: ingest
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Six stores at 1 req/sec is about 17 minutes of requests. A full run must
+    # fit in half of this (ingest/tests/test_targets.py reads it from here).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 

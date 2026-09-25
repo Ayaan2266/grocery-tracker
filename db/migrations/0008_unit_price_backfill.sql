@@ -42,9 +42,11 @@ BEGIN;
 
 CREATE TEMPORARY TABLE package_sizes ON COMMIT DROP AS
 WITH matched AS (
+    -- Python's \s also matches the no-break spaces French typography uses
+    -- (U+00A0, U+2009, U+202F); Postgres's does not, so they become spaces.
     SELECT p.id AS product_id,
            regexp_match(
-               p.package_size,
+               translate(p.package_size, chr(160) || chr(8201) || chr(8239), '   '),
                '^\s*(?:(\d+(?:\.\d+)?)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*([a-z]+)\s*$',
                'i'
            ) AS m

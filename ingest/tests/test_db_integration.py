@@ -137,18 +137,29 @@ def spans(conn, retailer_sku: str, store_code: str = "3131") -> list[tuple[date,
         return cur.fetchall()
 
 
-def test_migrations_seed_three_verified_stores(conn) -> None:
+def test_migrations_seed_every_verified_store(conn) -> None:
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT s.store_code, r.banner_slug
+            SELECT s.store_code, r.banner_slug, s.postal_code
               FROM stores s JOIN retailers r ON r.id = s.retailer_id
              ORDER BY s.id
         """)
         assert cur.fetchall() == [
-            ("3131", "nofrills"),
-            ("1516", "superstore"),
-            ("1032", "loblaw"),
+            ("3131", "nofrills", "L4K 0C1"),
+            ("1516", "superstore", "R3N 2A1"),
+            ("1032", "loblaw", "L3P 1W2"),
+            ("0552", "zehrs", "L9P 1N2"),
+            ("1436", "fortinos", "M6A 3B4"),
+            ("8711", "maxi", "J9J 3Z4"),
         ]
+
+
+def test_every_targeted_store_has_a_row(conn) -> None:
+    """A store in targets.json with no row fails preflight and costs a night."""
+    from ingest.run import load_targets
+
+    for target in load_targets().stores:
+        db.resolve_store_id(conn, target.banner, target.store_code)
 
 
 def test_a_batch_writes_products_and_observations(conn) -> None:
@@ -1024,6 +1035,9 @@ class TestUnitPriceBackfill:
         "450g",
         "1.5KG",
         "12 x 0 ml",
+        "500\u00a0g",
+        "1\u202fl",
+        "6\u2009x\u2009710 ml",
     ],
 )
 def test_the_sql_parser_in_0008_agrees_with_normalize(schema_conn, package_size) -> None:

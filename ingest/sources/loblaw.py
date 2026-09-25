@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 log = logging.getLogger(__name__)
 
 SEARCH_URL = "https://api.pcexpress.ca/pcx-bff/api/v1/products/search"
-# Unverified; see LoblawClient.pickup_locations.
+# The store picker's list. Verified 2026-09-25; see LoblawClient.pickup_locations.
 PICKUP_LOCATIONS_URL = "https://api.pcexpress.ca/pcx-bff/api/v1/pickup-locations"
 
 DEFAULT_PAGE_SIZE = 48
@@ -233,11 +233,11 @@ class LoblawClient:
     def pickup_locations(self, banner: str) -> list[dict[str, Any]]:
         """The banner's store list, as the storefront's store picker loads it.
 
-        NOT YET VERIFIED against the live API. The path and the `bannerIds`
-        parameter are the ones community clients of PCX use; the response
-        shape is unknown, so entries come back as raw dicts and
-        ingest/stores.py reads them defensively. A store code found here is
-        still only trusted after verify_store has seen products at it.
+        Verified live on 2026-09-25 (docs/data-sources.md): a JSON list, one
+        entry per location, 42 for Zehrs and 354 for No Frills. Entries come
+        back as raw dicts and ingest/stores.py reads the few fields it needs.
+        A store code found here is still only trusted after verify_store has
+        seen products at it.
         """
         response = self._send(
             "GET",
