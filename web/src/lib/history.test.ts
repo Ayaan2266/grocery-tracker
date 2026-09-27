@@ -6,9 +6,12 @@ import {
   chartPoints,
   dailyPrices,
   dayNumber,
+  daysAtPrice,
   isoDay,
   latestDeal,
   latestSpan,
+  pickExample,
+  priceLog,
   rangePercent,
   summarize,
   windowSpans,
@@ -142,4 +145,53 @@ test("the latest span and the latest deal are found by date, not by order", () =
   assert.deepEqual(latestDeal(spans), { span: sale, regular: 644, declared: true });
   assert.deepEqual(latestDeal([hidden]), { span: hidden, regular: 230, declared: false });
   assert.equal(latestDeal([span("2026-09-21", "2026-09-24", 644)]), null);
+});
+
+// Burnbrae eggs at Loblaws, as recorded: on sale, then out of stock, then regular.
+const eggs: Span[] = [
+  { ...span("2026-09-21", "2026-09-22", 444), was_price_cents: 698 },
+  { ...span("2026-09-23", "2026-09-23", 444), was_price_cents: 698, in_stock: false },
+  span("2026-09-24", "2026-09-27", 698),
+];
+
+test("days at a price add up across spans", () => {
+  assert.equal(daysAtPrice(eggs, 698), 4);
+  assert.equal(daysAtPrice(eggs, 444), 3);
+  assert.equal(daysAtPrice(eggs, 100), 0);
+});
+
+test("the price log reads like the history, labelled", () => {
+  assert.deepEqual(priceLog(eggs), [
+    { from: "2026-09-21", to: "2026-09-22", price: 444, note: "sale", regular: 698 },
+    { from: "2026-09-23", to: "2026-09-23", price: 444, note: "out", regular: null },
+    { from: "2026-09-24", to: "2026-09-27", price: 698, note: null, regular: null },
+  ]);
+});
+
+test("the log merges spans that read the same, but not across an unseen day", () => {
+  const log = priceLog([
+    span("2026-09-21", "2026-09-22", 500),
+    span("2026-09-23", "2026-09-24", 500),
+    span("2026-09-26", "2026-09-27", 500),
+    { ...span("2026-09-28", "2026-09-28", 450), implied_regular_cents: 520 },
+  ]);
+  assert.deepEqual(
+    log.map((e) => [e.from, e.to, e.price, e.note]),
+    [
+      ["2026-09-21", "2026-09-24", 500, null],
+      ["2026-09-26", "2026-09-27", 500, null],
+      ["2026-09-28", "2026-09-28", 450, "usual"],
+    ],
+  );
+});
+
+test("the example is the in-stock listing whose price moved most", () => {
+  const steady = { id: 1, price: 399, inStock: true, spans: [span("2026-09-21", "2026-09-27", 399)] };
+  const moved = { id: 2, price: 698, inStock: true, spans: eggs };
+  const movedButOut = { id: 3, price: 199, inStock: false, spans: [span("2026-09-21", "2026-09-22", 250), span("2026-09-23", "2026-09-27", 199)] };
+  assert.equal(pickExample([steady, movedButOut, moved]), 2);
+  assert.equal(pickExample([steady, movedButOut]), 1);
+  assert.equal(pickExample([]), null);
+  // A tie on movement goes to the cheaper listing.
+  assert.equal(pickExample([{ ...moved, id: 4, price: 800 }, moved]), 2);
 });
