@@ -211,3 +211,79 @@ export function latestDeal(spans: Span[]): Deal | null {
   }
   return found;
 }
+
+/** Days a listing sat at a price, across all its spans. */
+export function daysAtPrice(spans: Span[], price: number): number {
+  return spans.filter((s) => s.price_cents === price).reduce((sum, s) => sum + spanDays(s), 0);
+}
+
+export type LogEntry = {
+  from: string;
+  to: string;
+  price: number;
+  /** "sale": the store's own was-price. "usual": an inferred regular price. "out": listed but out of stock. */
+  note: "sale" | "usual" | "out" | null;
+  regular: number | null;
+};
+
+/**
+ * The history as a reader would tell it: oldest first, one line per stretch
+ * of the same shown price and label. Spans also split on values the log does
+ * not show, such as a unit price, so back-to-back spans that read the same
+ * are merged. A day the listing went unseen still starts a new line.
+ */
+export function priceLog(spans: Span[]): LogEntry[] {
+  const sorted = [...spans].sort((a, b) => a.first_observed_on.localeCompare(b.first_observed_on));
+  const out: LogEntry[] = [];
+  for (const s of sorted) {
+    const wasPrice = s.was_price_cents ?? null;
+    const implied = s.implied_regular_cents ?? null;
+    const note: LogEntry["note"] = !s.in_stock
+      ? "out"
+      : wasPrice !== null && wasPrice > s.price_cents
+        ? "sale"
+        : implied !== null && implied > s.price_cents
+          ? "usual"
+          : null;
+    const regular = note === "sale" ? wasPrice : note === "usual" ? implied : null;
+    const last = out[out.length - 1];
+    if (
+      last &&
+      dayNumber(s.first_observed_on) === dayNumber(last.to) + 1 &&
+      last.price === s.price_cents &&
+      last.note === note &&
+      last.regular === regular
+    ) {
+      last.to = s.last_confirmed_on;
+      continue;
+    }
+    out.push({ from: s.first_observed_on, to: s.last_confirmed_on, price: s.price_cents, note, regular });
+  }
+  return out;
+}
+
+export type Candidate = { id: number; price: number; inStock: boolean; spans: Span[] };
+
+/**
+ * The listing that best shows the verdict at work: in stock, with the most
+ * distinct prices in its history, then the most changes, then the cheapest.
+ */
+export function pickExample(candidates: Candidate[]): number | null {
+  const score = (c: Candidate) => [
+    c.inStock ? 1 : 0,
+    new Set(c.spans.map((s) => s.price_cents)).size,
+    c.spans.length,
+    -c.price,
+  ];
+  // Compare scores left to right: the first place they differ decides.
+  const beats = (a: number[], b: number[]) => {
+    const i = a.findIndex((v, k) => v !== b[k]);
+    return i !== -1 && a[i] > b[i];
+  };
+  let best: { id: number; score: number[] } | null = null;
+  for (const c of candidates) {
+    const s = score(c);
+    if (!best || beats(s, best.score)) best = { id: c.id, score: s };
+  }
+  return best?.id ?? null;
+}

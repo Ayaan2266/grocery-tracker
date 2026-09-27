@@ -283,6 +283,7 @@ export type StoreInfo = {
   store_code: string;
   /** "Real Canadian Superstore - Winnipeg Kenaston": banner, then place. */
   label: string | null;
+  postal_code: string | null;
   banner_slug: string;
   retailer_name: string;
 };
@@ -291,6 +292,7 @@ type StoreRow = {
   id: number;
   store_code: string;
   label: string | null;
+  postal_code: string | null;
   retailers: { banner_slug: string; name: string } | { banner_slug: string; name: string }[] | null;
 };
 
@@ -301,7 +303,7 @@ export async function getStores(): Promise<Result<StoreInfo[]>> {
 
   const { data, error } = await supabase
     .from("stores")
-    .select("id, store_code, label, retailers(banner_slug, name)")
+    .select("id, store_code, label, postal_code, retailers(banner_slug, name)")
     .eq("active", true)
     .order("id");
 
@@ -314,12 +316,63 @@ export async function getStores(): Promise<Result<StoreInfo[]>> {
         id: row.id,
         store_code: row.store_code,
         label: row.label,
+        postal_code: row.postal_code,
         banner_slug: retailer.banner_slug,
         retailer_name: retailer.name,
       },
     ];
   });
   return { data: stores, error: null };
+}
+
+/** One store's nightly run: when it finished and how many listings it saw. */
+export type IngestRun = {
+  store_id: number;
+  run_on: string;
+  products_observed: number;
+  recorded_at: string;
+};
+
+/**
+ * Each store's most recent run. The latest few dozen runs cover every store
+ * for more than a week, so a store missing here has not run in that long.
+ */
+export async function getLatestRuns(): Promise<Result<IngestRun[]>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("ingest_runs")
+    .select("store_id, run_on, products_observed, recorded_at")
+    .order("run_on", { ascending: false })
+    .order("recorded_at", { ascending: false })
+    .limit(60);
+
+  if (error) return { data: null, error: error.message };
+  const latest = new Map<number, IngestRun>();
+  for (const run of (data ?? []) as IngestRun[]) {
+    if (!latest.has(run.store_id)) latest.set(run.store_id, run);
+  }
+  return { data: [...latest.values()], error: null };
+}
+
+/**
+ * How many rows a store's run wrote on a day: listings whose price, sale or
+ * stock changed, plus listings seen for the first time. Counted by the
+ * database, so it never meets the 1,000-row response cap.
+ */
+export async function getChangeCount(storeId: number, day: string): Promise<Result<number>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { count, error } = await supabase
+    .from("price_spans")
+    .select("product_id, products!inner(store_id)", { count: "exact", head: true })
+    .eq("first_observed_on", day)
+    .eq("products.store_id", storeId);
+
+  if (error) return { data: null, error: error.message };
+  return { data: count ?? 0, error: null };
 }
 
 export async function getCoverage(): Promise<Result<Coverage | null>> {

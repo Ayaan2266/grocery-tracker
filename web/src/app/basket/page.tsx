@@ -318,7 +318,7 @@ export default async function BasketPage() {
     <main>
       <div className="site-shell" id="top">
         <div className="hero-wrap hero-wrap-compact">
-          <SiteHeader />
+          <SiteHeader current="basket" />
           <div className="compact-search">
             <SearchForm compact />
           </div>
