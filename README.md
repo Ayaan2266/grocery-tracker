@@ -189,14 +189,20 @@ Maintained honestly. Overclaiming reads as junior.
   `implied_regular_cents`, and search results show it as "usually ~$2.30".
   The API rounds its unit price to the cent per 100 g, so it can be a few
   cents out, and history before 2026-09-24 does not have it.
-- **The storage growth figure is simulated, not measured.** One row per product
-  per night was measured at ~165 bytes and ~2.9 MB a night, enough to fill
-  Supabase's 500 MB free tier around March 2027. Storing changes only (`0006`)
-  measured 8.7x smaller in a 60-night simulation where every product changes
-  weekly, and 18x smaller at 5% a night. How often real prices change is
-  unknown until a few nights after `0006`; the query in
-  [db/migrations/README.md](db/migrations/README.md) gives the real ratio.
-  Six stores instead of three roughly doubles every figure here.
+- **The storage growth figure rests on one measured night.** One row per
+  product per night was measured at ~165 bytes and ~2.9 MB a night for three
+  stores, enough to fill Supabase's 500 MB free tier around March 2027; six
+  stores roughly double both. Storing changes only (`0006`) measured 8.7x
+  smaller in a 60-night simulation where every product changes weekly, and 18x
+  smaller at 5% a night. The first real night was 2026-09-27, the first with a
+  run the night before at all six stores: 2,135 rows written for 38,263
+  products, 5.6%, or 17.9x fewer rows than one per product. The three stores
+  tracked since day one wrote 6.0% on both 2026-09-26 and 2026-09-27. That
+  count includes new products and ones back after a missed night, so prices
+  changed on fewer than 5.6%. One night is not a week: a night when the weekly
+  flyer turns over should run higher. The query in
+  [db/migrations/README.md](db/migrations/README.md) gives the ratio over a
+  week.
 
 ## Legal
 
