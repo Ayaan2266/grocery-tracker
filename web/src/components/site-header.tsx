@@ -5,7 +5,7 @@ import { ShoppingBasket } from "lucide-react";
 import { readBasket } from "@/lib/basket";
 
 /** `current` marks the page you are on, for screen readers and the underline. */
-export async function SiteHeader({ current }: { current?: "how-it-works" | "basket" } = {}) {
+export async function SiteHeader({ current }: { current?: "home" | "how-it-works" | "basket" } = {}) {
   const basket = await readBasket();
   const items = basket.size;
 
@@ -16,7 +16,7 @@ export async function SiteHeader({ current }: { current?: "how-it-works" | "bask
         <span>Loonie</span>
       </Link>
       <nav aria-label="Main navigation">
-        <Link href="/#prices">Prices</Link>
+        <Link href="/" aria-current={current === "home" ? "page" : undefined}>Home</Link>
         <Link href="/how-it-works" aria-current={current === "how-it-works" ? "page" : undefined}>
           How it works
         </Link>
