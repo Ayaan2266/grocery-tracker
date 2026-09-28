@@ -120,7 +120,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
       <a className="skip-link" href="#prices">Skip to prices</a>
       <div className="site-shell" id="top">
         <div className="hero-wrap">
-          <SiteHeader />
+          <SiteHeader current="home" />
 
           <section className="hero" aria-labelledby="hero-title">
             <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
