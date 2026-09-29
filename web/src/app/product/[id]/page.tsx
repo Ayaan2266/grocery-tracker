@@ -9,9 +9,11 @@ import { StoreChip, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StoreScopeNote } from "@/components/store-scope-note";
 import { RangeBar, verdictText } from "@/components/verdict";
 import { readBasket } from "@/lib/basket";
 import { summarize, type Verdict } from "@/lib/history";
+import { loadScopedStores } from "@/lib/store-scope";
 import { sameItemListings, similarListings, type SameItem } from "@/lib/matching";
 import {
   getPriceHistory,
@@ -20,7 +22,15 @@ import {
   getSimilarCandidates,
   type LatestPrice,
 } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT, bannerLabel, storeArea, storeName } from "@/lib/stores";
+import {
+  BANNER_COLORS,
+  bannerLabel,
+  inScope,
+  scopedStoreIds,
+  shortStoreNames,
+  storeArea,
+  storeName,
+} from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
 type Props = {
@@ -162,7 +172,7 @@ function StoreComparison({
   const priciest = buyable[buyable.length - 1] ?? null;
   const current = listings.find((l) => l.product_id === currentId) ?? null;
   const top = Math.max(...listings.map((l) => l.price_cents));
-  const name = (l: LatestPrice) => BANNER_SHORT[l.banner_slug] ?? l.retailer_name;
+  const name = shortStoreNames(listings);
 
   let pill: string | null = null;
   if (cheapest && priciest && priciest.price_cents > cheapest.price_cents) {
@@ -277,28 +287,51 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const rawQuery = (await searchParams).q;
   const query = (Array.isArray(rawQuery) ? rawQuery[0] : rawQuery)?.trim() ?? "";
 
-  const [productResult, basket] = await Promise.all([getProduct(id), readBasket()]);
+  const [productResult, basket, scoped] = await Promise.all([
+    getProduct(id),
+    readBasket(),
+    loadScopedStores(),
+  ]);
   if (productResult.data === null && productResult.error === null) notFound();
   const product = productResult.data;
 
+  // Matched across every store, then limited to the stores in scope: which
+  // listings are the same item depends on all of them (lib/matching.ts). The
+  // listing asked for is always shown, wherever it is.
   const candidates = product ? await getSameItemCandidates([product]) : null;
-  const sameItems = product ? sameItemListings(product, candidates?.data ?? []) : [];
+  const matched = product ? sameItemListings(product, candidates?.data ?? []) : [];
+  const shown = (listing: LatestPrice) =>
+    listing.product_id === id || inScope(scoped.storeIds, listing.store_id);
+  const sameItems = matched.filter((item) => shown(item.listing));
   const allListings = sameItems.map((item) => item.listing);
   const [history, similarCandidates] = await Promise.all([
     getPriceHistory(allListings.map((l) => l.product_id)),
     getSimilarCandidates(product?.substitute_key ? [product.substitute_key] : []),
   ]);
   const similar = product
-    ? similarListings(product, similarCandidates.data ?? [], new Set(allListings.map((l) => l.product_id)))
+    ? similarListings(
+        product,
+        (similarCandidates.data ?? []).filter(shown),
+        new Set(matched.map((item) => item.listing.product_id)),
+      )
     : [];
+  // Mention the scope only where it changed what this page shows.
+  const ontarioIds = scopedStoreIds(scoped.stores, "ontario");
+  const scopeMatters =
+    scoped.scope === "ontario"
+      ? matched.some((item) => !shown(item.listing))
+      : allListings.some((listing) => !inScope(ontarioIds, listing.store_id));
+  const onlyOntario =
+    scoped.storeIds !== null && product !== null && inScope(scoped.storeIds, product.store_id);
 
   const spansFor = (productId: number) =>
     (history.data ?? []).filter((span) => span.product_id === productId);
+  const seriesName = shortStoreNames(allListings);
   const series: ChartSeries[] = [...allListings]
     .sort((a, b) => (a.product_id === id ? -1 : b.product_id === id ? 1 : 0))
     .map((listing) => ({
       key: `p${listing.product_id}`,
-      label: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
+      label: seriesName(listing),
       color: BANNER_COLORS[listing.banner_slug] ?? "#53617e",
       current: listing.price_cents,
       spans: spansFor(listing.product_id),
@@ -358,7 +391,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     titleId="history-title"
                     subtitle={
                       series.length > 1
-                        ? "This item at every store that carries it. Hover or tap for each day."
+                        ? `This item at every ${onlyOntario ? "Ontario " : ""}store that carries it. Hover or tap for each day.`
                         : "Hover or tap for the price on each day."
                     }
                   />
@@ -370,6 +403,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
               )}
 
               {similar.length > 0 && <SimilarItems items={similar} query={query} />}
+
+              {scopeMatters && <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />}
             </>
           )}
         </article>

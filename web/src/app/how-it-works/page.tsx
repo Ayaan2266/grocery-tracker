@@ -591,9 +591,10 @@ function Faq({ status }: { status: NightlyStatus | null }) {
       q: "Why are the stores in different cities?",
       a: (
         <>
-          Loonie tracks one store from each chain
+          Loonie checks {status?.stores.length ? `${inWords(status.stores.length)} stores` : "a handful of stores"}
           {places.length > 0 && <>: {places.map((p) => `${p.name} in ${p.place}`).join(", ")}</>}. Prices,
-          and even brands, vary by region, which is why every price shows where it was recorded.
+          and even brands, vary by region, which is why every price shows where it was recorded. Search,
+          product pages and the basket show the Ontario stores unless you choose to show all of them.
         </>
       ),
     },
@@ -768,7 +769,7 @@ export default async function HowItWorksPage({
               <li>
                 <Store size={18} aria-hidden="true" />
                 <div>
-                  <strong>Online prices, one store per chain</strong>
+                  <strong>Online prices, from a handful of stores</strong>
                   <span>In-store prices, and other locations of the same chain, can differ.</span>
                 </div>
               </li>

@@ -6,6 +6,7 @@ import { changeQuantity, clearBasket, removeFromBasket } from "@/app/basket/acti
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StoreScopeNote } from "@/components/store-scope-note";
 import { readBasket } from "@/lib/basket";
 import { sameItemListings, similarListings } from "@/lib/matching";
 import {
@@ -14,7 +15,8 @@ import {
   getSimilarCandidates,
   type LatestPrice,
 } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT, storeArea, storeName } from "@/lib/stores";
+import { loadScopedStores } from "@/lib/store-scope";
+import { BANNER_COLORS, BANNER_SHORT, inScope, storeArea, storeName } from "@/lib/stores";
 import { formatCents, formatUnitPrice } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Basket | Loonie" };
@@ -222,7 +224,8 @@ function EmptyBasket() {
 }
 
 export default async function BasketPage() {
-  const basket = await readBasket();
+  const [basket, scoped] = await Promise.all([readBasket(), loadScopedStores()]);
+  const shown = (listing: LatestPrice) => inScope(scoped.storeIds, listing.store_id);
   const ids = [...basket.keys()];
   const products = await getProducts(ids);
   const items = (products.data ?? []).filter((p) => basket.has(p.product_id));
@@ -234,9 +237,9 @@ export default async function BasketPage() {
   ]);
   const error = products.error ?? listings.error;
 
-  // Every store any item is listed at, in a stable order.
+  // Every store in scope that any item is listed at, in a stable order.
   const stores = new Map<number, Store>();
-  for (const listing of [...items, ...(listings.data ?? [])]) {
+  for (const listing of [...items, ...(listings.data ?? [])].filter(shown)) {
     stores.set(listing.store_id, {
       id: listing.store_id,
       slug: listing.banner_slug,
@@ -255,15 +258,16 @@ export default async function BasketPage() {
       const outOfStock = new Map<number, LatestPrice>();
       // The same item only: its code, or its unambiguous identity key. A similar
       // product is never priced into a store's total as if it were this one.
-      const same = sameItemListings(product, listings.data ?? []);
-      for (const { listing } of same) {
+      // Matched across every store, then limited to the stores in scope.
+      const matched = sameItemListings(product, listings.data ?? []);
+      for (const { listing } of matched.filter((item) => shown(item.listing))) {
         (listing.in_stock ? byStore : outOfStock).set(listing.store_id, listing);
       }
       const cheapest = [...byStore.values()].sort((a, b) => a.price_cents - b.price_cents)[0] ?? null;
       const [similar] = similarListings(
         product,
-        similarCandidates.data ?? [],
-        new Set(same.map((s) => s.listing.product_id)),
+        (similarCandidates.data ?? []).filter(shown),
+        new Set(matched.map((s) => s.listing.product_id)),
         1,
       );
       const cheaperSimilar =
@@ -385,6 +389,7 @@ export default async function BasketPage() {
                   name and package under another code. Similar items are suggestions and never counted.
                   Out-of-stock listings are left out. Prices are recorded snapshots, not checkout quotes.
                 </p>
+                <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />
               </div>
             </div>
           )}

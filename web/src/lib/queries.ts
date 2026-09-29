@@ -87,11 +87,16 @@ export type SearchPage = { rows: LatestPrice[]; hasMore: boolean };
  * there rather than first, since nothing is known about their value.
  *
  * Asks for one row more than it shows, which is how "Show more" knows there
- * is more without a second count query.
+ * is more without a second count query. `storeIds` limits the results to
+ * those stores; null searches every store.
  */
 export async function searchProducts(
   term: string,
-  { sort = "price", limit = PAGE_SIZE }: { sort?: SortOrder; limit?: number } = {},
+  {
+    sort = "price",
+    limit = PAGE_SIZE,
+    storeIds = null,
+  }: { sort?: SortOrder; limit?: number; storeIds?: number[] | null } = {},
 ): Promise<Result<SearchPage>> {
   const trimmed = term.trim();
   if (!trimmed) return { data: { rows: [], hasMore: false }, error: null };
@@ -104,6 +109,7 @@ export async function searchProducts(
     .from("product_latest_price")
     .select("*")
     .ilike("raw_name", `%${escapeLikePattern(trimmed)}%`);
+  if (storeIds !== null) query = query.in("store_id", storeIds);
   query =
     sort === "value"
       ? query

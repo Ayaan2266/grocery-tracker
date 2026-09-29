@@ -194,10 +194,13 @@ Known-good store codes, each canary-verified:
 | `0552` | Zehrs Uxbridge | Uxbridge, ON L9P 1N2 |
 | `1436` | Fortinos North York Lawrence | North York, ON M6A 3B4 |
 | `8711` | Maxi Aylmer Vanier | Gatineau (Aylmer), QC J9J 3Z4 |
+| `1033` | Real Canadian Superstore Gerry Fitzgerald | Toronto, ON M3J 3N4 |
 
 Also verified on 2026-09-25 and not ingested: Zehrs `0505` (Bradford) and
 `0536` (St Catharines), Fortinos `7920` (Etobicoke) and `0096` (Woodbridge),
-Maxi `7566` and `8702` (both Hull).
+Maxi `7566` and `8702` (both Hull). And on 2026-09-29, the four Superstores
+next nearest to Vaughan after `1033`: `2800` (Weston Road, Toronto), `1077`
+(Don Mills, Toronto), `2809` (Brimley Road, Toronto) and `1030` (Aurora).
 
 Superstore `1516` was found by hand before the store list was, and nobody
 checked where it was until the list came back. Its catalogue is the Prairie
