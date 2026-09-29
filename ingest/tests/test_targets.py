@@ -31,8 +31,9 @@ def test_every_store_is_fully_specified() -> None:
 def test_only_verified_store_codes_are_targeted() -> None:
     """Guessed codes return 200 with zero results, which looks like success.
 
-    The last three were found by `python -m ingest.stores discover` on
-    2026-09-25 and returned products on the canary search (db/migrations/0010).
+    Zehrs, Fortinos and Maxi were found by `python -m ingest.stores discover`
+    on 2026-09-25 and Superstore 1033 on 2026-09-29, each returning products on
+    the canary search (db/migrations/0010, 0011).
     """
     verified = {
         ("nofrills", "3131"),
@@ -41,6 +42,7 @@ def test_only_verified_store_codes_are_targeted() -> None:
         ("zehrs", "0552"),
         ("fortinos", "1436"),
         ("maxi", "8711"),
+        ("superstore", "1033"),
     }
     assert {(s.banner, s.store_code) for s in load_targets().stores} <= verified
 

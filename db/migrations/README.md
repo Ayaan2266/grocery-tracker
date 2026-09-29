@@ -24,7 +24,9 @@ DROP TABLE price_observations_daily_v1;
 `0008`, `0009` and `0010` go in before the code that uses them is merged: the
 nightly run writes the columns `0009` adds, and ingests the stores `0010` adds.
 Preflight checks both and stops the night before any API request if either is
-missing. `0008` prints how many unit prices it filled in, and refuses to
+missing. The same goes for every store migration since, `0011` included: a
+store in `targets.json` with no row stops the whole night, not just that
+store, so apply the migration first and merge second. `0008` prints how many unit prices it filled in, and refuses to
 commit if its package-size parser disagrees with `ingest/normalize.py`.
 
 ```bash

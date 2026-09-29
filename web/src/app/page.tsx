@@ -6,15 +6,16 @@ import { PriceRow, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StoreScopeNote } from "@/components/store-scope-note";
 import { readBasket } from "@/lib/basket";
-import { BANNER_COLORS, BANNER_SHORT, storeArea } from "@/lib/stores";
+import { loadScopedStores } from "@/lib/store-scope";
+import { BANNER_COLORS, BANNER_SHORT, inScope, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
   PAGE_SIZE,
   getCoverage,
   getRecentHistory,
-  getStores,
   searchProducts,
   type LatestPrice,
   type SortOrder,
@@ -102,13 +103,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     ? Math.min(Math.max(requested, PAGE_SIZE), MAX_RESULTS)
     : PAGE_SIZE;
 
-  const [results, coverage, basket, stores] = await Promise.all([
-    searchProducts(query, { sort, limit: count }),
-    getCoverage(),
-    readBasket(),
-    getStores(),
+  // The search is limited to the stores in scope, so it waits for the list;
+  // the rest does not.
+  const pending = Promise.all([getCoverage(), readBasket()]);
+  const scoped = await loadScopedStores();
+  const [results, [coverage, basket]] = await Promise.all([
+    searchProducts(query, { sort, limit: count, storeIds: scoped.storeIds }),
+    pending,
   ]);
-  const storeList = stores.data ?? [];
+  const storeList = scoped.stores;
+  const chains = new Set(
+    storeList.filter((store) => inScope(scoped.storeIds, store.id)).map((store) => store.banner_slug),
+  ).size;
   const prices = results.data?.rows ?? [];
   const histories = await rowHistories(prices);
   const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
@@ -164,6 +170,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     </p>
                     {prices.length > 1 && <SortToggle query={query} sort={sort} />}
                   </div>
+                  <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />
                   {prices.length > 0 ? (
                     <ul className="price-list">
                       {prices.map((row, index) => (
@@ -219,7 +226,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                   <h3>Find a price</h3>
                   <p>
                     Search real listings from{" "}
-                    {storeList.length > 1 ? `${storeList.length} Canadian grocery chains` : "Canadian grocery stores"},
+                    {chains > 1 ? `${chains} Canadian grocery chains` : "Canadian grocery stores"},
                     cheapest first.
                   </p>
                   <Link href="/?q=milk#prices">Try a search <ArrowRight size={18} aria-hidden="true" /></Link>
@@ -265,7 +272,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             )}
             {storeList.length > 0 && (
               <div className="coverage-stores">
-                <p>One store per chain, checked every night. Prices differ between locations, so every price says where it was recorded.</p>
+                <p>Checked every night. Prices differ between locations, so every price says where it was recorded.</p>
                 <ul>
                   {storeList.map((store) => (
                     <li key={store.id} className="store-chip">
@@ -275,6 +282,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     </li>
                   ))}
                 </ul>
+                {!query && <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />}
               </div>
             )}
           </section>

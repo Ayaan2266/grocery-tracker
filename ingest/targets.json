@@ -30,6 +30,11 @@
       "banner": "maxi",
       "store_code": "8711",
       "label": "Maxi - Aylmer Vanier"
+    },
+    {
+      "banner": "superstore",
+      "store_code": "1033",
+      "label": "Real Canadian Superstore - Toronto Gerry Fitzgerald"
     }
   ],
   "canary_terms": ["milk", "bread", "eggs"],
