@@ -154,6 +154,10 @@ def test_redact_password_is_a_noop_without_one() -> None:
     assert redact_password("boom", "postgresql://localhost:5432/db") == "boom"
 
 
+def test_decoded_password_is_redacted_too() -> None:
+    assert redact_password("tried p@ss", "postgresql://user:p%40ss@localhost/db") == "tried ***"
+
+
 def test_a_malformed_url_never_echoes_the_driver_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

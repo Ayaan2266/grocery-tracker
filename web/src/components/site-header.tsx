@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBasket } from "lucide-react";
 
-import { readBasket } from "@/lib/basket";
+import { readBasket } from "@/lib/basket-server";
 
 /** `current` marks the page you are on, for screen readers and the underline. */
 export async function SiteHeader({ current }: { current?: "home" | "how-it-works" | "basket" } = {}) {

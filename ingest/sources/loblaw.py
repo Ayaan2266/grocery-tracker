@@ -14,7 +14,7 @@ from datetime import date
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -122,12 +122,12 @@ class Product(_Model):
 
 
 class Pagination(_Model):
-    total_results: int = Field(default=0, alias="totalResults")
+    total_results: int = Field(alias="totalResults", ge=0)
 
 
 class SearchResponse(_Model):
-    results: list[Product] = Field(default_factory=list)
-    pagination: Pagination = Field(default_factory=Pagination)
+    results: list[Product]
+    pagination: Pagination
 
 
 class RateLimiter:
@@ -228,7 +228,12 @@ class LoblawClient:
             f"banner={banner} store={store_id} term={term!r}",
             json=body,
         )
-        return SearchResponse.model_validate(response.json())
+        try:
+            return SearchResponse.model_validate(self._json(response))
+        except ValidationError as exc:
+            raise IngestError(
+                f"invalid search response for banner={banner} store={store_id} term={term!r}"
+            ) from exc
 
     def pickup_locations(self, banner: str) -> list[dict[str, Any]]:
         """The banner's store list, as the storefront's store picker loads it.
@@ -246,7 +251,7 @@ class LoblawClient:
             f"pickup-locations banner={banner}",
             params={"bannerIds": banner},
         )
-        payload = response.json()
+        payload = self._json(response)
         if isinstance(payload, dict):
             # Tolerate a wrapper object around the list.
             for key in ("results", "locations", "pickupLocations", "data"):
@@ -258,6 +263,13 @@ class LoblawClient:
                 f"pickup-locations for {banner} returned {type(payload).__name__}, not a list"
             )
         return [entry for entry in payload if isinstance(entry, dict)]
+
+    @staticmethod
+    def _json(response: httpx.Response) -> Any:
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise IngestError(f"invalid JSON from {response.request.url.path}") from exc
 
     def _send(
         self, method: str, url: str, banner: str, context: str, **kwargs: Any

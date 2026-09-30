@@ -205,7 +205,11 @@ def discover(
         verified = verified or status.startswith("VERIFIED")
         where = ", ".join(part for part in (store.city, store.region, store.postal_code) if part)
         distance = f"{km:6.1f} km" if km is not None else ""
-        point = f"{store.lat:.5f},{store.lng:.5f}" if store.lat is not None else ""
+        point = (
+            f"{store.lat:.5f},{store.lng:.5f}"
+            if store.lat is not None and store.lng is not None
+            else ""
+        )
         print(
             f"  {store.key:<18}{distance:>10}  {store.name[:34]:<34} {where[:32]:<32} "
             f"{point:<21} {status}"
@@ -219,6 +223,8 @@ def _point(raw: str) -> tuple[float, float]:
         lat, lng = (float(part) for part in raw.split(","))
     except ValueError as exc:
         raise argparse.ArgumentTypeError(f"expected LAT,LNG, got {raw!r}") from exc
+    if not (math.isfinite(lat) and math.isfinite(lng) and -90 <= lat <= 90 and -180 <= lng <= 180):
+        raise argparse.ArgumentTypeError("latitude must be -90..90 and longitude -180..180")
     return lat, lng
 
 
@@ -249,6 +255,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "discover" and args.checks < 0:
+        build_parser().error("--checks must be non-negative")
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"
     )

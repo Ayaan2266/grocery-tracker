@@ -11,7 +11,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { RangeBar, verdictText } from "@/components/verdict";
-import { readBasket } from "@/lib/basket";
+import { readBasket } from "@/lib/basket-server";
+import { parseProductId } from "@/lib/product-id";
 import { summarize, type Verdict } from "@/lib/history";
 import { loadScopedStores } from "@/lib/store-scope";
 import { sameItemListings, similarListings, type SameItem } from "@/lib/matching";
@@ -38,13 +39,8 @@ type Props = {
   searchParams: Promise<{ q?: string | string[] }>;
 };
 
-function parseId(raw: string): number | null {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const id = parseId((await params).id);
+  const id = parseProductId((await params).id);
   const product = id === null ? null : (await getProduct(id)).data;
   return {
     title: product ? `${product.raw_name} price history | Loonie` : "Product | Loonie",
@@ -125,7 +121,16 @@ function PriceCard({
   );
 }
 
-function VerdictCard({ verdict, price }: { verdict: Verdict | null; price: number }) {
+function VerdictCard({ verdict, price, failed }: { verdict: Verdict | null; price: number; failed: boolean }) {
+  if (failed) {
+    return (
+      <section className="verdict-card">
+        <p className="section-label">Is it a good price?</p>
+        <h2>Price history unavailable</h2>
+        <p>Please try again soon.</p>
+      </section>
+    );
+  }
   if (!verdict) {
     return (
       <section className="verdict-card">
@@ -174,7 +179,7 @@ function StoreComparison({
   const cheapest = buyable[0] ?? null;
   const priciest = buyable[buyable.length - 1] ?? null;
   const current = listings.find((l) => l.product_id === currentId) ?? null;
-  const top = Math.max(...listings.map((l) => l.price_cents));
+  const top = Math.max(...listings.map((l) => l.price_cents), 1);
   const name = shortStoreNames(listings);
 
   let pill: string | null = null;
@@ -293,7 +298,7 @@ function SimilarItems({
 }
 
 export default async function ProductPage({ params, searchParams }: Props) {
-  const id = parseId((await params).id);
+  const id = parseProductId((await params).id);
   if (id === null) notFound();
   const rawQuery = (await searchParams).q;
   const query = (Array.isArray(rawQuery) ? rawQuery[0] : rawQuery)?.trim() ?? "";
@@ -312,7 +317,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const candidates = product ? await getSameItemCandidates([product]) : null;
   const matched = product ? sameItemListings(product, candidates?.data ?? []) : [];
   const shown = (listing: LatestPrice) =>
-    listing.product_id === id || inScope(scoped.storeIds, listing.store_id);
+    listing.product_id === id || (!scoped.error && inScope(scoped.storeIds, listing.store_id));
   const sameItems = matched.filter((item) => shown(item.listing));
   const allListings = sameItems.map((item) => item.listing);
   const [history, similarCandidates] = await Promise.all([
@@ -388,7 +393,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                   verdict={verdict}
                   storeCount={allListings.length}
                 />
-                <VerdictCard verdict={verdict} price={product.price_cents} />
+                <VerdictCard verdict={verdict} price={product.price_cents} failed={history.error !== null} />
               </div>
 
               <section className="chart-card" aria-labelledby="history-title">
@@ -410,7 +415,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
                 )}
               </section>
 
-              {allListings.length > 1 && (
+              {(candidates?.error || scoped.error) && (
+                <div role="alert" className="data-alert">Store comparisons are unavailable right now. Please try again soon.</div>
+              )}
+
+              {!scoped.error && allListings.length > 1 && (
                 <StoreComparison
                   items={sameItems}
                   currentId={product.product_id}

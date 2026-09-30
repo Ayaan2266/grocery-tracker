@@ -4,7 +4,7 @@
  * No imports, so `npm test` can run it on plain Node without a bundler.
  *
  * Every store shares most product codes, and a shared code is the same item.
- * ingest/match.py adds two keys to every listing (db/migrations/0010):
+ * ingest/match.py adds two keys to every listing (db/migrations/0009):
  *
  *   identity_key    brand + name words + exact package. Equal keys at two
  *                   stores are the same product listed under different codes,

@@ -13,7 +13,6 @@ from datetime import date
 import httpx
 import pytest
 import respx
-from pydantic import ValidationError
 
 from ingest.sources import loblaw
 from ingest.tests.conftest import product_entry, search_payload
@@ -100,8 +99,30 @@ def test_removed_required_field_fails_loudly() -> None:
         return_value=httpx.Response(200, json=search_payload([entry]))
     )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(loblaw.IngestError, match="invalid search response"):
         make_client().search("nofrills", "3131", "milk")
+
+
+@pytest.mark.parametrize("payload", [{}, {"results": []}, {"pagination": {"totalResults": 0}}])
+@respx.mock
+def test_incomplete_search_response_is_not_an_empty_success(payload) -> None:
+    respx.post(loblaw.SEARCH_URL).mock(return_value=httpx.Response(200, json=payload))
+    with pytest.raises(loblaw.IngestError, match="invalid search response"):
+        make_client().search("nofrills", "3131", "milk")
+
+
+@pytest.mark.parametrize("endpoint", [loblaw.SEARCH_URL, loblaw.PICKUP_LOCATIONS_URL])
+@respx.mock
+def test_invalid_json_is_a_handled_ingest_failure(endpoint) -> None:
+    respx.route(url=endpoint).mock(
+        return_value=httpx.Response(200, text="<html>unavailable</html>")
+    )
+    with pytest.raises(loblaw.IngestError, match="invalid JSON"):
+        client = make_client()
+        if endpoint == loblaw.SEARCH_URL:
+            client.search("nofrills", "3131", "milk")
+        else:
+            client.pickup_locations("nofrills")
 
 
 @respx.mock

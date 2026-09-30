@@ -15,8 +15,8 @@ export function verdictText(verdict: Verdict): { headline: string; detail: strin
       };
     case "steady":
       return {
-        headline: "Same price every day",
-        detail: `It has been ${formatCents(verdict.lowest)} every day since ${since}.`,
+        headline: "Same price each time checked",
+        detail: `It has been ${formatCents(verdict.lowest)} each time recorded since ${since}.`,
       };
     case "lowest":
       return {

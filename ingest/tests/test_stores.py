@@ -153,3 +153,22 @@ def test_listing_without_checks_succeeds_without_a_search() -> None:
 
     assert stores.main(["discover", "zehrs", "--checks", "0"]) == stores.EXIT_OK
     assert search.call_count == 0
+
+
+@respx.mock
+def test_discovery_tolerates_a_location_with_only_latitude() -> None:
+    entry = location("0554")
+    del entry["geoPoint"]["longitude"]
+    respx.get(loblaw.PICKUP_LOCATIONS_URL).mock(return_value=httpx.Response(200, json=[entry]))
+    assert stores.main(["discover", "zehrs", "--checks", "0"]) == stores.EXIT_OK
+
+
+@pytest.mark.parametrize("point", ["nan,0", "inf,0", "91,0", "0,181"])
+def test_invalid_coordinates_are_rejected(point) -> None:
+    with pytest.raises(SystemExit):
+        stores.build_parser().parse_args(["discover", "zehrs", "--near", point])
+
+
+def test_negative_checks_are_rejected() -> None:
+    with pytest.raises(SystemExit):
+        stores.main(["discover", "zehrs", "--checks", "-1"])

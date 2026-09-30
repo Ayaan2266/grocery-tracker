@@ -44,3 +44,11 @@ def test_rate_limit_can_be_raised(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PCX_API_KEY", "k")
     monkeypatch.setenv("INGEST_RATE_LIMIT_SECONDS", "2.5")
     assert load_settings(require_database=False).rate_limit_seconds == 2.5
+
+
+@pytest.mark.parametrize("rate", ["nan", "inf", "-inf"])
+def test_nonfinite_rate_is_rejected(monkeypatch: pytest.MonkeyPatch, rate: str) -> None:
+    monkeypatch.setenv("PCX_API_KEY", "k")
+    monkeypatch.setenv("INGEST_RATE_LIMIT_SECONDS", rate)
+    with pytest.raises(ConfigError, match="finite"):
+        load_settings(require_database=False)
