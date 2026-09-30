@@ -5,9 +5,11 @@ import {
   BANNER_COLORS,
   BANNER_LABELS,
   BANNER_SHORT,
+  countByRegion,
   inScope,
   isOntario,
   scopedStoreIds,
+  secondaryStoreIds,
   shortStoreNames,
   storeArea,
   storeName,
@@ -83,4 +85,21 @@ test("a banner at two stores is named with its place, a banner at one without", 
 
   const one = shortStoreNames([toronto, vaughan]);
   assert.equal(one(toronto), "Superstore");
+});
+
+test("a banner's second store is the one drawn differently, Ontario first", () => {
+  const stores = [
+    { id: 1, banner_slug: "nofrills", postal_code: "L4K 0C1" },
+    { id: 2, banner_slug: "superstore", postal_code: "R3N 2A1" }, // Winnipeg, added first
+    { id: 6, banner_slug: "maxi", postal_code: "J9J 3Z4" },
+    { id: 7, banner_slug: "superstore", postal_code: "M3J 3N4" }, // Toronto
+    { id: 9, banner_slug: "superstore", postal_code: "L4G 7Y3" }, // Aurora, a later GTA store
+  ];
+  assert.deepEqual([...secondaryStoreIds(stores)].sort(), [2, 9]);
+  assert.equal(secondaryStoreIds(stores.slice(0, 3)).size, 0, "one store per banner: nothing to tell apart");
+});
+
+test("stores are counted by region", () => {
+  assert.deepEqual(countByRegion(tracked), { ontario: 3, outside: 2 });
+  assert.deepEqual(countByRegion([]), { ontario: 0, outside: 0 });
 });

@@ -6,10 +6,10 @@ import { PriceRow, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { StoreScopeNote } from "@/components/store-scope-note";
+import { StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHelp } from "@/components/store-scope";
 import { readBasket } from "@/lib/basket";
 import { loadScopedStores } from "@/lib/store-scope";
-import { BANNER_COLORS, BANNER_SHORT, inScope, storeArea } from "@/lib/stores";
+import { BANNER_SHORT, inScope, isOntario, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
@@ -112,6 +112,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     pending,
   ]);
   const storeList = scoped.stores;
+  const scopeHelp = storeScopeHelp(scoped, "results");
+  const storeGroups = [
+    { label: "Ontario", outside: false, stores: storeList.filter((s) => isOntario(s.postal_code)) },
+    { label: "Outside Ontario", outside: true, stores: storeList.filter((s) => !isOntario(s.postal_code)) },
+  ].filter((group) => group.stores.length > 0);
   const chains = new Set(
     storeList.filter((store) => inScope(scoped.storeIds, store.id)).map((store) => store.banner_slug),
   ).size;
@@ -164,13 +169,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
               {!error && (
                 <>
                   <div className="results-toolbar">
-                    <p className="result-count">
-                      {prices.length}
-                      {hasMore ? "+" : ""} result{prices.length === 1 ? "" : "s"}
-                    </p>
+                    <div className="results-toolbar-start">
+                      <p className="result-count">
+                        {prices.length}
+                        {hasMore ? "+" : ""} result{prices.length === 1 ? "" : "s"}
+                      </p>
+                      <StoreScopeControl scoped={scoped} />
+                    </div>
                     {prices.length > 1 && <SortToggle query={query} sort={sort} />}
                   </div>
-                  <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />
+                  {scopeHelp && <p className="scope-help">{scopeHelp}</p>}
                   {prices.length > 0 ? (
                     <ul className="price-list">
                       {prices.map((row, index) => (
@@ -182,6 +190,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           quantity={basket.get(row.product_id) ?? 0}
                           trend={histories.get(row.product_id)?.trend}
                           badge={histories.get(row.product_id)?.badge}
+                          ring={scoped.secondary.has(row.store_id)}
                         />
                       ))}
                     </ul>
@@ -273,16 +282,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             {storeList.length > 0 && (
               <div className="coverage-stores">
                 <p>Checked every night. Prices differ between locations, so every price says where it was recorded.</p>
-                <ul>
-                  {storeList.map((store) => (
-                    <li key={store.id} className="store-chip">
-                      <i style={{ background: BANNER_COLORS[store.banner_slug] ?? "#53617e" }} aria-hidden="true" />
-                      {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
-                      {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
-                    </li>
-                  ))}
-                </ul>
-                {!query && <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />}
+                {storeGroups.map((group) => (
+                  <div key={group.label} className="store-group">
+                    {storeGroups.length > 1 && <span className="store-group-label">{group.label}</span>}
+                    <ul aria-label={storeGroups.length > 1 ? `Stores ${group.label.toLowerCase()}` : "Stores"}>
+                      {group.stores.map((store) => (
+                        <li key={store.id} className={group.outside ? "store-chip is-outside" : "store-chip"}>
+                          <StoreDot slug={store.banner_slug} ring={scoped.secondary.has(store.id)} as="i" className="" />
+                          {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
+                          {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {!query && <StoreScopeRow scoped={scoped} where="home" />}
               </div>
             )}
           </section>

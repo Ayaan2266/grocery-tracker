@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { scopedStoreIds, type StoreScope } from "./stores";
+import { countByRegion, scopedStoreIds, secondaryStoreIds, type StoreScope } from "./stores";
 import { getStores, type StoreInfo } from "./queries";
 
 /**
@@ -24,6 +24,9 @@ export type ScopedStores = {
   storeIds: number[] | null;
   /** Stores checked nightly that the current scope leaves out. */
   hidden: StoreInfo[];
+  /** Stores drawn with a ring dot and a dashed line: not their banner's first. */
+  secondary: Set<number>;
+  counts: { ontario: number; outside: number };
 };
 
 /** The scope and the stores it covers, for one page render. */
@@ -32,5 +35,12 @@ export async function loadScopedStores(): Promise<ScopedStores> {
   const all = stores.data ?? [];
   const storeIds = scopedStoreIds(all, scope);
   const hidden = storeIds === null ? [] : all.filter((store) => !storeIds.includes(store.id));
-  return { scope, stores: all, storeIds, hidden };
+  return {
+    scope,
+    stores: all,
+    storeIds,
+    hidden,
+    secondary: secondaryStoreIds(all),
+    counts: countByRegion(all),
+  };
 }

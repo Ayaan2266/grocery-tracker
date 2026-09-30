@@ -9,7 +9,7 @@ import { StoreChip, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { StoreScopeNote } from "@/components/store-scope-note";
+import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { RangeBar, verdictText } from "@/components/verdict";
 import { readBasket } from "@/lib/basket";
 import { summarize, type Verdict } from "@/lib/history";
@@ -156,8 +156,11 @@ function StoreComparison({
   items,
   currentId,
   query,
+  secondary,
 }: {
   items: SameItem<LatestPrice>[];
+  /** Banners' second stores, drawn with a ring dot. */
+  secondary: Set<number>;
   currentId: number;
   query: string;
 }) {
@@ -207,7 +210,7 @@ function StoreComparison({
             cheapest !== null && buyable.length > 1 && listing.in_stock && listing.price_cents === cheapest.price_cents;
           return (
             <li key={listing.product_id} className={isCurrent ? "is-current" : undefined}>
-              <span className="store-dot" style={{ background: BANNER_COLORS[listing.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+              <StoreDot slug={listing.banner_slug} ring={secondary.has(listing.store_id)} />
               <span className="store-compare-name">
                 {isCurrent ? (
                   bannerLabel(listing.banner_slug, listing.retailer_name)
@@ -244,7 +247,15 @@ function StoreComparison({
  * Other brands and codes with the same description, size and pack. Never
  * called the same item: the heading says so, and the unit price leads.
  */
-function SimilarItems({ items, query }: { items: LatestPrice[]; query: string }) {
+function SimilarItems({
+  items,
+  query,
+  secondary,
+}: {
+  items: LatestPrice[];
+  query: string;
+  secondary: Set<number>;
+}) {
   return (
     <section className="store-compare similar-items" aria-labelledby="similar-title">
       <div className="store-compare-header">
@@ -261,7 +272,7 @@ function SimilarItems({ items, query }: { items: LatestPrice[]; query: string })
           const unit = formatUnitPrice(item.unit_price_cents, item.comparison_quantity, item.comparison_unit);
           return (
             <li key={item.product_id}>
-              <span className="store-dot" style={{ background: BANNER_COLORS[item.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+              <StoreDot slug={item.banner_slug} ring={secondary.has(item.store_id)} />
               <span className="store-compare-name">
                 <Link href={`/product/${item.product_id}?${new URLSearchParams({ q: query })}`}>
                   {[item.brand, item.raw_name].filter(Boolean).join(" ")}
@@ -336,6 +347,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       current: listing.price_cents,
       spans: spansFor(listing.product_id),
       primary: listing.product_id === id,
+      dashed: scoped.secondary.has(listing.store_id),
     }))
     .filter((s) => s.spans.length > 0);
   const verdict = product ? summarize(spansFor(id), product.price_cents) : null;
@@ -364,7 +376,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
           ) : (
             <>
               <header className="product-heading">
-                <StoreChip row={product} />
+                <StoreChip row={product} ring={scoped.secondary.has(product.store_id)} />
                 <h1>{product.raw_name}</h1>
                 <p>{[product.brand, product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
               </header>
@@ -399,12 +411,17 @@ export default async function ProductPage({ params, searchParams }: Props) {
               </section>
 
               {allListings.length > 1 && (
-                <StoreComparison items={sameItems} currentId={product.product_id} query={query} />
+                <StoreComparison
+                  items={sameItems}
+                  currentId={product.product_id}
+                  query={query}
+                  secondary={scoped.secondary}
+                />
               )}
 
-              {similar.length > 0 && <SimilarItems items={similar} query={query} />}
+              {similar.length > 0 && <SimilarItems items={similar} query={query} secondary={scoped.secondary} />}
 
-              {scopeMatters && <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />}
+              {scopeMatters && <StoreScopeRow scoped={scoped} where="results" />}
             </>
           )}
         </article>

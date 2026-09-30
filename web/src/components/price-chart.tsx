@@ -33,7 +33,19 @@ export type ChartSeries = {
   current?: number;
   /** The listing the page is about: drawn on top with a shaded area, and labelled "Latest". */
   primary?: boolean;
+  /**
+   * A banner's second store: the same colour, drawn dashed, so two stores of
+   * one chain stay apart without a colour outside the checked set.
+   */
+  dashed?: boolean;
 };
+
+const DASH = "6 4";
+
+/** A short line in the series' colour and style, for the legend. */
+function swatch(s: ChartSeries): string {
+  return s.dashed ? `repeating-linear-gradient(90deg, ${s.color} 0 5px, transparent 5px 8px)` : s.color;
+}
 
 const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 const dollars = (cents: number) => money.format(cents / 100);
@@ -102,7 +114,7 @@ function HistoryTooltip({
         const regular = span?.was_price_cents ?? span?.implied_regular_cents ?? null;
         return (
           <span key={s.key}>
-            <i style={{ background: s.color }} aria-hidden="true" />
+            <i className={s.dashed ? "is-ring" : undefined} style={s.dashed ? { borderColor: s.color } : { background: s.color }} aria-hidden="true" />
             {s.label}: {dollars(entry.value)}
             {regular !== null && regular > entry.value && (
               <em>
@@ -249,7 +261,7 @@ export function PriceChart({
       <ul className="chart-legend">
         {series.map((s) => (
           <li key={s.key}>
-            <i style={{ background: s.color }} aria-hidden="true" />
+            <i style={{ background: swatch(s) }} aria-hidden="true" />
             <strong>{s.label}</strong>
             {s.current !== undefined && <span>{dollars(s.current)}</span>}
           </li>
@@ -311,6 +323,7 @@ export function PriceChart({
                 type="stepAfter"
                 stroke={s.color}
                 strokeWidth={s.primary ? 3 : 2}
+                strokeDasharray={s.dashed ? DASH : undefined}
                 dot={pointCount(s.key) === 1 ? { r: 4, fill: s.color, strokeWidth: 0 } : false}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
                 connectNulls
