@@ -272,6 +272,21 @@ def test_a_batch_larger_than_one_chunk_is_written_whole(conn) -> None:
     assert result.observations_recorded == count
 
 
+def test_a_failed_later_chunk_rolls_back_everything_and_reports_zero_writes(conn) -> None:
+    store_id = db.resolve_store_id(conn, "nofrills", "3131")
+    rows = [make_row(i) for i in range(db.CHUNK_SIZE + 1)]
+    rows[-1] = replace(rows[-1], price_cents=2**31)
+
+    result = db.write_store_observations(conn, store_id, rows, DAY)
+
+    assert result.errors
+    assert result.products_written == result.observations_recorded == result.spans_opened == 0
+    assert result.observations_already_present == 0
+    assert conn.execute("SELECT count(*) FROM products").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM price_spans").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM ingest_runs").fetchone()[0] == 0
+
+
 def test_a_write_is_a_handful_of_round_trips_not_two_per_product(conn) -> None:
     """The reason for batching: 16 minutes of round trips nearly timed out a run."""
     store_id = db.resolve_store_id(conn, "nofrills", "3131")

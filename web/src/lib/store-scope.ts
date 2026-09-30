@@ -17,6 +17,7 @@ export async function readStoreScope(): Promise<StoreScope> {
 }
 
 export type ScopedStores = {
+  error: string | null;
   scope: StoreScope;
   /** Every store checked nightly, in scope or not. */
   stores: StoreInfo[];
@@ -36,6 +37,7 @@ export async function loadScopedStores(): Promise<ScopedStores> {
   const storeIds = scopedStoreIds(all, scope);
   const hidden = storeIds === null ? [] : all.filter((store) => !storeIds.includes(store.id));
   return {
+    error: stores.error,
     scope,
     stores: all,
     storeIds,

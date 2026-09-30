@@ -12,19 +12,19 @@ retailer's own arithmetic on exact half-cents.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
 _CENT = Decimal("1")
 
 
-def dollars_to_cents(value: float | int | str | None) -> int | None:
+def dollars_to_cents(value: float | int | str | Decimal | None) -> int | None:
     """Convert a dollar amount to integer cents. None passes through."""
     if value is None:
         return None
     try:
         amount = Decimal(str(value))
-    except (InvalidOperation, ValueError):
+        if not amount.is_finite():
+            return None
+        return int((amount * 100).quantize(_CENT, rounding=ROUND_HALF_UP))
+    except (DecimalException, ValueError):
         return None
-    if not amount.is_finite():
-        return None
-    return int((amount * 100).quantize(_CENT, rounding=ROUND_HALF_UP))

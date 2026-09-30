@@ -1,17 +1,9 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 
 /** Prices are stored as integer cents. Format at the edge, never in the DB. */
 export function formatCents(cents: number | null): string {
   if (cents === null) return "—";
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  }).format(cents / 100);
+  return money.format(cents / 100);
 }
 
 /** "$1.56/100g". Returns null when there is no unit price to show. */
@@ -21,10 +13,7 @@ export function formatUnitPrice(
   unit: string | null,
 ): string | null {
   if (cents === null || quantity === null || !unit) return null;
-  const amount = new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  }).format(cents / 100);
+  const amount = formatCents(cents);
   return unit === "ea" ? `${amount} each` : `${amount}/${quantity}${unit}`;
 }
 

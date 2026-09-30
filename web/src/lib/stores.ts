@@ -123,7 +123,11 @@ type Located = { id: number; banner_slug: string; postal_code: string | null };
  */
 export function secondaryStoreIds(stores: Located[]): Set<number> {
   const byBanner = new Map<string, Located[]>();
-  for (const store of stores) byBanner.set(store.banner_slug, [...(byBanner.get(store.banner_slug) ?? []), store]);
+  for (const store of stores) {
+    const group = byBanner.get(store.banner_slug) ?? [];
+    group.push(store);
+    byBanner.set(store.banner_slug, group);
+  }
   const secondary = new Set<number>();
   for (const group of byBanner.values()) {
     group

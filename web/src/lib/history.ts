@@ -40,7 +40,7 @@ export type Verdict = {
   kind: VerdictKind;
   lowest: number;
   highest: number;
-  /** The price it sat at for the most days: a day-weighted median. */
+  /** The middle daily price: a day-weighted median. */
   typical: number;
   /** Calendar days from the first day seen to the last, inclusive. */
   daysTracked: number;

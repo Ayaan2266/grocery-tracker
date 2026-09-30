@@ -6,8 +6,10 @@ from datetime import date
 
 import pytest
 
+from ingest import run
+from ingest.config import Settings
 from ingest.run import StoreTarget, ingest_store
-from ingest.sources.loblaw import AccessDenied, SearchResponse, StoreVerificationError
+from ingest.sources.loblaw import AccessDenied, IngestError, SearchResponse, StoreVerificationError
 from ingest.tests.conftest import product_entry, search_payload
 
 TARGET = StoreTarget(banner="nofrills", store_code="3131", label="No Frills - Vaughan")
@@ -125,3 +127,54 @@ def test_stop_signal_aborts_the_run_rather_than_becoming_a_store_error() -> None
 
     with pytest.raises(AccessDenied):
         ingest_store(client, TARGET, ["milk"], ("milk",), TODAY)
+
+
+def test_canary_transport_failure_is_a_store_failure(monkeypatch) -> None:
+    client = StubClient({"milk": [product_entry()]})
+
+    def fail(*args, **kwargs):
+        raise IngestError("giving up after retries")
+
+    monkeypatch.setattr(client, "verify_store", fail)
+    outcome = ingest_store(client, TARGET, ["milk"], ("milk",), TODAY)
+    assert not outcome.ok
+    assert client.searched == []
+
+
+@pytest.mark.parametrize("entries", [[], [product_entry(prices=None)]])
+def test_store_without_usable_prices_does_not_report_success(entries) -> None:
+    outcome = ingest_store(StubClient({"milk": entries}), TARGET, ["milk"], ("milk",), TODAY)
+    assert not outcome.ok
+    assert outcome.rows == []
+
+
+@pytest.mark.parametrize("limit", ["0", "-1"])
+def test_limit_must_be_positive(limit) -> None:
+    with pytest.raises(SystemExit):
+        run.build_parser().parse_args(["--limit", limit])
+
+
+def test_unknown_store_is_rejected_even_beside_a_valid_one(monkeypatch) -> None:
+    monkeypatch.setattr(run, "load_settings", lambda **kw: Settings("k", None, 1))
+    assert run.main(["--dry-run", "--store", TARGET.key, "--store", "typo/9999"]) == 1
+
+
+def test_stop_signal_keeps_completed_stores_without_more_requests(monkeypatch) -> None:
+    stores = [TARGET, run.StoreTarget("loblaw", "1032", "Loblaws"), TARGET]
+    monkeypatch.setattr(run, "load_settings", lambda **kw: Settings("k", "postgresql://test", 1))
+    monkeypatch.setattr(run, "load_targets", lambda: run.Targets(stores, ("milk",), ["milk"]))
+    monkeypatch.setattr(run, "preflight", lambda *args: None)
+    fetched = []
+    written = []
+
+    def fetch(client, target, *args):
+        fetched.append(target)
+        if target.banner == "loblaw":
+            raise AccessDenied("stop", status_code=403)
+        return run.StoreOutcome(target, rows=[object()])
+
+    monkeypatch.setattr(run, "ingest_store", fetch)
+    monkeypatch.setattr(run, "_write", lambda url, outcomes, day: written.extend(outcomes))
+    assert run.main([]) == 2
+    assert fetched == stores[:2]
+    assert [o.target for o in written] == [TARGET]

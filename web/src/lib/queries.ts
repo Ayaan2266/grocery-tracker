@@ -1,4 +1,5 @@
-import { getSupabase, MISSING_CREDENTIALS } from "./supabase";
+import { getSupabase, MISSING_CREDENTIALS } from "./supabase.ts";
+import { fetchAll, type QueryResult } from "./pagination.ts";
 
 /**
  * One row of `product_latest_price`: a product carrying its most recent
@@ -42,7 +43,7 @@ export type LatestPrice = {
   unit_price_backfilled?: boolean;
   /**
    * Cross-store matching keys from ingest/match.py; see lib/matching.ts.
-   * Absent on a database without migration 0010, null where the package
+   * Absent on a database without migration 0009, null where the package
    * size does not parse.
    */
   identity_key?: string | null;
@@ -64,7 +65,7 @@ export type Coverage = {
  * cannot read this table" look identical to "no products matched", and those
  * take very different fixes.
  */
-export type Result<T> = { data: T; error: null } | { data: null; error: string };
+export type Result<T> = QueryResult<T>;
 
 /** `%` and `_` are wildcards in ILIKE, so a search for "50%" must not mean "50 anything". */
 function escapeLikePattern(term: string): string {
@@ -83,8 +84,8 @@ export type SearchPage = { rows: LatestPrice[]; hasMore: boolean };
  * One page of search results, cheapest first.
  *
  * "price" is the shelf price. "value" is the unit price, which puts a 4 L jug
- * and a 1 L carton on the same scale. Products with no unit price go last
- * there rather than first, since nothing is known about their value.
+ * and a 1 L carton on the same scale. Group by unit so grams, millilitres
+ * and each never compete. Products with no unit price go last.
  *
  * Asks for one row more than it shows, which is how "Show more" knows there
  * is more without a second count query. `storeIds` limits the results to
@@ -113,6 +114,7 @@ export async function searchProducts(
   query =
     sort === "value"
       ? query
+          .order("comparison_unit", { ascending: true, nullsFirst: false })
           .order("unit_price_cents", { ascending: true, nullsFirst: false })
           .order("price_cents", { ascending: true })
       : query.order("price_cents", { ascending: true });
@@ -184,13 +186,19 @@ export async function getSameItemCandidates(
   const skus = [...new Set(products.map((p) => p.retailer_sku))];
   const keys = [...new Set(products.map((p) => p.identity_key).filter((k): k is string => !!k))];
   const [bySku, byKey] = await Promise.all([
-    supabase.from("product_latest_price").select("*").in("retailer_sku", skus),
+    fetchAll<LatestPrice>((from, to) =>
+      supabase.from("product_latest_price").select("*").in("retailer_sku", skus)
+        .order("product_id").range(from, to),
+    ),
     keys.length > 0
-      ? supabase.from("product_latest_price").select("*").filter("identity_key", "in", inList(keys))
+      ? fetchAll<LatestPrice>((from, to) =>
+          supabase.from("product_latest_price").select("*").filter("identity_key", "in", inList(keys))
+            .order("product_id").range(from, to),
+        )
       : Promise.resolve({ data: [], error: null }),
   ]);
   const error = bySku.error ?? byKey.error;
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error };
 
   const unique = new Map<number, LatestPrice>();
   for (const row of [...(bySku.data ?? []), ...(byKey.data ?? [])] as LatestPrice[]) {
@@ -205,15 +213,11 @@ export async function getSimilarCandidates(keys: string[]): Promise<Result<Lates
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
-  const { data, error } = await supabase
-    .from("product_latest_price")
-    .select("*")
-    .filter("substitute_key", "in", inList(keys))
-    .order("unit_price_cents", { ascending: true, nullsFirst: false })
-    .limit(100);
-
-  if (error) return { data: null, error: error.message };
-  return { data: (data ?? []) as LatestPrice[], error: null };
+  return fetchAll<LatestPrice>((from, to) =>
+    supabase.from("product_latest_price").select("*")
+      .filter("substitute_key", "in", inList(keys))
+      .order("product_id").range(from, to),
+  );
 }
 
 /**
@@ -238,10 +242,8 @@ export type PriceSpan = {
  * Spans that overlap the days since `sinceIso`, for many products at once:
  * the search rows' sparklines and badges.
  *
- * A product has at most one span per day, so 30 products over a 30-day
- * window stay under Supabase's 1,000-row response cap. Newest first, so if a
- * longer window ever does hit the cap, the oldest days are the ones dropped.
- * The chunks run in parallel.
+ * Chunks of 30 products run in parallel, and each is paginated so a longer
+ * window never silently loses its older rows.
  */
 export async function getRecentHistory(
   productIds: number[],
@@ -254,17 +256,18 @@ export async function getRecentHistory(
   const chunks: number[][] = [];
   for (let i = 0; i < productIds.length; i += 30) chunks.push(productIds.slice(i, i + 30));
   const responses = await Promise.all(
-    chunks.map((ids) =>
+    chunks.map((ids) => fetchAll<PriceSpan>((from, to) =>
       supabase
         .from("price_spans")
         .select("*")
         .in("product_id", ids)
         .gte("last_confirmed_on", sinceIso)
-        .order("first_observed_on", { ascending: false }),
-    ),
+        .order("first_observed_on", { ascending: false })
+        .order("product_id").range(from, to),
+    )),
   );
   const failed = responses.find((r) => r.error);
-  if (failed?.error) return { data: null, error: failed.error.message };
+  if (failed?.error) return { data: null, error: failed.error };
   return { data: responses.flatMap((r) => (r.data ?? []) as PriceSpan[]), error: null };
 }
 
@@ -273,14 +276,12 @@ export async function getPriceHistory(productIds: number[]): Promise<Result<Pric
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
-  const { data, error } = await supabase
+  return fetchAll<PriceSpan>((from, to) => supabase
     .from("price_spans")
     .select("*")
     .in("product_id", productIds)
-    .order("first_observed_on", { ascending: true });
-
-  if (error) return { data: null, error: error.message };
-  return { data: (data ?? []) as PriceSpan[], error: null };
+    .order("first_observed_on", { ascending: true })
+    .order("product_id").range(from, to));
 }
 
 /** One store that is ingested every night. */

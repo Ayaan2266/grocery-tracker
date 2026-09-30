@@ -7,10 +7,12 @@ import {
   BASKET_COOKIE,
   MAX_ITEMS,
   MAX_QUANTITY,
+  adjustQuantity,
   parseBasket,
   serializeBasket,
   type Basket,
 } from "@/lib/basket";
+import { parseProductId } from "@/lib/product-id";
 
 async function update(change: (basket: Basket) => void): Promise<void> {
   const store = await cookies();
@@ -26,13 +28,8 @@ async function update(change: (basket: Basket) => void): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-function productId(form: FormData): number | null {
-  const id = Number(form.get("productId"));
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 export async function addToBasket(form: FormData): Promise<void> {
-  const id = productId(form);
+  const id = parseProductId(form.get("productId"));
   if (id === null) return;
   await update((basket) => {
     if (!basket.has(id) && basket.size >= MAX_ITEMS) return;
@@ -41,18 +38,14 @@ export async function addToBasket(form: FormData): Promise<void> {
 }
 
 export async function changeQuantity(form: FormData): Promise<void> {
-  const id = productId(form);
+  const id = parseProductId(form.get("productId"));
   const delta = Number(form.get("delta"));
-  if (id === null || !Number.isInteger(delta)) return;
-  await update((basket) => {
-    const next = (basket.get(id) ?? 0) + delta;
-    if (next <= 0) basket.delete(id);
-    else basket.set(id, Math.min(next, MAX_QUANTITY));
-  });
+  if (id === null || (delta !== -1 && delta !== 1)) return;
+  await update((basket) => adjustQuantity(basket, id, delta));
 }
 
 export async function removeFromBasket(form: FormData): Promise<void> {
-  const id = productId(form);
+  const id = parseProductId(form.get("productId"));
   if (id === null) return;
   await update((basket) => {
     basket.delete(id);

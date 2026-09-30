@@ -89,6 +89,7 @@ const loadStatus = unstable_cache(
     const [stores, runs, coverage] = await Promise.all([getStores(), getLatestRuns(), getCoverage()]);
     if (stores.error !== null) throw new Error(stores.error);
     if (runs.error !== null) throw new Error(runs.error);
+    if (coverage.error !== null) throw new Error(coverage.error);
     const runFor = new Map(runs.data.map((run) => [run.store_id, run]));
     const checked = await getCheckedStoreIds(stores.data.filter((s) => !runFor.has(s.id)).map((s) => s.id));
     if (checked.error !== null) throw new Error(checked.error);
@@ -98,6 +99,8 @@ const loadStatus = unstable_cache(
         return run ? getChangeCount(store.id, run.run_on) : Promise.resolve(null);
       }),
     );
+    const failedCount = counts.find((count) => count?.error !== null && count?.error !== undefined);
+    if (failedCount?.error) throw new Error(failedCount.error);
     const newest = runs.data.reduce<string | null>((max, r) => (max === null || r.run_on > max ? r.run_on : max), null);
     const statuses = stores.data.map((store, i) => {
       const run = runFor.get(store.id) ?? null;
@@ -142,6 +145,7 @@ const loadExample = unstable_cache(
     // From the Ontario stores, like the site's default search. Cached for every
     // visitor, so it cannot follow one visitor's choice.
     const stores = await getStores();
+    if (stores.error !== null) throw new Error(stores.error);
     const found = await searchProducts(term, {
       limit: EXAMPLE_CANDIDATES,
       storeIds: scopedStoreIds(stores.data ?? [], "ontario"),
@@ -260,7 +264,7 @@ function Steps({ status }: { status: NightlyStatus | null }) {
       tone: "pink",
       art: "compare.png",
       title: "We compare with its history",
-      body: "Each listing is measured against its own past at that store: its lowest and highest price, and its typical price, the one it sat at most days.",
+      body: "Each listing is measured against its own past at that store: its lowest and highest price, and its typical price, the middle of its daily recorded prices.",
       fact: status?.firstDay
         ? `History since ${formatDay(status.firstDay)} · ${status.days} day${status.days === 1 ? "" : "s"}`
         : "History grows every night",
@@ -649,7 +653,7 @@ function Faq({ status }: { status: NightlyStatus | null }) {
     },
     {
       q: "What does “typical price” mean?",
-      a: "The price an item sat at on the most days Loonie has seen it at that store. A one-day sale doesn’t move it; a price that holds for weeks does.",
+      a: "The middle price when its recorded days are ordered from cheapest to most expensive. Prices that hold for weeks count more than a one-day sale.",
     },
     {
       q: "How does Loonie know two listings are the same item?",

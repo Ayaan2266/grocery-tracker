@@ -89,7 +89,13 @@ RETURNING retailer_sku, id
 
 # The newest columns the writes depend on. Selecting them costs nothing and
 # fails with the column's name when a migration has not been applied.
-SCHEMA_CHECK = "SELECT identity_key, substitute_key FROM products LIMIT 0"
+SCHEMA_CHECK = """
+SELECT p.identity_key, p.substitute_key,
+       s.first_observed_on, s.last_confirmed_on, s.implied_regular_cents,
+       r.run_on, r.products_observed
+  FROM products p, price_spans s, ingest_runs r
+ LIMIT 0
+"""
 
 RUN_DATES = """
 SELECT max(run_on) FILTER (WHERE run_on < %(observed_on)s),
@@ -189,13 +195,6 @@ class WriteResult:
     spans_opened: int = 0
     errors: list[str] = field(default_factory=list)
 
-    def merge(self, other: WriteResult) -> None:
-        self.products_written += other.products_written
-        self.observations_recorded += other.observations_recorded
-        self.observations_already_present += other.observations_already_present
-        self.spans_opened += other.spans_opened
-        self.errors.extend(other.errors)
-
 
 def connect(database_url: str) -> psycopg.Connection:
     """Open a connection with autocommit off; each store commits as a unit.
@@ -220,7 +219,7 @@ def check_schema(conn: psycopg.Connection) -> None:
     """Raise SchemaOutOfDate unless every column the writes use exists."""
     try:
         conn.execute(SCHEMA_CHECK)
-    except psycopg.errors.UndefinedColumn as exc:
+    except (psycopg.errors.UndefinedColumn, psycopg.errors.UndefinedTable) as exc:
         conn.rollback()
         raise SchemaOutOfDate(
             f"{exc.diag.message_primary}. Apply db/migrations/0009_product_match_keys.sql "
@@ -346,7 +345,7 @@ def write_store_observations(
         conn.commit()
     except psycopg.Error as exc:
         conn.rollback()
-        result.errors.append(f"store_id={store_id}: {exc}")
         log.exception("write failed for store_id=%s, rolled back", store_id)
+        return WriteResult(errors=[f"store_id={store_id}: {exc}"])
 
     return result

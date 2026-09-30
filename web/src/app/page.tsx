@@ -7,7 +7,7 @@ import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHelp } from "@/components/store-scope";
-import { readBasket } from "@/lib/basket";
+import { readBasket } from "@/lib/basket-server";
 import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, inScope, isOntario, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
@@ -123,7 +123,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   const prices = results.data?.rows ?? [];
   const histories = await rowHistories(prices);
   const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
-  const error = results.error ?? (!query ? coverage.error : null);
+  const error = scoped.error ?? results.error ?? (!query ? coverage.error : null);
   const productHref = (id: number) => `/product/${id}?${new URLSearchParams({ q: query })}`;
 
   return (
@@ -214,7 +214,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                   )}
                   {sort === "value" && prices.length > 0 && (
                     <p className="price-note">
-                      Best value compares price per 100 g, per 100 ml, or each. Items with no unit price are listed last.
+                      Best value groups items by unit: each, per 100 g, or per 100 ml, then sorts cheapest within each group. Items with no unit price are listed last.
                     </p>
                   )}
                 </>

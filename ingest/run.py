@@ -19,6 +19,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from urllib.parse import unquote
 
 from ingest.config import ConfigError, load_settings
 from ingest.normalize import (
@@ -31,7 +32,6 @@ from ingest.sources.loblaw import (
     AccessDenied,
     IngestError,
     LoblawClient,
-    StoreVerificationError,
 )
 
 log = logging.getLogger("ingest")
@@ -129,7 +129,9 @@ def ingest_store(
         client.verify_store(
             target.banner, target.store_code, terms=canary_terms, on_date=observed_on
         )
-    except StoreVerificationError as exc:
+    except AccessDenied:
+        raise
+    except IngestError as exc:
         outcome.error = str(exc)
         log.error("%s canary failed: %s", target.key, exc)
         return outcome
@@ -162,6 +164,10 @@ def ingest_store(
 
     outcome.rows = list(by_sku.values())
     outcome.normalized = len(outcome.rows)
+    if not outcome.rows:
+        outcome.error = "store search returned no usable prices after canary verification"
+        log.error("%s: %s", target.key, outcome.error)
+        return outcome
     outcome.on_sale = sum(1 for row in outcome.rows if row.on_sale)
     outcome.unit_priced = sum(1 for row in outcome.rows if row.unit_price_cents is not None)
 
@@ -247,7 +253,8 @@ def redact_password(message: str, database_url: str) -> str:
     """
     match = re.search(r"://[^:/@\s]+:([^@\s]+)@", database_url)
     if match and match.group(1):
-        return message.replace(match.group(1), "***")
+        for password in (match.group(1), unquote(match.group(1))):
+            message = message.replace(password, "***")
     return message
 
 
@@ -287,6 +294,13 @@ def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
     return None
 
 
+def positive_int(raw: str) -> int:
+    value = int(raw)
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ingest.run", description=__doc__)
     parser.add_argument(
@@ -302,7 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--limit",
-        type=int,
+        type=positive_int,
         metavar="N",
         help="Use only the first N search terms. For smoke tests, not for nightly runs.",
     )
@@ -332,10 +346,11 @@ def main(argv: list[str] | None = None) -> int:
     stores = targets.stores
     if args.store:
         wanted = set(args.store)
-        stores = [s for s in stores if s.key in wanted]
-        if not stores:
-            log.error("no store in targets.json matched %s", sorted(wanted))
+        unknown = wanted - {s.key for s in stores}
+        if unknown:
+            log.error("no store in targets.json matched %s", sorted(unknown))
             return EXIT_FAILURE
+        stores = [s for s in stores if s.key in wanted]
 
     terms = targets.search_terms[: args.limit] if args.limit else targets.search_terms
     observed_on = date.today()
@@ -357,6 +372,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("preflight ok: database reachable, %d store(s) resolved", len(stores))
 
     outcomes: list[StoreOutcome] = []
+    access_denied = False
     with LoblawClient(
         settings.pcx_api_key, rate_limit_seconds=settings.rate_limit_seconds
     ) as client:
@@ -369,13 +385,15 @@ def main(argv: list[str] | None = None) -> int:
             except AccessDenied as exc:
                 # Never retried, never worked around. Abandon the whole run.
                 log.error("ACCESS DENIED: %s", exc)
-                print_summary(outcomes, dry_run=args.dry_run)
-                return EXIT_ACCESS_DENIED
+                access_denied = True
+                break
 
     if not args.dry_run:
         _write(settings.database_url, outcomes, observed_on)
 
     print_summary(outcomes, dry_run=args.dry_run)
+    if access_denied:
+        return EXIT_ACCESS_DENIED
     return EXIT_OK if all(o.ok for o in outcomes) else EXIT_FAILURE
 
 
@@ -391,10 +409,15 @@ def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: 
         # Preflight makes this unlikely, but the database can go away mid-run.
         # Record it against every store and return, so print_summary still runs
         # and the night's work is at least visible in the log.
-        log.error("could not connect to Postgres, nothing written: %s", exc)
+        message = (
+            "DATABASE_URL is malformed; check the connection string"
+            if isinstance(exc, db.psycopg.ProgrammingError)
+            else redact_password(str(exc), database_url)
+        )
+        log.error("could not connect to Postgres, nothing written: %s", message)
         for outcome in outcomes:
             if outcome.ok:
-                outcome.error = f"database unavailable: {exc}"
+                outcome.error = f"database unavailable: {message}"
         return
 
     with connection as conn:
@@ -405,9 +428,10 @@ def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: 
                 store_id = db.resolve_store_id(
                     conn, outcome.target.banner, outcome.target.store_code
                 )
-            except db.UnknownStore as exc:
-                outcome.error = str(exc)
-                log.error("%s", exc)
+            except (db.UnknownStore, db.psycopg.Error) as exc:
+                conn.rollback()
+                outcome.error = redact_password(str(exc), database_url)
+                log.error("%s: %s", outcome.target.key, outcome.error)
                 continue
 
             result = db.write_store_observations(conn, store_id, outcome.rows, observed_on)

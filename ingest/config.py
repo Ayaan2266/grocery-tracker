@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 
@@ -41,6 +42,8 @@ def load_settings(*, require_database: bool = True) -> Settings:
         rate = float(raw) if raw else MIN_RATE_LIMIT_SECONDS
     except ValueError as exc:
         raise ConfigError(f"INGEST_RATE_LIMIT_SECONDS must be a number, got {raw!r}") from exc
+    if not math.isfinite(rate):
+        raise ConfigError("INGEST_RATE_LIMIT_SECONDS must be finite")
 
     return Settings(
         pcx_api_key=api_key,
