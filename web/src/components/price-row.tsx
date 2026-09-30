@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BasketButton } from "@/components/basket-button";
 import { Sparkline } from "@/components/sparkline";
+import { StoreDot } from "@/components/store-scope";
 import type { Badge } from "@/lib/history";
 import type { LatestPrice } from "@/lib/queries";
 import { BANNER_COLORS, bannerLabel, storeArea } from "@/lib/stores";
@@ -18,12 +19,15 @@ export function percentOff(price: number, regular: number | null): number | null
   return Math.round(((regular - price) / regular) * 100);
 }
 
-/** The store a price was recorded at: banner, and where that store is. */
-export function StoreChip({ row }: { row: LatestPrice }) {
+/**
+ * The store a price was recorded at: banner, and where that store is. `ring`
+ * marks a banner's second store (lib/stores.ts secondaryStoreIds).
+ */
+export function StoreChip({ row, ring = false }: { row: LatestPrice; ring?: boolean }) {
   const area = storeArea(row.store_label);
   return (
     <span className="store-chip" title={`Recorded ${formatDay(row.observed_on)}`}>
-      <i style={{ background: BANNER_COLORS[row.banner_slug] ?? "#53617e" }} aria-hidden="true" />
+      <StoreDot slug={row.banner_slug} ring={ring} as="i" className="" />
       {bannerLabel(row.banner_slug, row.retailer_name)}
       {area && <span className="store-chip-area">{area}</span>}
     </span>
@@ -42,11 +46,14 @@ export function PriceRow({
   id,
   trend,
   badge,
+  ring = false,
 }: {
   row: LatestPrice;
   href: string;
   quantity: number;
   id?: string;
+  /** A banner's second store: a ring dot instead of a filled one. */
+  ring?: boolean;
   /** The last few days' prices, oldest first; null for a day it was not seen. */
   trend?: (number | null)[];
   badge?: Badge | null;
@@ -69,7 +76,7 @@ export function PriceRow({
         </h3>
         <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
         <div className="price-row-chips">
-          <StoreChip row={row} />
+          <StoreChip row={row} ring={ring} />
           {badge && <span className={`status-badge status-${badge.tone}`}>{badge.label}</span>}
           {!row.in_stock && <span className="status-badge status-bad">Out of stock</span>}
         </div>

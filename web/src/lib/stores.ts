@@ -112,3 +112,30 @@ export function shortStoreNames<T extends Named>(listings: T[]): (listing: T) =>
       ? storeName(listing.banner_slug, listing.retailer_name, listing.store_label)
       : (BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name);
 }
+
+type Located = { id: number; banner_slug: string; postal_code: string | null };
+
+/**
+ * Stores that are not their banner's first: they share its colour, so the site
+ * draws them differently (a ring dot, a dashed line) instead of giving them a
+ * colour of their own, which would break the colour-blind check above. Within a
+ * banner the Ontario store comes first, then the one added earliest.
+ */
+export function secondaryStoreIds(stores: Located[]): Set<number> {
+  const byBanner = new Map<string, Located[]>();
+  for (const store of stores) byBanner.set(store.banner_slug, [...(byBanner.get(store.banner_slug) ?? []), store]);
+  const secondary = new Set<number>();
+  for (const group of byBanner.values()) {
+    group
+      .sort((a, b) => Number(isOntario(b.postal_code)) - Number(isOntario(a.postal_code)) || a.id - b.id)
+      .slice(1)
+      .forEach((store) => secondary.add(store.id));
+  }
+  return secondary;
+}
+
+/** How many stores are in Ontario and how many are not. */
+export function countByRegion(stores: { postal_code: string | null }[]): { ontario: number; outside: number } {
+  const ontario = stores.filter((store) => isOntario(store.postal_code)).length;
+  return { ontario, outside: stores.length - ontario };
+}

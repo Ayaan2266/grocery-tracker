@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Minus, Plus, X } from "lucide-react";
 
@@ -6,7 +7,7 @@ import { changeQuantity, clearBasket, removeFromBasket } from "@/app/basket/acti
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { StoreScopeNote } from "@/components/store-scope-note";
+import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { readBasket } from "@/lib/basket";
 import { sameItemListings, similarListings } from "@/lib/matching";
 import {
@@ -16,12 +17,21 @@ import {
   type LatestPrice,
 } from "@/lib/queries";
 import { loadScopedStores } from "@/lib/store-scope";
-import { BANNER_COLORS, BANNER_SHORT, inScope, storeArea, storeName } from "@/lib/stores";
+import { BANNER_SHORT, inScope, storeArea, storeName } from "@/lib/stores";
 import { formatCents, formatUnitPrice } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Basket | Loonie" };
 
-type Store = { id: number; slug: string; name: string; area: string | null };
+type Store = {
+  id: number;
+  slug: string;
+  name: string;
+  area: string | null;
+  /** A banner's second store: a ring dot instead of a filled one. */
+  ring: boolean;
+  /** Its banner is at another store here too, so the cell names the place. */
+  repeated: boolean;
+};
 
 type Line = {
   product: LatestPrice;
@@ -123,7 +133,7 @@ function BasketSummary({
           const isBest = bestComplete?.store.id === t.store.id;
           return (
             <li key={t.store.id} className={isBest ? "is-best" : undefined}>
-              <span className="store-dot" style={{ background: BANNER_COLORS[t.store.slug] ?? "#53617e" }} aria-hidden="true" />
+              <StoreDot slug={t.store.slug} ring={t.store.ring} />
               <strong>{t.store.name}</strong>
               <small>{coverageNote(t)}</small>
               <span className="store-totals-amount">{formatCents(t.total)}</span>
@@ -170,9 +180,12 @@ function StoreCell({ line, store }: { line: Line; store: Store }) {
   const isCheapest = listing && line.byStore.size > 1 && listing.price_cents === line.cheapest?.price_cents;
   return (
     <li className={isCheapest ? "store-cell is-cheapest" : "store-cell"} title={store.area ?? undefined}>
-      <span className="store-cell-name">
-        <span className="store-dot" style={{ background: BANNER_COLORS[store.slug] ?? "#53617e" }} aria-hidden="true" />
-        {store.name}
+      <span className="store-cell-label">
+        <span className="store-cell-name">
+          <StoreDot slug={store.slug} ring={store.ring} />
+          {store.name}
+        </span>
+        {store.repeated && store.area && <span className="store-cell-area">{store.area}</span>}
       </span>
       {listing ? (
         <span className="store-cell-price">
@@ -245,9 +258,14 @@ export default async function BasketPage() {
       slug: listing.banner_slug,
       name: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
       area: storeArea(listing.store_label),
+      ring: scoped.secondary.has(listing.store_id),
+      repeated: false,
     });
   }
   const storeList = [...stores.values()].sort((a, b) => a.id - b.id);
+  for (const store of storeList) store.repeated = storeList.some((s) => s.slug === store.slug && s.id !== store.id);
+  // Up to five stores fit on one row; more split into two even rows (7 is 4 + 3).
+  const columns = Math.max(1, storeList.length <= 5 ? storeList.length : Math.ceil(storeList.length / 2));
 
   // Keep the order items were added in.
   const lines: Line[] = ids
@@ -375,7 +393,11 @@ export default async function BasketPage() {
                         </div>
                         <QuantityControls productId={line.product.product_id} quantity={line.quantity} />
                       </div>
-                      <ul className="store-cells" aria-label={`${line.product.raw_name} at each store`}>
+                      <ul
+                        className="store-cells"
+                        aria-label={`${line.product.raw_name} at each store`}
+                        style={{ "--columns": columns } as CSSProperties}
+                      >
                         {storeList.map((store) => (
                           <StoreCell key={store.id} line={line} store={store} />
                         ))}
@@ -389,7 +411,7 @@ export default async function BasketPage() {
                   name and package under another code. Similar items are suggestions and never counted.
                   Out-of-stock listings are left out. Prices are recorded snapshots, not checkout quotes.
                 </p>
-                <StoreScopeNote scope={scoped.scope} hidden={scoped.hidden} />
+                <StoreScopeRow scoped={scoped} where="results" />
               </div>
             </div>
           )}

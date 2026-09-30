@@ -340,8 +340,9 @@ export type IngestRun = {
 };
 
 /**
- * Each store's most recent run. The latest few dozen runs cover every store
- * for more than a week, so a store missing here has not run in that long.
+ * Each store's most recent run. The latest 120 runs cover fifteen stores for
+ * more than a week, so a store missing here has not run in that long, or has
+ * never run (getCheckedStoreIds tells the two apart).
  */
 export async function getLatestRuns(): Promise<Result<IngestRun[]>> {
   const supabase = getSupabase();
@@ -352,7 +353,7 @@ export async function getLatestRuns(): Promise<Result<IngestRun[]>> {
     .select("store_id, run_on, products_observed, recorded_at")
     .order("run_on", { ascending: false })
     .order("recorded_at", { ascending: false })
-    .limit(60);
+    .limit(120);
 
   if (error) return { data: null, error: error.message };
   const latest = new Map<number, IngestRun>();
@@ -360,6 +361,28 @@ export async function getLatestRuns(): Promise<Result<IngestRun[]>> {
     if (!latest.has(run.store_id)) latest.set(run.store_id, run);
   }
   return { data: [...latest.values()], error: null };
+}
+
+/**
+ * Which of these stores have ever been checked. A store with no recent run is
+ * either new, waiting for its first night, or has stopped being checked; only
+ * the second is a problem. One small request per store, and only for stores
+ * missing from getLatestRuns.
+ */
+export async function getCheckedStoreIds(storeIds: number[]): Promise<Result<number[]>> {
+  if (storeIds.length === 0) return { data: [], error: null };
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const responses = await Promise.all(
+    storeIds.map((id) => supabase.from("ingest_runs").select("store_id").eq("store_id", id).limit(1)),
+  );
+  const failed = responses.find((r) => r.error);
+  if (failed?.error) return { data: null, error: failed.error.message };
+  return {
+    data: responses.flatMap((r) => ((r.data ?? []) as { store_id: number }[]).map((row) => row.store_id)),
+    error: null,
+  };
 }
 
 /**

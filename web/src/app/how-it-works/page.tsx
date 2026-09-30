@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { ArrowRight, CalendarDays, CircleCheck, MapPin, Search, Store } from "lucide-react";
 
 import { StoreChip } from "@/components/price-row";
+import { StoreDot } from "@/components/store-scope";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/history";
 import {
   getChangeCount,
+  getCheckedStoreIds,
   getCoverage,
   getLatestRuns,
   getPriceHistory,
@@ -34,7 +36,7 @@ import {
   type LatestPrice,
   type StoreInfo,
 } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT, storeArea } from "@/lib/stores";
+import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, secondaryStoreIds, storeArea } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -58,7 +60,13 @@ const EXAMPLES = [
 /** Listings the example picker considers, cheapest first. */
 const EXAMPLE_CANDIDATES = 200;
 
-type StoreStatus = StoreInfo & { run: IngestRun | null; changed: number | null; behind: boolean };
+type StoreStatus = StoreInfo & {
+  run: IngestRun | null;
+  changed: number | null;
+  behind: boolean;
+  /** Added but never checked yet: waiting for its first night, not behind. */
+  isNew: boolean;
+};
 
 type NightlyStatus = {
   stores: StoreStatus[];
@@ -82,6 +90,8 @@ const loadStatus = unstable_cache(
     if (stores.error !== null) throw new Error(stores.error);
     if (runs.error !== null) throw new Error(runs.error);
     const runFor = new Map(runs.data.map((run) => [run.store_id, run]));
+    const checked = await getCheckedStoreIds(stores.data.filter((s) => !runFor.has(s.id)).map((s) => s.id));
+    if (checked.error !== null) throw new Error(checked.error);
     const counts = await Promise.all(
       stores.data.map((store) => {
         const run = runFor.get(store.id);
@@ -91,11 +101,13 @@ const loadStatus = unstable_cache(
     const newest = runs.data.reduce<string | null>((max, r) => (max === null || r.run_on > max ? r.run_on : max), null);
     const statuses = stores.data.map((store, i) => {
       const run = runFor.get(store.id) ?? null;
+      const isNew = run === null && !checked.data.includes(store.id);
       return {
         ...store,
         run,
         changed: counts[i]?.data ?? null,
-        behind: run === null || (newest !== null && run.run_on < newest),
+        behind: !isNew && (run === null || (newest !== null && run.run_on < newest)),
+        isNew,
       };
     });
     const withRuns = statuses.filter((s) => s.run !== null);
@@ -127,7 +139,13 @@ type WorkedExample = { row: LatestPrice; spans: Span[] };
  */
 const loadExample = unstable_cache(
   async (term: string): Promise<WorkedExample | null> => {
-    const found = await searchProducts(term, { limit: EXAMPLE_CANDIDATES });
+    // From the Ontario stores, like the site's default search. Cached for every
+    // visitor, so it cannot follow one visitor's choice.
+    const stores = await getStores();
+    const found = await searchProducts(term, {
+      limit: EXAMPLE_CANDIDATES,
+      storeIds: scopedStoreIds(stores.data ?? [], "ontario"),
+    });
     if (found.error !== null) throw new Error(found.error);
     const rows = found.data.rows;
     if (rows.length === 0) return null;
@@ -225,7 +243,7 @@ function Steps({ status }: { status: NightlyStatus | null }) {
       tone: "yellow",
       art: "six-stores.png",
       title: `We check ${storeCount > 0 ? inWords(storeCount) : "the"} stores`,
-      body: `Overnight, Loonie searches ${SEARCH_TERM_COUNT} everyday items at one store from each chain, and records every price, sale and unit price it finds.`,
+      body: `Overnight, Loonie searches ${SEARCH_TERM_COUNT} everyday items at each store, and records every price, sale and unit price it finds.`,
       fact: status && status.prices > 0 ? `Last night: ${count(status.prices)} prices` : "Checked once a day",
     },
     {
@@ -523,53 +541,84 @@ function Worked({ example, failed, label }: { example: WorkedExample | null; fai
   );
 }
 
-function StoreBoard({ status }: { status: NightlyStatus }) {
+function StoreCard({ store, ring }: { store: StoreStatus; ring: boolean }) {
+  const place = storeArea(store.label);
+  const name = BANNER_SHORT[store.banner_slug] ?? store.retailer_name;
+  const color = BANNER_COLORS[store.banner_slug] ?? "#53617e";
+  const mapQuery = [store.label, store.postal_code].filter(Boolean).join(" ");
   return (
-    <ul className="store-board">
-      {status.stores.map((store) => {
-        const place = storeArea(store.label);
-        const name = BANNER_SHORT[store.banner_slug] ?? store.retailer_name;
-        const color = BANNER_COLORS[store.banner_slug] ?? "#53617e";
-        const mapQuery = [store.label, store.postal_code].filter(Boolean).join(" ");
-        return (
-          <li key={store.id} className="store-card" style={{ borderLeftColor: color }}>
-            <div className="store-card-head">
-              <span className="store-dot" style={{ background: color }} aria-hidden="true" />
-              <h3>{name}</h3>
-              {store.postal_code && <span className="store-card-postal">{store.postal_code}</span>}
-            </div>
-            <p className="store-card-place">
-              {place ?? "Location not recorded"}
-              {mapQuery && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <MapPin size={13} aria-hidden="true" /> Map<span className="visually-hidden"> of {name}, opens in a new tab</span>
-                </a>
-              )}
-            </p>
-            <div className="store-card-stats">
-              {store.run ? (
-                <span className={store.behind ? "run-badge run-behind" : "run-badge"}>
-                  <i aria-hidden="true" />
-                  {store.behind ? "Behind: " : "Checked "}
-                  {formatDay(store.run.run_on)} · {checkedAt(store.run.recorded_at, false)}
-                </span>
-              ) : (
-                <span className="run-badge run-behind">
-                  <i aria-hidden="true" />
-                  Not checked this week
-                </span>
-              )}
-              {store.run && <span className="stat-prices">{count(store.run.products_observed)} prices</span>}
-              {store.changed !== null && <span className="stat-changed">{count(store.changed)} changed</span>}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <li className="store-card" style={{ borderLeftColor: color }}>
+      <div className="store-card-head">
+        <StoreDot slug={store.banner_slug} ring={ring} />
+        <h4>{name}</h4>
+        {store.postal_code && <span className="store-card-postal">{store.postal_code}</span>}
+      </div>
+      <p className="store-card-place">
+        {place ?? "Location not recorded"}
+        {mapQuery && (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MapPin size={13} aria-hidden="true" /> Map<span className="visually-hidden"> of {name}, opens in a new tab</span>
+          </a>
+        )}
+      </p>
+      <div className="store-card-stats">
+        {store.run ? (
+          <span className={store.behind ? "run-badge run-behind" : "run-badge"}>
+            <i aria-hidden="true" />
+            {store.behind ? "Behind: " : "Checked "}
+            {formatDay(store.run.run_on)} · {checkedAt(store.run.recorded_at, false)}
+          </span>
+        ) : store.isNew ? (
+          <span className="run-badge run-new">
+            <i aria-hidden="true" />
+            New · waiting for its first check
+          </span>
+        ) : (
+          <span className="run-badge run-behind">
+            <i aria-hidden="true" />
+            Not checked this week
+          </span>
+        )}
+        {store.run && <span className="stat-prices">{count(store.run.products_observed)} prices</span>}
+        {store.changed !== null && <span className="stat-changed">{count(store.changed)} changed</span>}
+      </div>
+    </li>
+  );
+}
+
+/** Every store, the Ontario ones the site shows by default first. */
+function StoreBoard({ status }: { status: NightlyStatus }) {
+  const secondary = secondaryStoreIds(status.stores);
+  const groups = [
+    { title: "Ontario", note: "Shown by default", stores: status.stores.filter((s) => isOntario(s.postal_code)) },
+    {
+      title: "Outside Ontario",
+      note: "Still checked every night; shown when you choose All stores",
+      stores: status.stores.filter((s) => !isOntario(s.postal_code)),
+    },
+  ].filter((group) => group.stores.length > 0);
+  const grouped = groups.length > 1;
+  return (
+    <div className="store-board-groups">
+      {groups.map((group) => (
+        <div key={group.title} className="store-board-group">
+          {grouped && (
+            <h3 className="store-board-heading">
+              {group.title} <span>{group.note}</span>
+            </h3>
+          )}
+          <ul className="store-board">
+            {group.stores.map((store) => (
+              <StoreCard key={store.id} store={store} ring={secondary.has(store.id)} />
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -645,6 +694,7 @@ export default async function HowItWorksPage({
   ]);
   const nightly = status.data;
   const storeCount = nightly?.stores.length ?? 0;
+  const chainCount = new Set(nightly?.stores.map((s) => s.banner_slug) ?? []).size;
 
   return (
     <main>
@@ -732,7 +782,8 @@ export default async function HowItWorksPage({
             <div>
               <p className="section-label">Where the prices come from</p>
               <h2 id="stores-title">
-                {storeCount > 0 ? `${inWords(storeCount)[0].toUpperCase()}${inWords(storeCount).slice(1)} stores` : "The stores"}, one from each chain.
+                {storeCount > 0 ? `${inWords(storeCount)[0].toUpperCase()}${inWords(storeCount).slice(1)} stores` : "The stores"}
+                {chainCount > 1 ? ` from ${inWords(chainCount)} chains.` : "."}
               </h2>
               <p>Online prices for pickup at these stores. Your own store may charge a little differently.</p>
             </div>
