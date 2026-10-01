@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 import uuid
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -1184,3 +1184,12 @@ class TestMatchKeys:
             cur.execute("SET LOCAL ROLE anon")
             cur.execute("SELECT identity_key FROM product_latest_price")
             assert cur.fetchone()[0] == "neilson|2% milk|1|4000ml"
+
+
+def test_stores_run_on_finds_only_that_days_runs(conn) -> None:
+    nofrills = db.resolve_store_id(conn, "nofrills", "3131")
+    loblaws = db.resolve_store_id(conn, "loblaw", "1032")
+    db.write_store_observations(conn, nofrills, [make_row(1)], DAY)
+
+    assert db.stores_run_on(conn, [nofrills, loblaws], DAY) == {nofrills}
+    assert db.stores_run_on(conn, [nofrills, loblaws], DAY + timedelta(days=1)) == set()

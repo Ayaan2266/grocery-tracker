@@ -64,7 +64,8 @@ ingest/
                       test_db_integration.py needs a Postgres and skips without one.
                       fixtures/labelled_pairs.json: hand-labelled matches
 db/migrations/        numbered SQL
-db/queries/           read-only diagnostics
+db/queries/           read-only diagnostics, including the weekly storage report
+db/ops/               nightly_dispatch.sql: starts the nightly run on time from Supabase
 web/                  Next.js app
 docs/                 architecture and data-source notes
 ```
@@ -93,6 +94,12 @@ python -m ingest.match report                               # what matching pair
 The last three need the same secrets as the nightly run, so they also run as
 manual tasks of the `ingest` workflow (Actions -> Nightly ingest -> Run
 workflow -> task). None of them writes anything.
+
+The nightly run is started at 07:10 UTC by Supabase, which sends the workflow
+a "Run workflow" request (`db/ops/nightly_dispatch.sql`): GitHub's own schedule
+started every run 5 to 8 hours late. That schedule stays as the fallback, and
+`--once-per-day` makes whichever run comes second stop before any request. To
+re-run a night on purpose, run the workflow with `force` ticked.
 
 The write-path tests need a real Postgres and skip silently without one. CI
 provides it; locally:
@@ -180,9 +187,9 @@ Maintained honestly. Overclaiming reads as junior.
   legend and store lists tell them apart by place. Nothing yet lets you pick
   the stores near you. More stores are a migration and a line in
   `targets.json` each; `python -m ingest.stores` finds and proves the codes.
-  At one request a second, one more store still fits in half the nightly
-  job's 45-minute timeout (`test_targets.py`); a ninth needs a longer timeout
-  or a split job.
+  Each store adds about 3 minutes to the nightly run. Its timeout is 90
+  minutes and a full run must fit in half of it (`test_targets.py`), which
+  holds thirteen stores; past that, split the job.
 - **Unit prices before 2026-09-24 are reconstructed.** The runs before then
   stored none, or the API's figure on the regular price. `0008` works out
   what today's code would have stored, from the shelf price and package size
@@ -195,20 +202,20 @@ Maintained honestly. Overclaiming reads as junior.
   `implied_regular_cents`, and search results show it as "usually ~$2.30".
   The API rounds its unit price to the cent per 100 g, so it can be a few
   cents out, and history before 2026-09-24 does not have it.
-- **The storage growth figure rests on one measured night.** One row per
-  product per night was measured at ~165 bytes and ~2.9 MB a night for three
-  stores, enough to fill Supabase's 500 MB free tier around March 2027; six
-  stores roughly double both. Storing changes only (`0006`) measured 8.7x
-  smaller in a 60-night simulation where every product changes weekly, and 18x
-  smaller at 5% a night. The first real night was 2026-09-27, the first with a
-  run the night before at all six stores: 2,135 rows written for 38,263
-  products, 5.6%, or 17.9x fewer rows than one per product. The three stores
-  tracked since day one wrote 6.0% on both 2026-09-26 and 2026-09-27. That
-  count includes new products and ones back after a missed night, so prices
-  changed on fewer than 5.6%. One night is not a week: a night when the weekly
-  flyer turns over should run higher. The query in
-  [db/migrations/README.md](db/migrations/README.md) gives the ratio over a
-  week.
+- **Storage growth is measured over one week, not months.** Storing changes
+  only (`0006`) was simulated at 8.7x fewer rows than one row per product per
+  night when every product changes weekly. The first real week, 2026-09-25 to
+  10-01 with each store's first night left out, wrote 28,016 rows for 238,745
+  products seen: 11.7%, or 8.5x fewer rows. Most nights wrote 5.6% to 11.8%,
+  and most of that was listings coming and going from search results, not
+  prices: on 09-30, 116 shelf prices changed and 2,890 rows were listings new
+  or back after a missed night. Thursday, when the weekly flyer turns over,
+  wrote 27.7% (9,711 shelf prices, 2,956 sales started, 2,744 ended). The
+  database is 65 MB and grows about 1.1 MB a night, which reaches Supabase's
+  500 MB free tier around October 2027. `products` is the larger part (39 MB
+  against 13 MB of price history), since search results bring in about 800
+  never-seen listings a night. `db/queries/storage_growth.sql`, also the
+  workflow's storage-report task, recomputes all of this.
 
 ## Legal
 

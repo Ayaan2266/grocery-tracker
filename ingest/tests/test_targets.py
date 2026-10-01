@@ -9,6 +9,9 @@ from ingest.run import TARGETS_PATH, load_targets
 
 WORKFLOW = TARGETS_PATH.parents[1] / ".github" / "workflows" / "ingest.yml"
 RATE_LIMIT_SECONDS = 1.0
+# Writes and response time on top of the rate-limited requests: the run on
+# 2026-10-01 took 1,304 s for 1,176 requests. Rounded up.
+MEASURED_OVERHEAD = 1.15
 
 
 def ingest_timeout_seconds() -> int:
@@ -66,4 +69,4 @@ def test_a_full_run_fits_inside_the_job_timeout() -> None:
     targets = load_targets()
     # +1 request per store for the canary check.
     requests = len(targets.stores) * (len(targets.search_terms) + 1)
-    assert requests * RATE_LIMIT_SECONDS < ingest_timeout_seconds() * 0.5
+    assert requests * RATE_LIMIT_SECONDS * MEASURED_OVERHEAD < ingest_timeout_seconds() * 0.5

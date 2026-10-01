@@ -2,10 +2,12 @@ name: Nightly ingest
 
 on:
   schedule:
-    # Asks for 07:10 UTC = 03:10 ET. Off the hour on purpose: GitHub's scheduler
-    # is heavily contended at :00. It is a request, not a start time: runs have
-    # started 5+ hours late (12:42 UTC) and can be dropped, so nothing here may
-    # depend on when, or whether, a given run happens.
+    # The fallback. Asks for 07:10 UTC = 03:10 ET, but GitHub treats a schedule
+    # as a request, not a start time: every run from 2026-09-25 to 10-01 started
+    # 5 to 8 hours late, and one can be dropped. The on-time start is a
+    # workflow_dispatch sent at 07:10 UTC by Supabase (db/ops/nightly_dispatch.sql);
+    # when it has run, this one stops at --once-per-day. Nothing here may depend
+    # on when, or whether, a given run happens.
     - cron: "10 7 * * *"
     # Monthly keepalive. Only the keepalive job runs on this one.
     - cron: "41 10 11 * *"
@@ -16,14 +18,19 @@ on:
           ingest: the nightly job. probe-stores: list a banner's stores and
           canary-check their codes (API only, writes nothing).
           catalogue-sample: print what cross-store matching has to work with
-          (read-only SQL). match-report: print the pairs ingest/match.py would
+          (read-only SQL). storage-report: rows written per night, why, and when
+          the database reaches 500 MB (read-only SQL). match-report: print the pairs ingest/match.py would
           make across the whole catalogue (read-only). migrate: apply the
           migrations named below, in order (WRITES to the database).
         type: choice
-        options: [ingest, probe-stores, catalogue-sample, match-report, migrate]
+        options: [ingest, probe-stores, catalogue-sample, storage-report, match-report, migrate]
         default: ingest
       dry_run:
         description: "ingest only: fetch and normalize without writing to Postgres"
+        type: boolean
+        default: false
+      force:
+        description: "ingest only: run even if every store already has a run today"
         type: boolean
         default: false
       probe:
@@ -48,10 +55,11 @@ jobs:
       group: ingest
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    # Seven stores at 1 req/sec is about 20 minutes of requests. A full run must
-    # fit in half of this (ingest/tests/test_targets.py reads it from here), so
-    # an eighth store fits and a ninth needs a longer timeout or a split job.
-    timeout-minutes: 45
+    # About 3 minutes a store: seven took 21 min 44 s on 2026-10-01 (168
+    # requests each at 1 req/sec, plus writes). A full run must fit in half of
+    # this (ingest/tests/test_targets.py reads it from here), so 90 minutes
+    # holds thirteen stores; past that, split the job rather than raise it again.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
 
@@ -67,8 +75,11 @@ jobs:
           PCX_API_KEY: ${{ secrets.PCX_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           INGEST_RATE_LIMIT_SECONDS: "1.0"
+        # --once-per-day: the night is started on time from Supabase
+        # (db/ops/nightly_dispatch.sql), and this schedule fires hours later as
+        # the fallback. Whichever comes second stops before any API request.
         run: |
-          python -m ingest.run ${{ inputs.dry_run && '--dry-run' || '' }}
+          python -m ingest.run ${{ !inputs.force && '--once-per-day' || '' }} ${{ inputs.dry_run && '--dry-run' || '' }}
 
   # A new banner's store code has to be proved before a migration adds it: a
   # wrong one returns 200 with zero results, like a store with nothing in
@@ -111,6 +122,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -f db/queries/catalogue_sample.sql
+
+  storage-report:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'storage-report'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # The file's first statement makes the transaction read-only.
+      - name: Report storage growth
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -f db/queries/storage_growth.sql
 
   match-report:
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'match-report'

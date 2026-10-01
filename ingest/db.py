@@ -227,6 +227,20 @@ def check_schema(conn: psycopg.Connection) -> None:
         ) from exc
 
 
+RUNS_ON = """
+SELECT store_id
+  FROM ingest_runs
+ WHERE run_on = %(day)s
+   AND store_id = ANY(%(store_ids)s)
+"""
+
+
+def stores_run_on(conn: psycopg.Connection, store_ids: list[int], day: date) -> set[int]:
+    """Which of these stores already have a run recorded for `day`."""
+    rows = conn.execute(RUNS_ON, {"day": day, "store_ids": store_ids}).fetchall()
+    return {int(row[0]) for row in rows}
+
+
 def resolve_store_id(conn: psycopg.Connection, banner_slug: str, store_code: str) -> int:
     row = conn.execute(RESOLVE_STORE, (banner_slug, store_code)).fetchone()
     if row is None:
