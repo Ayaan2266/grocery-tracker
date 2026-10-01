@@ -294,6 +294,31 @@ def preflight(database_url: str, stores: list[StoreTarget]) -> str | None:
     return None
 
 
+def already_ran(database_url: str, stores: list[StoreTarget], observed_on: date) -> bool:
+    """True when every store already has a run recorded for `observed_on`.
+
+    The nightly run is started on time from Supabase (db/ops/nightly_dispatch.sql)
+    and again, hours late, by GitHub's own schedule as a fallback. This makes the
+    second one free: it stops before a single API request. A partial night, with
+    any store missing, runs again in full; a same-day re-run of a store that did
+    finish only confirms what it already recorded.
+
+    Any database error means "not known to have run", so the night goes ahead.
+    """
+    from ingest import db
+
+    try:
+        with db.connect(database_url) as conn:
+            ids = [db.resolve_store_id(conn, s.banner, s.store_code) for s in stores]
+            done = db.stores_run_on(conn, ids, observed_on)
+    except (db.UnknownStore, db.psycopg.Error) as exc:
+        log.warning(
+            "could not check for an earlier run today, running anyway: %s", type(exc).__name__
+        )
+        return False
+    return len(done) == len(set(ids))
+
+
 def positive_int(raw: str) -> int:
     value = int(raw)
     if value <= 0:
@@ -319,6 +344,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         metavar="N",
         help="Use only the first N search terms. For smoke tests, not for nightly runs.",
+    )
+    parser.add_argument(
+        "--once-per-day",
+        action="store_true",
+        help="Do nothing if every store already has a run recorded today. The nightly "
+        "workflow passes this, so its late fallback costs no API requests.",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Debug logging.")
     return parser
@@ -370,6 +401,9 @@ def main(argv: list[str] | None = None) -> int:
             log.error("preflight failed, no API requests made -- fix this first:\n  %s", problem)
             return EXIT_FAILURE
         log.info("preflight ok: database reachable, %d store(s) resolved", len(stores))
+        if args.once_per_day and already_ran(settings.database_url, stores, observed_on):
+            log.info("every store already has a run for %s; nothing to do", observed_on)
+            return EXIT_OK
 
     outcomes: list[StoreOutcome] = []
     access_denied = False

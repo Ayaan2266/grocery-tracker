@@ -61,3 +61,8 @@ SELECT pg_size_pretty(pg_database_size(current_database())) AS database,
 
 `observations / span_rows` is the real compression ratio. Measure again a
 week apart and divide the difference by 7 to get growth per night.
+
+`db/queries/storage_growth.sql` does all of this from one run: rows written
+per night with each store's first night left out, why they were written,
+growth per night and the date 500 MB is reached at that rate. It is also the
+ingest workflow's `storage-report` task.

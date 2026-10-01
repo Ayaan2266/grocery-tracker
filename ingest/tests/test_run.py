@@ -178,3 +178,49 @@ def test_stop_signal_keeps_completed_stores_without_more_requests(monkeypatch) -
     assert run.main([]) == 2
     assert fetched == stores[:2]
     assert [o.target for o in written] == [TARGET]
+
+
+def _nightly(monkeypatch, *, ran: bool) -> list:
+    """main() with the database stubbed; returns the stores it fetched."""
+    monkeypatch.setattr(run, "load_settings", lambda **kw: Settings("k", "postgresql://test", 1))
+    monkeypatch.setattr(run, "load_targets", lambda: run.Targets([TARGET], ("milk",), ["milk"]))
+    monkeypatch.setattr(run, "preflight", lambda *args: None)
+    monkeypatch.setattr(run, "already_ran", lambda *args: ran)
+    fetched = []
+
+    def fetch(client, target, *args):
+        fetched.append(target)
+        return run.StoreOutcome(target, rows=[object()])
+
+    monkeypatch.setattr(run, "ingest_store", fetch)
+    monkeypatch.setattr(run, "_write", lambda *args: None)
+    monkeypatch.setattr(run, "print_summary", lambda *args, **kw: None)
+    return fetched
+
+
+def test_once_per_day_spends_no_requests_when_the_night_already_ran(monkeypatch) -> None:
+    fetched = _nightly(monkeypatch, ran=True)
+    assert run.main(["--once-per-day"]) == 0
+    assert fetched == []
+
+
+def test_once_per_day_runs_when_any_store_is_missing_a_run(monkeypatch) -> None:
+    fetched = _nightly(monkeypatch, ran=False)
+    assert run.main(["--once-per-day"]) == 0
+    assert fetched == [TARGET]
+
+
+def test_without_once_per_day_an_earlier_run_does_not_stop_a_rerun(monkeypatch) -> None:
+    fetched = _nightly(monkeypatch, ran=True)
+    assert run.main([]) == 0
+    assert fetched == [TARGET]
+
+
+def test_a_failed_check_for_an_earlier_run_lets_the_night_go_ahead(monkeypatch) -> None:
+    from ingest import db
+
+    def refuse(url):
+        raise db.psycopg.OperationalError("connection refused")
+
+    monkeypatch.setattr(db, "connect", refuse)
+    assert run.already_ran("postgresql://test", [TARGET], date(2026, 10, 1)) is False
