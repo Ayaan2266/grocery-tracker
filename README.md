@@ -100,6 +100,18 @@ a "Run workflow" request (`db/ops/nightly_dispatch.sql`): GitHub's own schedule
 started every run 5 to 8 hours late. That schedule stays as the fallback, and
 `--once-per-day` makes whichever run comes second stop before any request. To
 re-run a night on purpose, run the workflow with `force` ticked.
+The Supabase job was set up on 2026-10-02 and a test dispatch was accepted
+(204), so the first on-time night is the 10-03 run. It authenticates with a
+fine-grained GitHub token kept in Vault as `github_dispatch_token` (Actions:
+read and write, this repository only). The token expires; when it does the
+dispatch fails with 401 and nights fall back to GitHub's late schedule, so
+replace it with `vault.update_secret` (steps in `db/ops/nightly_dispatch.sql`)
+before then. To check a night, the morning after:
+
+```sql
+select status_code, error_msg, created from net._http_response order by created desc limit 5;
+select status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;
+```
 
 The write-path tests need a real Postgres and skip silently without one. CI
 provides it; locally:
