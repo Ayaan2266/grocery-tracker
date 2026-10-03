@@ -17,10 +17,10 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--white); color: var(--navy); font-family: "DM Sans Variable", "DM Sans", Arial, sans-serif; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 a { color: inherit; }
 ::selection { background: var(--yellow); color: var(--navy); }
-a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); outline-offset: 4px; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--coral); outline-offset: 4px; }
 
 .site-shell { width: min(100% - 64px, 1280px); margin-inline: auto; }
 .skip-link { position: absolute; z-index: 20; top: -80px; left: 20px; padding: 10px 14px; background: var(--yellow); color: var(--navy); border-radius: 8px; }
@@ -111,6 +111,21 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .results-toolbar + .scope-help { margin: -2px 0 14px; }
 .scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .price-note + .scope-row, .product-page > .scope-row { margin-top: 16px; }
+.near-details { flex-basis: 100%; font-size: 13px; }
+.near-details summary { width: fit-content; color: var(--blue-dark); cursor: pointer; font-weight: 800; }
+.near-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
+.near-form label:not(.visually-hidden) { color: var(--blue-dark); font-weight: 800; }
+.near-form input, .near-form select { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--navy); font-size: 14px; }
+.near-form input { width: 15ch; text-transform: uppercase; }
+.near-form input::placeholder { text-transform: none; }
+.near-form input[aria-invalid="true"] { border-color: var(--coral-strong); }
+.near-form button, .near-forget button { padding: 8px 15px; border: 0; border-radius: 999px; background: var(--blue); color: var(--white); cursor: pointer; font-size: 13px; font-weight: 800; }
+.near-form button:hover:not(:disabled) { background: var(--blue-dark); }
+.near-form button:disabled { opacity: .6; cursor: progress; }
+.near-forget { margin-top: 8px; }
+.near-forget button { padding: 0; background: none; color: var(--muted); text-decoration: underline; }
+.near-error { flex-basis: 100%; margin: 0; color: var(--coral-strong); font-weight: 700; }
+.near-note { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .results-toolbar-start { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .results-toolbar-start .result-count { margin: 0; }
 /* A banner's second store: its colour as a ring, not a new colour. */

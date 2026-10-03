@@ -291,6 +291,9 @@ export type StoreInfo = {
   /** "Real Canadian Superstore - Winnipeg Kenaston": banner, then place. */
   label: string | null;
   postal_code: string | null;
+  /** Where the store is, when known. Null until filled in; see lib/store-scope.ts. */
+  lat: number | null;
+  lng: number | null;
   banner_slug: string;
   retailer_name: string;
 };
@@ -300,6 +303,8 @@ type StoreRow = {
   store_code: string;
   label: string | null;
   postal_code: string | null;
+  lat: number | null;
+  lng: number | null;
   retailers: { banner_slug: string; name: string } | { banner_slug: string; name: string }[] | null;
 };
 
@@ -310,7 +315,7 @@ export async function getStores(): Promise<Result<StoreInfo[]>> {
 
   const { data, error } = await supabase
     .from("stores")
-    .select("id, store_code, label, postal_code, retailers(banner_slug, name)")
+    .select("id, store_code, label, postal_code, lat, lng, retailers(banner_slug, name)")
     .eq("active", true)
     .order("id");
 
@@ -324,6 +329,8 @@ export async function getStores(): Promise<Result<StoreInfo[]>> {
         store_code: row.store_code,
         label: row.label,
         postal_code: row.postal_code,
+        lat: row.lat,
+        lng: row.lng,
         banner_slug: retailer.banner_slug,
         retailer_name: retailer.name,
       },

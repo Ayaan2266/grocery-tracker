@@ -111,9 +111,13 @@ def test_nothing_the_matcher_did_not_choose_is_mismatched(source: str) -> None:
 def test_recall_has_not_collapsed() -> None:
     """Missing a pair shows nothing rather than something wrong, so recall is
     traded for precision on purpose. It is still watched: on the neighbour
-    pairs, which the matcher had no part in choosing, it found 14 of 22."""
+    pairs, which the matcher had no part in choosing, it found 17 of 22. What
+    it still misses is a different word on each side ("Jasmine Rice Milagrosa"
+    against "Jasmine Rice", "Naturegg" in a name) or a claim the names do not
+    make (premium eggs, fresh-squeezed juice), which a rule on words cannot
+    separate from a real difference."""
     neighbours = score([p for p in PAIRS if p["source"] == "neighbour"])
-    assert neighbours["match_recall"] >= 0.6
+    assert neighbours["match_recall"] >= 0.75
 
 
 def test_print_the_numbers(capsys: pytest.CaptureFixture[str]) -> None:

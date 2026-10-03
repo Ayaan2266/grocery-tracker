@@ -8,6 +8,7 @@ import {
   countByRegion,
   inScope,
   isOntario,
+  nearbyStores,
   scopedStoreIds,
   secondaryStoreIds,
   shortStoreNames,
@@ -102,4 +103,65 @@ test("a banner's second store is the one drawn differently, Ontario first", () =
 test("stores are counted by region", () => {
   assert.deepEqual(countByRegion(tracked), { ontario: 3, outside: 2 });
   assert.deepEqual(countByRegion([]), { ontario: 0, outside: 0 });
+});
+
+// Where the stores are, to the nearest few kilometres: Vaughan, Markham,
+// Uxbridge, North York, Toronto (Gerry Fitzgerald), Winnipeg and Gatineau.
+const placed = [
+  { id: 1, postal_code: "L4K 0C1", lat: 43.8, lng: -79.5 },
+  { id: 2, postal_code: "R3N 2A1", lat: 49.85, lng: -97.2 },
+  { id: 3, postal_code: "L3P 1W2", lat: 43.87, lng: -79.27 },
+  { id: 4, postal_code: "L9P 1N2", lat: 44.11, lng: -79.12 },
+  { id: 5, postal_code: "M6A 3B4", lat: 43.72, lng: -79.45 },
+  { id: 6, postal_code: "J9J 3Z4", lat: 45.39, lng: -75.84 },
+  { id: 7, postal_code: "M3J 3N4", lat: 43.76, lng: -79.49 },
+];
+const vaughan = { fsa: "L4K", lat: 43.7947, lng: -79.4812, radiusKm: 25 };
+
+test("the stores near a place are those within the radius, nearest first", () => {
+  const near = nearbyStores(placed, vaughan);
+  assert.deepEqual(near.ids, [1, 7, 5, 3]);
+  assert.equal(near.widened, false);
+  assert.deepEqual(near.unplaced, []);
+  assert.ok(near.km.get(1)! < near.km.get(7)! && near.km.get(7)! < near.km.get(5)!);
+  assert.ok(near.km.get(2)! > 1000, "Winnipeg is far away");
+});
+
+test("a bigger radius brings in more stores and a smaller one fewer", () => {
+  assert.deepEqual(nearbyStores(placed, { ...vaughan, radiusKm: 10 }).ids, [1, 7, 5]);
+  assert.deepEqual(nearbyStores(placed, { ...vaughan, radiusKm: 50 }).ids, [1, 7, 5, 3, 4]);
+  assert.deepEqual(nearbyStores(placed, { ...vaughan, radiusKm: 100 }).ids, [1, 7, 5, 3, 4]);
+});
+
+test("with nothing in range the nearest store stands in, and says so", () => {
+  const barrie = { fsa: "L4N", lat: 44.39, lng: -79.69, radiusKm: 10 };
+  const near = nearbyStores(placed, barrie);
+  assert.equal(near.widened, true);
+  assert.deepEqual(near.ids, [4]);
+});
+
+test("a visitor in Winnipeg gets the Winnipeg store: near is not Ontario-only", () => {
+  const winnipeg = { fsa: "R3N", lat: 49.86, lng: -97.21, radiusKm: 25 };
+  assert.deepEqual(nearbyStores(placed, winnipeg).ids, [2]);
+});
+
+test("a store that could not be placed is kept in, never hidden", () => {
+  const some = placed.map((store) => (store.id === 5 ? { ...store, lat: null, lng: null } : store));
+  const near = nearbyStores(some, vaughan);
+  assert.deepEqual(near.unplaced, [5]);
+  assert.deepEqual(near.ids, [1, 7, 3, 5]);
+  assert.equal(near.km.has(5), false);
+
+  const none = nearbyStores(placed.map((s) => ({ ...s, lat: null, lng: null })), vaughan);
+  assert.deepEqual(none.ids, [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(none.widened, false);
+});
+
+test("the near scope uses the place, and without one it is Ontario", () => {
+  assert.deepEqual(scopedStoreIds(placed, "near", vaughan), [1, 7, 5, 3]);
+  assert.deepEqual(scopedStoreIds(placed, "near", null), [1, 3, 4, 5, 7]);
+  assert.equal(scopedStoreIds(placed, "all", vaughan), null);
+  assert.deepEqual(scopedStoreIds(placed, "ontario", vaughan), [1, 3, 4, 5, 7]);
+  assert.deepEqual(scopedStoreIds(tracked, "ontario"), [1, 3, 7], "stores with no coordinates still work");
+  assert.equal(scopedStoreIds([], "near", vaughan), null);
 });

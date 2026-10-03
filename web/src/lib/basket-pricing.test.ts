@@ -68,6 +68,13 @@ test("similar suggestions compare matching units and never change totals", () =>
   assert.equal(summarizeBasket(lines, [1, 2]).mixTotal, 500);
 });
 
+test("a weighed item is never offered a cheaper similar one", () => {
+  const steak = listing(1, 1, "A_KG", 900, { substitute_key: "weighed|sirloin steak tip|g" });
+  const cheaper = listing(2, 2, "B_KG", 300, { substitute_key: "weighed|sirloin steak tip|g" });
+  const lines = buildBasketLines(new Map([[1, 1]]), [steak], [], [cheaper], null);
+  assert.equal(lines[0].cheaperSimilar, null);
+});
+
 test("basket lines preserve cookie order regardless of database order", () => {
   const products = [listing(1, 1, "A", 100), listing(2, 1, "B", 200)];
   const lines = buildBasketLines(new Map([[2, 1], [1, 1]]), products, [], [], null);

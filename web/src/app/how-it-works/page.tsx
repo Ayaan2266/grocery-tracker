@@ -647,7 +647,7 @@ function Faq({ status }: { status: NightlyStatus | null }) {
           Loonie checks {status?.stores.length ? `${inWords(status.stores.length)} stores` : "a handful of stores"}
           {places.length > 0 && <>: {places.map((p) => `${p.name} in ${p.place}`).join(", ")}</>}. Prices,
           and even brands, vary by region, which is why every price shows where it was recorded. Search,
-          product pages and the basket show the Ontario stores unless you choose to show all of them.
+          product pages and the basket show the Ontario stores unless you choose to show all of them, or to see only the stores near a postal code.
         </>
       ),
     },

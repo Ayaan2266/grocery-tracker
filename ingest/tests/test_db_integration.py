@@ -1177,6 +1177,32 @@ class TestMatchKeys:
             cur.execute("SELECT identity_key, substitute_key FROM products")
             assert cur.fetchone() == (None, None)
 
+    def test_a_weighed_item_gets_a_substitute_key_and_no_identity_key(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        weighed = replace(
+            make_row(1),
+            retailer_sku="STEAK_KG",
+            raw_name="Sirloin Tip Steak, Club Pack",
+            brand=None,
+            package_size="",
+            comparison_unit="g",
+            comparison_quantity=Decimal(100),
+        )
+        # An unparsed package with no unit price by weight gets nothing, as before.
+        unmeasured = replace(
+            make_row(2), retailer_sku="OTHER_KG", package_size="", comparison_unit=None
+        )
+        db.write_store_observations(conn, store_id, [weighed, unmeasured], DAY)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT retailer_sku, identity_key, substitute_key FROM products ORDER BY 1"
+            )
+            assert cur.fetchall() == [
+                ("OTHER_KG", None, None),
+                ("STEAK_KG", None, "weighed|sirloin steak tip|g"),
+            ]
+
     def test_anon_can_read_the_keys(self, conn) -> None:
         store_id = db.resolve_store_id(conn, "nofrills", "3131")
         db.write_store_observations(conn, store_id, [self.milk("N_EA", "Neilson", "2% Milk")], DAY)

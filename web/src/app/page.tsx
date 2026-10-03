@@ -6,7 +6,7 @@ import { PriceRow, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHelp } from "@/components/store-scope";
+import { NearMeDetails, StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHelp } from "@/components/store-scope";
 import { readBasket } from "@/lib/basket-server";
 import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, inScope, isOntario, storeArea } from "@/lib/stores";
@@ -179,6 +179,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     {prices.length > 1 && <SortToggle query={query} sort={sort} />}
                   </div>
                   {scopeHelp && <p className="scope-help">{scopeHelp}</p>}
+                  <NearMeDetails scoped={scoped} />
                   {prices.length > 0 ? (
                     <ul className="price-list">
                       {prices.map((row, index) => (

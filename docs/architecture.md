@@ -163,6 +163,36 @@ that no store holds under two codes; a substitute is only ever shown in its
 own "Similar items" list, by unit price. A wrong "cheaper at Superstore" claim
 is still worse than no claim, which is why recall was traded away for it.
 
+Recall was bought back where the labelled pairs said it was safe, and only in
+the substitute key. A size within 1.5% of a two-figure number is written as
+that number (148 ml and 150 ml agree; two totals that agree are never more
+than 3% apart), and "original" and "classic" are not counted as words, since a
+store may or may not print them on the same shelf's product. The identity key
+did not move: it still needs every word and the exact package, because "the
+same item" is what a basket total rests on. Each rule has a test for what it
+now accepts and for the nearest thing it must still refuse
+(`ingest/tests/test_match_rules.py`).
+
+Items sold by weight (the `_KG` codes) get a substitute key and never an
+identity key. Their shelf price is for the store's estimate of one piece, so it
+says nothing about another store's piece; the price per 100 g does. That figure
+is the API's own, and for an item with no package size there is nothing to
+derive it from, so on a sale the store does not mark it can stay on the regular
+price (see "Unit prices follow the shelf price" above). So weighed items are
+listed as similar, with that caveat, and the basket never offers one as a
+cheaper alternative.
+
+**"Stores near me" is a postal-code area to a postal-code area.** A visitor
+gives a postal code; only the first three characters (the forward sortation
+area) are looked up and kept, in a cookie, never in the database. A store with
+coordinates in `stores.lat`/`lng` uses them, and otherwise the centre of its
+own postal-code area, so every distance is good to a few kilometres and is
+shown as "about". The lookup is a third-party service, so it is treated as
+unreliable: answers are cached (a miss only briefly), the response is checked
+to be in Canada, a store whose area cannot be found is shown rather than
+hidden, and a visitor whose code cannot be found is told so rather than shown a
+guess. Nothing outside the "near" scope makes a request to it.
+
 ## Known limitations
 
 See the "What doesn't work yet" section of the root README. That list is

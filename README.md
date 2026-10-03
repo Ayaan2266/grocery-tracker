@@ -175,12 +175,26 @@ Maintained honestly. Overclaiming reads as junior.
   when it is cheaper per unit; neither ever counts in a basket total. Against 270 hand-labelled real pairs
   (`ingest/tests/fixtures/labelled_pairs.json`, labelled by hand, worth a
   second look) no identity and no substitute was wrong, but on the pairs
-  picked without the matcher's help it found 14 of 22 real matches. It misses
-  anything that differs by one word ("Holiday Crackers Original" against
-  "Holiday Crackers") or a few millilitres (148 ml against 150 ml). Weighed
-  items (the `_KG` codes) are not matched at all. Keys appear on a product the
-  first night it is ingested after `0009`; until then it pairs by code only.
-  The basket lives in a cookie, so it belongs to one browser.
+  picked without the matcher's help it found 17 of 22 real matches (it was 14
+  until the size allowance, "original"/"classic" and "disinfecting" rules
+  below). A similar item's size may differ by up to 3% (148 ml against
+  150 ml, 40 lb against 18 kg of rice), and "Original" or "Classic" in a name
+  no longer separates it from the same product without; identity matches
+  still need the exact package and every word. It still misses a different
+  word on each side ("Jasmine Rice Milagrosa" against "Jasmine Rice"), a
+  product line in the name ("Naturegg"), a different pack count for the same
+  weight (one 454 g block against four 113 g sticks), and claims the names do
+  not make (premium eggs, a lactose-free milk named only "Milk 2%").
+  Weighed items (the `_KG` codes, about 2,100 listings) are matched as
+  similar items only, by name and price per 100 g, never as the same item and
+  never in a basket total. The basket does not suggest a cheaper weighed
+  item, because its price per 100 g is the API's and can stay on the regular
+  price during a sale the store does not mark; the product page lists them
+  with that warning. The weighed rule was checked against the live catalogue
+  by reading the groups it would form, not scored, since no weighed pairs are
+  labelled yet. Keys are rewritten for every product each night, so a rule
+  change reaches the whole catalogue after one run. The basket lives in a
+  cookie, so it belongs to one browser.
 - **Verdicts rest on days, not months, of history.** Tracking started on
   2026-09-21, so "lowest price recorded" means lowest in that window. The
   product page says how many days it is based on.
@@ -196,8 +210,18 @@ Maintained honestly. Overclaiming reads as junior.
   them. `0011` added a GTA Superstore, 1033 on Gerry Fitzgerald Drive in
   Toronto: the nearest of all 119 to Vaughan, since none is inside it. The
   two Superstores share a colour on graphs, so with every store shown the
-  legend and store lists tell them apart by place. Nothing yet lets you pick
-  the stores near you. More stores are a migration and a line in
+  legend and store lists tell them apart by place. A visitor can enter a
+  postal code and a radius to see the stores near it, in any province; that
+  is stored in a cookie as the first three characters only. The distance is
+  from the middle of the visitor's postal-code area to the middle of the
+  store's, so it is good to a few kilometres and the site says "about". The
+  areas are looked up from zippopotam.us (`POSTAL_GEOCODER_URL` in
+  `web/.env.example` names another), cached, and written as a miss rather
+  than guessed when the service is down; a store that cannot be placed is
+  shown, not hidden. Store coordinates are not stored: `stores.lat` and
+  `lng` exist and are empty, and filling them from `python -m ingest.stores
+  discover` would make the store side exact and remove those lookups. More
+  stores are a migration and a line in
   `targets.json` each; `python -m ingest.stores` finds and proves the codes.
   Each store adds about 3 minutes to the nightly run. Its timeout is 90
   minutes and a full run must fit in half of it (`test_targets.py`), which

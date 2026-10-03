@@ -33,8 +33,13 @@ a missed pairing shows no comparison, a wrong one shows a false one.
 
   identity_key    brand + name words + the exact package (pack count, total,
                   unit). 6x710 ml and 12x355 ml Pepsi are not one product.
-  substitute_key  name words + pack count + the total to three significant
-                  figures, so 2.268 kg and 2.27 kg (5 lb either way) agree.
+  substitute_key  name words + pack count + the total, with two allowances
+                  that identity never gets. The total agrees when it is within
+                  1.5% (Kikkoman's 148 ml soy sauce and Lee Kum Kee's 150 ml;
+                  18 kg and 40 lb of rice); and "original" and "classic" are
+                  not counted as words, since "Original Diced Tomatoes" and
+                  "Diced Tomatoes" are one shelf. Everything else about the
+                  name still has to be equal.
 
 A key is only evidence where it is unambiguous. Heinz Tomato Ketchup 750 ml has
 two SKUs at the same No Frills at different prices, so its identity key cannot
@@ -42,8 +47,14 @@ say which of them another store's listing is. Consumers must treat an identity
 key held by two SKUs at any one store as no match at all; `propose_matches`
 does, and so does the frontend.
 
-Weighed items (the _KG SKUs, ~800 products with no package size) get no keys:
-their price is per weight and nothing says how the stores weigh them.
+Weighed items (the _KG SKUs, ~2,100 products with no package size) get a
+substitute key and never an identity key. Their shelf price is for whatever
+the store estimates one piece weighs, so it says nothing about the other
+store's piece, but the price per 100 g does, and the frontend lists substitutes
+by unit price. The key is the name words and that unit, in a namespace of its
+own so a weighed item can never pair with a packaged one. Stores already share
+most weighed codes, which pair by code; this covers the ones, mostly
+Superstore's, that carry a code of their own.
 
 Precision and recall against hand-labelled pairs from the same sample are
 measured in ingest/tests/test_match_quality.py.
@@ -81,6 +92,29 @@ STOPWORDS = frozenset({"a", "an", "and", "by", "for", "in", "of", "the", "with"}
 # "100% Whole Wheat English Muffins" against "Whole Wheat English Muffins".
 # The size itself is compared through the package, not the name.
 PACKAGING_WORDS = frozenset({"100%", "bag", "club", "count", "ct", "family", "jug", "pack", "size"})
+
+# Words a store may or may not print on the same shelf's product: "Dare Holiday
+# Crackers Original" against Christie "Holiday Crackers", Aylmer "Original
+# Diced Tomatoes" against No Name "Diced Tomatoes". Left out of the substitute
+# key only. They still count in the identity key, where "Original" against
+# nothing is a different listing, and a name made of nothing else keeps them.
+# "Original" beside another flavour word still separates the products, since
+# that word stays.
+SUBSTITUTE_SOFT_WORDS = frozenset({"classic", "original"})
+
+# Two spellings of one word, where a plural fold cannot reach: "Fresh Scent
+# Disinfectant Wipes" and Clorox "Wipes Disinfecting, Fresh Scent". Kept to
+# pairs that mean the same thing; a stemmer would also join "baking" with
+# "bake" and "frosting" with "frost".
+_SYNONYMS = {"disinfecting": "disinfectant"}
+
+# A total this close to a two-figure number is written as that number. Real
+# packages differ by a few millilitres between brands (148 ml and 150 ml) or by
+# a unit conversion (40 lb is 18.144 kg, sold as 18 kg).
+SIZE_SNAP = Decimal("0.015")
+
+# The code suffix of an item sold by weight.
+WEIGHED_SUFFIX = "_KG"
 
 # A size or count written into the name: "150 ml", "2 lb bag", "95mL",
 # "12 Pack", "4-Pack", "2x1.25 l". Dropped when the package already measures
@@ -176,6 +210,7 @@ def name_tokens(
     tokens = set()
     for raw in _TOKEN_SPLIT.split(text):
         token = singular(raw.strip("."))
+        token = _SYNONYMS.get(token, token)
         if token and token not in STOPWORDS and token not in PACKAGING_WORDS:
             tokens.add(token)
 
@@ -200,18 +235,69 @@ def _significant(value: Decimal, digits: int = 3) -> str:
     return _plain(scaled.scaleb(exponent))
 
 
+def substitute_tokens(words: frozenset[str]) -> frozenset[str]:
+    """The name words a substitute key compares: all but the soft ones."""
+    return (words - SUBSTITUTE_SOFT_WORDS) or words
+
+
+def size_bucket(total: Decimal, unit: str) -> str:
+    """A package total as the substitute key spells it.
+
+    Three significant figures, so 2.268 kg and 2.27 kg agree, except that a
+    weight or volume within SIZE_SNAP of its two-figure number is written as
+    that number: 148 ml and 150 ml both become 150, 18.144 kg and 18 kg both
+    become 18000 g. Both ends of a pair snap the same way, so two totals agree
+    only when both are within 1.5% of one two-figure number, which bounds how
+    far apart they can be at 3%. A count of items (each) is never snapped: 12
+    and 12.4 are not a thing, and a count has no rounding to forgive.
+    """
+    exact = _significant(total)
+    if unit == "ea":
+        return exact
+    coarse = _significant(total, digits=2)
+    return coarse if abs(Decimal(coarse) - total) <= total * SIZE_SNAP else exact
+
+
+def _weighed_keys(
+    brand: str | None, raw_name: str, retailer_sku: str | None, comparison_unit: str | None
+) -> tuple[str | None, str | None]:
+    """(None, substitute_key) for an item sold by weight, else (None, None).
+
+    Needs the code's suffix and a unit price per weight or volume: without
+    them there is no figure two stores' listings could be compared on. Never an
+    identity, whatever the names say.
+    """
+    if not retailer_sku or not retailer_sku.endswith(WEIGHED_SUFFIX):
+        return None, None
+    if comparison_unit not in ("g", "ml"):
+        return None, None
+    # A size written into the name is dropped the way it is for a packaged item.
+    measured = Package(count=Decimal(1), total=Decimal(1), unit=comparison_unit)
+    words = substitute_tokens(name_tokens(raw_name, brand, measured))
+    if not words:
+        return None, None
+    return None, f"weighed|{' '.join(sorted(words))}|{comparison_unit}"
+
+
 def keys(
-    brand: str | None, raw_name: str, package_size: str | None
+    brand: str | None,
+    raw_name: str,
+    package_size: str | None,
+    *,
+    retailer_sku: str | None = None,
+    comparison_unit: str | None = None,
 ) -> tuple[str | None, str | None]:
     """(identity_key, substitute_key) for one listing, or (None, None).
 
     None whenever the package does not parse or the name has no describing
     words: a key built on missing evidence would match everything else that is
-    missing it.
+    missing it. The exception is an item sold by weight, which has no package
+    and gets a substitute key only (see _weighed_keys); that is why the code and
+    unit price unit are asked for.
     """
     package = parse_package(package_size) if package_size else None
     if package is None:
-        return None, None
+        return _weighed_keys(brand, raw_name, retailer_sku, comparison_unit)
     words = name_tokens(raw_name, brand, package)
     if not words:
         return None, None
@@ -219,8 +305,9 @@ def keys(
     name = " ".join(sorted(words))
     count = _plain(package.count)
     identity = f"{brand_key(brand)}|{name}|{count}|{_plain(package.total)}{package.unit}"
-    substitute = f"{name}|{count}|{_significant(package.total)}{package.unit}"
-    return identity, substitute
+    substitute_name = " ".join(sorted(substitute_tokens(words)))
+    size = size_bucket(package.total, package.unit)
+    return identity, f"{substitute_name}|{count}|{size}{package.unit}"
 
 
 def ambiguous_identity_keys(products: list[dict[str, Any]]) -> set[str]:
@@ -238,7 +325,11 @@ def with_keys(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
     keyed = []
     for product in products:
         identity, substitute = keys(
-            product.get("brand"), product["raw_name"], product.get("package_size")
+            product.get("brand"),
+            product["raw_name"],
+            product.get("package_size"),
+            retailer_sku=product.get("retailer_sku"),
+            comparison_unit=product.get("comparison_unit"),
         )
         keyed.append({**product, "identity_key": identity, "substitute_key": substitute})
     return keyed
@@ -268,8 +359,11 @@ def propose_matches(products: list[dict[str, Any]]) -> list[MatchCandidate]:
                 continue
             if left["retailer_sku"] == right["retailer_sku"]:
                 continue
+            # A listing with no identity key (a weighed item) is never the same
+            # item, and two of them are not equal because both are missing one.
             same = (
-                left["identity_key"] == right["identity_key"]
+                left["identity_key"] is not None
+                and left["identity_key"] == right["identity_key"]
                 and left["identity_key"] not in ambiguous
             )
             candidates.append(
@@ -289,7 +383,7 @@ def propose_matches(products: list[dict[str, Any]]) -> list[MatchCandidate]:
 
 REPORT_QUERY = """
 SELECT l.product_id AS id, l.store_id, l.banner_slug, l.retailer_sku, l.brand,
-       l.raw_name, l.package_size, l.price_cents
+       l.raw_name, l.package_size, l.price_cents, l.comparison_unit
   FROM product_latest_price l
 """
 
