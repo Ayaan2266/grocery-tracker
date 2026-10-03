@@ -1,5 +1,5 @@
 import type { Basket } from "./basket.ts";
-import { sameItemListings, similarListings } from "./matching.ts";
+import { isWeighedKey, sameItemListings, similarListings } from "./matching.ts";
 import type { LatestPrice } from "./queries.ts";
 import { inScope } from "./stores.ts";
 
@@ -38,18 +38,22 @@ export function buildBasketLines(
         cheapest = listing;
       }
     }
-    // Filter by comparable units before picking the cheapest suggestion.
-    const [cheaperSimilar] = similarListings(
-      product,
-      similarInScope.filter((listing) =>
-        cheapest !== null && listing.unit_price_cents !== null && cheapest.unit_price_cents !== null &&
-        listing.comparison_unit === cheapest.comparison_unit &&
-        listing.comparison_quantity === cheapest.comparison_quantity &&
-        listing.unit_price_cents < cheapest.unit_price_cents,
-      ),
-      new Set(matched.map(({ listing }) => listing.product_id)),
-      1,
-    );
+    // Filter by comparable units before picking the cheapest suggestion. A
+    // weighed item has no unit price that follows a sale, so "for less" would
+    // be a claim the data cannot back: it is never suggested (lib/matching.ts).
+    const [cheaperSimilar] = isWeighedKey(product.substitute_key)
+      ? []
+      : similarListings(
+          product,
+          similarInScope.filter((listing) =>
+            cheapest !== null && listing.unit_price_cents !== null && cheapest.unit_price_cents !== null &&
+            listing.comparison_unit === cheapest.comparison_unit &&
+            listing.comparison_quantity === cheapest.comparison_quantity &&
+            listing.unit_price_cents < cheapest.unit_price_cents,
+          ),
+          new Set(matched.map(({ listing }) => listing.product_id)),
+          1,
+        );
     lines.push({ product, quantity, byStore, outOfStock, cheapest, cheaperSimilar: cheaperSimilar ?? null });
   }
   return lines;

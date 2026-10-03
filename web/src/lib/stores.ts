@@ -1,3 +1,5 @@
+import { distanceKm, type NearMe } from "./postal.ts";
+
 /** Display names and graph colours for each banner, keyed by banner_slug. */
 export const BANNER_LABELS: Record<string, string> = {
   nofrills: "No Frills",
@@ -71,20 +73,65 @@ export function isOntario(postalCode: string | null | undefined): boolean {
  * Which stores the site shows. "ontario" is the default: Superstore in
  * Winnipeg and Maxi in Gatineau keep being checked every night, so their
  * history keeps growing, but a shopper in Ontario cannot buy there, and their
- * prices (and brands) follow another region.
+ * prices (and brands) follow another region. "near" is the stores within a
+ * radius of a postal code the visitor gave, in any province.
  */
-export type StoreScope = "ontario" | "all";
+export type StoreScope = "ontario" | "all" | "near";
+
+type Placed = { id: number; lat: number | null; lng: number | null };
+
+/** The stores near a place, nearest first. */
+export type NearStores = {
+  /** Stores within the radius, and any whose place is unknown (see below). */
+  ids: number[];
+  /** Kilometres from the visitor, for each store whose place is known. */
+  km: Map<number, number>;
+  /** Stores with no coordinates: shown rather than hidden, with no distance. */
+  unplaced: number[];
+  /** True when nothing is within the radius and the nearest store stands in. */
+  widened: boolean;
+};
+
+/**
+ * The stores within `near.radiusKm`. A store whose place could not be found is
+ * kept in, not dropped: a lookup that failed must not hide a store the visitor
+ * might live next to. When nothing is in range the nearest one is shown, with
+ * `widened` set so the page says it is further than asked, instead of an empty
+ * site.
+ */
+export function nearbyStores(stores: Placed[], near: NearMe): NearStores {
+  const km = new Map<number, number>();
+  const unplaced: number[] = [];
+  for (const store of stores) {
+    if (store.lat === null || store.lng === null) unplaced.push(store.id);
+    else km.set(store.id, distanceKm(near, { lat: store.lat, lng: store.lng }));
+  }
+  const byDistance = [...km.entries()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const within = byDistance.filter(([, distance]) => distance <= near.radiusKm).map(([id]) => id);
+  const widened = within.length === 0 && byDistance.length > 0;
+  if (widened) within.push(byDistance[0][0]);
+  return { ids: [...within, ...unplaced], km, unplaced, widened };
+}
 
 /**
  * The ids of the stores in scope, or null for no filter. Null too when no
  * store is known to be in Ontario, as when the store list failed to load:
- * showing every store beats showing nothing.
+ * showing every store beats showing nothing. "near" without a place to be near
+ * is the default, Ontario.
  */
 export function scopedStoreIds(
-  stores: { id: number; postal_code: string | null }[],
+  stores: { id: number; postal_code: string | null; lat?: number | null; lng?: number | null }[],
   scope: StoreScope,
+  near: NearMe | null = null,
 ): number[] | null {
   if (scope === "all") return null;
+  if (scope === "near" && near !== null) {
+    const found = nearbyStores(
+      stores.map((store) => ({ id: store.id, lat: store.lat ?? null, lng: store.lng ?? null })),
+      near,
+    );
+    return found.ids.length > 0 ? found.ids : null;
+  }
   const ids = stores.filter((store) => isOntario(store.postal_code)).map((store) => store.id);
   return ids.length > 0 ? ids : null;
 }

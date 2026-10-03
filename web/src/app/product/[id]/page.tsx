@@ -15,7 +15,7 @@ import { readBasket } from "@/lib/basket-server";
 import { parseProductId } from "@/lib/product-id";
 import { summarize, type Verdict } from "@/lib/history";
 import { loadScopedStores } from "@/lib/store-scope";
-import { sameItemListings, similarListings, type SameItem } from "@/lib/matching";
+import { isWeighedKey, sameItemListings, similarListings, type SameItem } from "@/lib/matching";
 import {
   getPriceHistory,
   getProduct,
@@ -256,10 +256,12 @@ function SimilarItems({
   items,
   query,
   secondary,
+  weighed,
 }: {
   items: LatestPrice[];
   query: string;
   secondary: Set<number>;
+  weighed: boolean;
 }) {
   return (
     <section className="store-compare similar-items" aria-labelledby="similar-title">
@@ -267,8 +269,9 @@ function SimilarItems({
         <div>
           <h2 id="similar-title">Similar items</h2>
           <p>
-            Other brands with the same description and size. Not the same product, so compare the unit
-            price. Cheapest per unit first.
+            {weighed
+              ? "Sold by weight, under another code. Compare the price per 100 g, which is the store's own figure and can lag a sale. Cheapest per 100 g first."
+              : "Other brands with the same description and size. Not the same product, so compare the unit price. Cheapest per unit first."}
           </p>
         </div>
       </div>
@@ -334,11 +337,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
   // Mention the scope only where it changed what this page shows.
   const ontarioIds = scopedStoreIds(scoped.stores, "ontario");
   const scopeMatters =
-    scoped.scope === "ontario"
-      ? matched.some((item) => !shown(item.listing))
-      : allListings.some((listing) => !inScope(ontarioIds, listing.store_id));
-  const onlyOntario =
-    scoped.storeIds !== null && product !== null && inScope(scoped.storeIds, product.store_id);
+    scoped.scope === "all"
+      ? allListings.some((listing) => !inScope(ontarioIds, listing.store_id))
+      : matched.some((item) => !shown(item.listing));
+  // What the chart's subtitle calls the stores shown, when a scope narrowed them.
+  const storeKind =
+    scoped.storeIds !== null && product !== null && inScope(scoped.storeIds, product.store_id)
+      ? scoped.scope === "near"
+        ? "nearby "
+        : "Ontario "
+      : "";
 
   const spansFor = (productId: number) =>
     (history.data ?? []).filter((span) => span.product_id === productId);
@@ -408,7 +416,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     titleId="history-title"
                     subtitle={
                       series.length > 1
-                        ? `This item at every ${onlyOntario ? "Ontario " : ""}store that carries it. Hover or tap for each day.`
+                        ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
                         : "Hover or tap for the price on each day."
                     }
                   />
@@ -428,7 +436,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                 />
               )}
 
-              {similar.length > 0 && <SimilarItems items={similar} query={query} secondary={scoped.secondary} />}
+              {similar.length > 0 && <SimilarItems items={similar} query={query} secondary={scoped.secondary} weighed={isWeighedKey(product?.substitute_key)} />}
 
               {scopeMatters && <StoreScopeRow scoped={scoped} where="results" />}
             </>

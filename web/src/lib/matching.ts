@@ -18,7 +18,21 @@
  * another store's listing is (Heinz Tomato Ketchup 750 mL has two codes at the
  * same No Frills, at different prices), so it is ignored and only the shared
  * code counts.
+ *
+ * Items sold by weight have a substitute key and no identity key. Their shelf
+ * price is for one piece of whatever weight the store estimates, so only the
+ * price per 100 g compares, and that figure is the API's own: it can stay on
+ * the regular price during a sale the store does not mark (the README's unit
+ * price section). So a weighed item is listed as similar, with that caveat,
+ * and is never offered as a cheaper alternative in the basket.
  */
+
+/** Substitute keys of weighed items start with this (ingest/match.py). */
+export const WEIGHED_KEY_PREFIX = "weighed|";
+
+export function isWeighedKey(key: string | null | undefined): boolean {
+  return !!key && key.startsWith(WEIGHED_KEY_PREFIX);
+}
 
 export type Listing = {
   product_id: number;

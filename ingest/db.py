@@ -301,7 +301,16 @@ def write_store_observations(
             for start in range(0, len(batch), CHUNK_SIZE):
                 chunk = batch[start : start + CHUNK_SIZE]
 
-                match_keys = [keys(r.brand, r.raw_name, r.package_size) for r in chunk]
+                match_keys = [
+                    keys(
+                        r.brand,
+                        r.raw_name,
+                        r.package_size,
+                        retailer_sku=r.retailer_sku,
+                        comparison_unit=r.comparison_unit,
+                    )
+                    for r in chunk
+                ]
                 cur.execute(
                     UPSERT_PRODUCTS,
                     {
