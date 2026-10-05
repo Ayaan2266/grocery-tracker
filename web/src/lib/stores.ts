@@ -190,3 +190,12 @@ export function countByRegion(stores: { postal_code: string | null }[]): { ontar
   const ontario = stores.filter((store) => isOntario(store.postal_code)).length;
   return { ontario, outside: stores.length - ontario };
 }
+
+/**
+ * "7 stores", or "1 store". Empty when none are known (the list failed to
+ * load), so a label built from it disappears rather than saying "0 stores".
+ */
+export function storeCountLabel(count: number): string {
+  if (!Number.isInteger(count) || count < 1) return "";
+  return `${count} ${count === 1 ? "store" : "stores"}`;
+}

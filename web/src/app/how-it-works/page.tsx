@@ -36,7 +36,7 @@ import {
   type LatestPrice,
   type StoreInfo,
 } from "@/lib/queries";
-import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, secondaryStoreIds, storeArea } from "@/lib/stores";
+import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, secondaryStoreIds, storeArea, storeCountLabel } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -724,14 +724,18 @@ export default async function HowItWorksPage({
                 ))}
               </nav>
             </div>
-            <Image
-              className="hiw-hero-art"
-              src="/illustrations/how-it-works/nightly-check.png"
-              alt=""
-              width={480}
-              height={452}
-              priority
-            />
+            {/* The receipt's store count is drawn here, not painted into the image,
+                so it follows the store list instead of going stale. */}
+            <div className="hiw-hero-art">
+              <Image
+                src="/illustrations/how-it-works/nightly-check.png"
+                alt=""
+                width={480}
+                height={452}
+                priority
+              />
+              <span className="hiw-receipt-count" aria-hidden="true">{storeCountLabel(storeCount)}</span>
+            </div>
           </section>
         </div>
 
