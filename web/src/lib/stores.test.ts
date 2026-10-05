@@ -11,6 +11,7 @@ import {
   nearbyStores,
   scopedStoreIds,
   secondaryStoreIds,
+  storeCountLabel,
   shortStoreNames,
   storeArea,
   storeName,
@@ -164,4 +165,11 @@ test("the near scope uses the place, and without one it is Ontario", () => {
   assert.deepEqual(scopedStoreIds(placed, "ontario", vaughan), [1, 3, 4, 5, 7]);
   assert.deepEqual(scopedStoreIds(tracked, "ontario"), [1, 3, 7], "stores with no coordinates still work");
   assert.equal(scopedStoreIds([], "near", vaughan), null);
+});
+
+test("the store count reads as a label, and is blank when there is none", () => {
+  assert.equal(storeCountLabel(7), "7 stores");
+  assert.equal(storeCountLabel(2), "2 stores");
+  assert.equal(storeCountLabel(1), "1 store");
+  for (const none of [0, -1, Number.NaN, 1.5]) assert.equal(storeCountLabel(none), "", String(none));
 });
