@@ -499,7 +499,7 @@ summary:focus-visible { outline: 3px solid var(--coral); outline-offset: 4px; }
 .hiw-jump a:hover { transform: translateY(-2px); background: rgba(255,255,255,.23); }
 .hiw-hero-art { position: relative; container-type: inline-size; justify-self: end; width: 100%; max-width: 470px; animation: rise .7s .15s ease both; }
 .hiw-hero-art img { display: block; width: 100%; height: auto; }
-/* Sits where the receipt's painted count was (nightly-check.png is 959 wide: the text starts at x 288 and
+/* Sits where the receipt's painted count was (nightly-check-live-count.png is 959 wide: the text starts at x 288 and
    is about 23px tall, tilted like the receipt, -3.9deg), sized in container units so it scales with the art. */
 .hiw-receipt-count { position: absolute; left: 29.93%; top: 70.8%; color: #182952; font-size: 2.7cqw; font-weight: 700; line-height: 1; white-space: nowrap; transform-origin: 0 0; transform: rotate(-3.9deg); }
 

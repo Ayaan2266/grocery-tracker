@@ -725,10 +725,13 @@ export default async function HowItWorksPage({
               </nav>
             </div>
             {/* The receipt's store count is drawn here, not painted into the image,
-                so it follows the store list instead of going stale. */}
+                so it follows the store list instead of going stale. The file was
+                renamed when the painted count was removed: Next's image cache is
+                keyed by path, and kept serving the old picture, "6" included,
+                under the new text at the old name. */}
             <div className="hiw-hero-art">
               <Image
-                src="/illustrations/how-it-works/nightly-check.png"
+                src="/illustrations/how-it-works/nightly-check-live-count.png"
                 alt=""
                 width={480}
                 height={452}
