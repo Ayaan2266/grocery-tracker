@@ -10,7 +10,8 @@ import {
   type NearStores,
   type StoreScope,
 } from "./stores";
-import { getStores, type StoreInfo } from "./queries";
+import { getStoresCached } from "./cached-queries";
+import type { StoreInfo } from "./queries";
 
 /**
  * Which stores to show, kept in cookies for the same reason as the basket: the
@@ -79,7 +80,7 @@ export type ScopedStores = {
 
 /** The scope and the stores it covers, for one page render. */
 export async function loadScopedStores(): Promise<ScopedStores> {
-  const [{ scope, near }, loaded] = await Promise.all([readStorePreference(), getStores()]);
+  const [{ scope, near }, loaded] = await Promise.all([readStorePreference(), getStoresCached()]);
   const known = loaded.data ?? [];
   const all = near ? await placeStores(known) : known;
   const nearStores = near ? nearbyStores(all, near) : null;

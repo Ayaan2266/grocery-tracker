@@ -11,6 +11,8 @@ const COOKIE = {
   path: "/",
   sameSite: "lax",
   httpOnly: true,
+  // HTTPS only once deployed; `next dev` serves plain http://localhost.
+  secure: process.env.NODE_ENV === "production",
   maxAge: 60 * 60 * 24 * 90,
 } as const;
 

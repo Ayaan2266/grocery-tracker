@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
@@ -34,6 +35,9 @@ import {
 } from "@/lib/stores";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
+/** Read once per request: the metadata and the page both need it. */
+const loadProduct = cache(getProduct);
+
 type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ q?: string | string[] }>;
@@ -41,7 +45,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = parseProductId((await params).id);
-  const product = id === null ? null : (await getProduct(id)).data;
+  const product = id === null ? null : (await loadProduct(id)).data;
   return {
     title: product ? `${product.raw_name} price history | Loonie` : "Product | Loonie",
   };
@@ -307,7 +311,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const query = (Array.isArray(rawQuery) ? rawQuery[0] : rawQuery)?.trim() ?? "";
 
   const [productResult, basket, scoped] = await Promise.all([
-    getProduct(id),
+    loadProduct(id),
     readBasket(),
     loadScopedStores(),
   ]);
@@ -348,8 +352,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
         : "Ontario "
       : "";
 
-  const spansFor = (productId: number) =>
-    (history.data ?? []).filter((span) => span.product_id === productId);
+  const spansByProduct = Map.groupBy(history.data ?? [], (span) => span.product_id);
+  const spansFor = (productId: number) => spansByProduct.get(productId) ?? [];
   const seriesName = shortStoreNames(allListings);
   const series: ChartSeries[] = [...allListings]
     .sort((a, b) => (a.product_id === id ? -1 : b.product_id === id ? 1 : 0))
