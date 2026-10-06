@@ -8,13 +8,13 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { NearMeDetails, StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHelp } from "@/components/store-scope";
 import { readBasket } from "@/lib/basket-server";
+import { getCoverageCached } from "@/lib/cached-queries";
 import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, inScope, isOntario, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
   PAGE_SIZE,
-  getCoverage,
   getRecentHistory,
   searchProducts,
   type LatestPrice,
@@ -43,8 +43,9 @@ async function rowHistories(rows: LatestPrice[]): Promise<Map<number, RowHistory
     isoDay(latest - BADGE_DAYS + 1),
   );
   if (!history.data) return out;
+  const byProduct = Map.groupBy(history.data, (span) => span.product_id);
   for (const row of rows) {
-    const spans = history.data.filter((s) => s.product_id === row.product_id);
+    const spans = byProduct.get(row.product_id) ?? [];
     const recent = windowSpans(spans, row.observed_on, BADGE_DAYS);
     out.set(row.product_id, {
       trend: dailyPrices(recent, row.observed_on, TREND_DAYS),
@@ -53,6 +54,9 @@ async function rowHistories(rows: LatestPrice[]): Promise<Map<number, RowHistory
   }
   return out;
 }
+
+/** Longer than any product name worth typing; the search box stops there too. */
+const MAX_QUERY_LENGTH = 100;
 
 const staples = [
   { label: "Milk", term: "milk" },
@@ -96,7 +100,7 @@ function SortToggle({ query, sort }: { query: string; sort: SortOrder }) {
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const query = first(params.q).trim();
+  const query = first(params.q).trim().slice(0, MAX_QUERY_LENGTH);
   const sort: SortOrder = first(params.sort) === "value" ? "value" : "price";
   const requested = Number.parseInt(first(params.n), 10);
   const count = Number.isFinite(requested)
@@ -105,7 +109,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
 
   // The search is limited to the stores in scope, so it waits for the list;
   // the rest does not.
-  const pending = Promise.all([getCoverage(), readBasket()]);
+  const pending = Promise.all([getCoverageCached(), readBasket()]);
   const scoped = await loadScopedStores();
   const [results, [coverage, basket]] = await Promise.all([
     searchProducts(query, { sort, limit: count, storeIds: scoped.storeIds }),

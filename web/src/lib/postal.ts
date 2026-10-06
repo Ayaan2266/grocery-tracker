@@ -113,6 +113,10 @@ export async function geocodeFsa(
     const response = await fetchImpl(`${baseUrl}${fsa}`, {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(timeoutMs),
+      // Next's data cache, which outlives one server instance: on Vercel every
+      // cold start begins with cachedLookup's memory empty. Only a 200 is kept,
+      // so an outage is never remembered for a month. Ignored outside Next.
+      next: { revalidate: 30 * 24 * 60 * 60 },
     });
     if (!response.ok) return null;
     const body: unknown = await response.json();
