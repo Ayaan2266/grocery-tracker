@@ -20,6 +20,7 @@ export function SearchForm({ query = "", compact = false }: { query?: string; co
         placeholder="Search milk, cheddar, bananas..."
         aria-label="Search grocery prices"
         enterKeyHint="search"
+        maxLength={100}
       />
       <button type="submit" aria-label="Search prices">
         <span>Search prices</span>
