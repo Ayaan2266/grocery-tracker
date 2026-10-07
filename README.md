@@ -3,11 +3,12 @@
 [![CI](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ci.yml)
 [![Nightly ingest](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ingest.yml/badge.svg)](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ingest.yml)
 
-**Live:** _deploying week 2_
+**Live:** _launching on Vercel in October 2026_
 
-Daily store-level price history for Canadian groceries, across six
-Loblaw-owned banners (No Frills, Real Canadian Superstore, Loblaws, Zehrs,
-Fortinos, Maxi). It answers two questions:
+Daily store-level price history for Canadian groceries, from seven stores
+across six Loblaw-owned banners (No Frills, Real Canadian Superstore, Loblaws,
+Zehrs, Fortinos, Maxi), checked every night since 2026-09-21. It answers two
+questions:
 
 1. Which store near me is cheapest for this basket right now?
 2. Is today's price actually a good deal, or is it the normal price with a sale
@@ -23,6 +24,27 @@ There is no CamelCamelCamel for Canadian groceries. That gap is the project.
 Price history cannot be retrofitted: a competitor who adds the feature tomorrow
 still starts with zero days of data. Running ingestion continuously is the moat
 and it is also the only part that cannot be built in a weekend.
+
+## What the site does
+
+- **Search** every store's latest price, cheapest first or by unit price
+  (per 100 g, per 100 ml, each), with a 7-day sparkline and a badge from the
+  last 30 days: lowest recorded, below typical, above typical, or steady.
+- **Product page:** the full price history as a chart, a verdict on whether
+  today's price is a good one, the same item at every other store, and
+  similar items from other brands ranked by unit price.
+- **Basket:** add items from any store and see what the whole list costs at
+  each store, which store has everything for least, and what a mix of stores
+  would save.
+- **Stores:** Ontario stores by default, every store with one click, or the
+  stores within a radius of a postal code. Only the first three characters
+  of the postal code are used.
+- **How it works:** the nightly check explained, with live status from last
+  night's run and a worked example of a verdict.
+
+Pages render on the server. Search, the basket and the store picker are plain
+forms that work with JavaScript off; only the price chart needs it. The basket
+and the store choice are cookies, so there are no accounts.
 
 ## Architecture
 
@@ -40,7 +62,7 @@ See [docs/architecture.md](docs/architecture.md) for the decisions and
 | Ingestion | Python 3.12, httpx, pydantic |
 | Scheduler | GitHub Actions cron |
 | Database | Supabase (Postgres) |
-| App | Next.js 15, TypeScript, Tailwind |
+| App | Next.js 15 (App Router, server components), TypeScript, plain CSS |
 | Charts | Recharts |
 | Hosting | Vercel |
 
@@ -49,7 +71,7 @@ Total infrastructure cost: $0.
 ## Repository layout
 
 ```
-.github/workflows/    ingest.yml (nightly cron + manual read-only tasks), ci.yml (ruff + pytest + next build)
+.github/workflows/    ingest.yml (nightly cron + manual tasks), ci.yml (ruff + pytest, eslint + web tests + next build)
 ingest/
   sources/loblaw.py   rate-limited PCX client, canary store verification, store list
   normalize.py        unit-price extraction, canonical units, validation
@@ -63,10 +85,15 @@ ingest/
   tests/              offline; respx intercepts every outbound request.
                       test_db_integration.py needs a Postgres and skips without one.
                       fixtures/labelled_pairs.json: hand-labelled matches
-db/migrations/        numbered SQL
+db/migrations/        numbered SQL, 0001 to 0012
 db/queries/           read-only diagnostics, including the weekly storage report
 db/ops/               nightly_dispatch.sql: starts the nightly run on time from Supabase
 web/                  Next.js app
+  src/app/            pages: search (/), /product/[id], /basket, /how-it-works,
+                      and the server actions behind the basket and store forms
+  src/components/     price chart, sparklines, result rows, store picker
+  src/lib/            Supabase queries, cross-store matching, basket pricing,
+                      price-history verdicts, postal codes; tests beside each (*.test.ts)
 docs/                 architecture and data-source notes
 ```
 
@@ -125,9 +152,46 @@ pytest -q
 They run inside a throwaway schema that is dropped afterwards, so the target
 database is left as it was found.
 
+The site needs only the Supabase URL and the anon key, which can read and
+nothing else (see `db/migrations/0003_enable_rls.sql`):
+
 ```bash
-cd web && npm install && npm run dev
+cd web
+cp .env.example .env.local    # fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+npm install
+npm run dev                   # http://localhost:3000
+
+npm run lint && npm test && npm run build    # what CI runs
 ```
+
+Without them the site still builds and runs, and says price data is
+unavailable.
+
+## Deploying
+
+The site runs on Vercel. The nightly ingest stays on GitHub Actions; Vercel
+never holds `DATABASE_URL` or the PCX key.
+
+1. Import the repository in Vercel and set **Root Directory** to `web`. The
+   framework is detected as Next.js; the build command is `next build`.
+2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the
+   anon or `sb_publishable_` key) for Production and Preview.
+   `POSTAL_GEOCODER_URL` is optional (`web/.env.example`).
+3. Set the function region as close to the database as Vercel offers. The
+   Supabase project is in `ca-central-1` (Montréal), and a page makes two or
+   three queries in a row, so each one pays the round trip.
+4. Apply any migration the code needs before it deploys: Actions -> Nightly
+   ingest -> Run workflow -> task `migrate`. `0012` is an index the product
+   page benefits from; nothing breaks without it.
+
+Every push to `main` deploys, and every pull request gets a preview. Previews
+read the same database as production, which is safe because the key cannot
+write.
+
+In production the site sends security headers on every response (no framing,
+no MIME sniffing, a strict referrer policy), marks its cookies `Secure`, and
+keeps the store list, coverage counts and how-it-works status in Next's data
+cache for 15 minutes, since they change once a night.
 
 ## Unit prices
 
@@ -247,9 +311,11 @@ Maintained honestly. Overclaiming reads as junior.
   prices: on 09-30, 116 shelf prices changed and 2,890 rows were listings new
   or back after a missed night. Thursday, when the weekly flyer turns over,
   wrote 27.7% (9,711 shelf prices, 2,956 sales started, 2,744 ended). The
-  database is 65 MB and grows about 1.1 MB a night, which reaches Supabase's
-  500 MB free tier around October 2027. `products` is the larger part (39 MB
-  against 13 MB of price history), since search results bring in about 800
+  database was 65 MB on 10-01 and grew about 1.1 MB a night, which reaches
+  Supabase's 500 MB free tier around October 2027. On 10-07, after 17 nights,
+  it was 70 MB: about 0.8 MB a night since 10-01, so October 2027 is the
+  early end of the estimate. `products` is the larger part (41 MB against
+  15 MB of price history on 10-07), since search results bring in about 800
   never-seen listings a night. `db/queries/storage_growth.sql`, also the
   workflow's storage-report task, recomputes all of this.
 
