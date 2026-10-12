@@ -10,7 +10,8 @@
  *
  * A place is a point, and an FSA's point is its centre, so a distance from one
  * is good to a few kilometres at best. That is plenty for "which of these stores
- * is near me", and the site says "about" when it shows one.
+ * is near me", and the site says "about" when it shows one. Stores carry their
+ * own coordinates (db/migrations/0013), so only the visitor's side is an FSA.
  */
 
 export type Point = { lat: number; lng: number };
