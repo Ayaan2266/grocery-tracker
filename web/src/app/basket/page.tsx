@@ -20,7 +20,8 @@ import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, inScope, storeArea, storeName } from "@/lib/stores";
 import { formatCents, formatUnitPrice } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Basket | Loonie" };
+// One browser's cookie, so there is nothing here for a search engine.
+export const metadata: Metadata = { title: "Basket | Loonie", robots: { index: false } };
 
 type Store = {
   id: number;

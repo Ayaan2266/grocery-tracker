@@ -33,6 +33,7 @@ import {
   storeArea,
   storeName,
 } from "@/lib/stores";
+import { BASE_OPEN_GRAPH } from "@/lib/site";
 import { formatCents, formatDay, formatUnitPrice } from "@/lib/utils";
 
 /** Read once per request: the metadata and the page both need it. */
@@ -46,8 +47,16 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = parseProductId((await params).id);
   const product = id === null ? null : (await loadProduct(id)).data;
+  if (!product) return { title: "Product | Loonie" };
+  const name = [product.brand, product.raw_name].filter(Boolean).join(" ");
+  const store = storeName(product.banner_slug, product.retailer_name, product.store_label);
+  const description =
+    `${formatCents(product.price_cents)} at ${store}, recorded ${formatDay(product.observed_on)}. ` +
+    "See its price history and whether today is a good day to buy.";
   return {
-    title: product ? `${product.raw_name} price history | Loonie` : "Product | Loonie",
+    title: `${product.raw_name} price history | Loonie`,
+    description,
+    openGraph: { ...BASE_OPEN_GRAPH, title: `${name} · price history`, description },
   };
 }
 
