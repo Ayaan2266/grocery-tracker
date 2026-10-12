@@ -1,0 +1,59 @@
+# Weekly dependency updates, one grouped pull request per ecosystem, so CI
+# tests each batch the way it tests any other change.
+#
+# Major versions are left out of these: Next 16, a new ESLint or TypeScript
+# is a migration to plan, not a bump to merge. That rule covers version
+# updates only. Security updates, switched on in the repository's security
+# settings, still open for every advisory, majors included.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      web:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # pyproject.toml. The ingest dependencies are lower bounds, so these raise
+  # the floor to what CI has just tested.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      ingest:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Actions move by major version (checkout@v7), so majors are what this is
+  # for; each one still runs through CI before it can merge.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]

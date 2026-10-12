@@ -155,6 +155,23 @@ def test_migrations_seed_every_verified_store(conn) -> None:
         ]
 
 
+def test_every_store_has_coordinates_in_canada(conn) -> None:
+    """The site measures "stores near me" from these; a store without them is
+    placed by its postal-code area instead, a few kilometres out."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT r.banner_slug || '/' || s.store_code, s.lat, s.lng
+              FROM stores s JOIN retailers r ON r.id = s.retailer_id
+             ORDER BY s.id
+        """)
+        rows = cur.fetchall()
+    assert rows
+    for key, lat, lng in rows:
+        assert lat is not None and lng is not None, f"{key} has no coordinates"
+        # The same box web/src/lib/postal.ts accepts as Canada.
+        assert 41.5 <= lat <= 84 and -142 <= lng <= -52, f"{key} is not in Canada: {lat},{lng}"
+
+
 def test_every_targeted_store_has_a_row(conn) -> None:
     """A store in targets.json with no row fails preflight and costs a night."""
     from ingest.run import load_targets

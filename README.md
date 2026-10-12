@@ -72,6 +72,7 @@ Total infrastructure cost: $0.
 
 ```
 .github/workflows/    ingest.yml (nightly cron, weekly backup, manual tasks), ci.yml (ruff + pytest, eslint + web tests + next build)
+.github/dependabot.yml weekly grouped dependency PRs for npm, pip and GitHub Actions
 ingest/
   sources/loblaw.py   rate-limited PCX client, canary store verification, store list
   normalize.py        unit-price extraction, canonical units, validation
@@ -318,16 +319,16 @@ Maintained honestly. Overclaiming reads as junior.
   legend and store lists tell them apart by place. A visitor can enter a
   postal code and a radius to see the stores near it, in any province; that
   is stored in a cookie as the first three characters only. The distance is
-  from the middle of the visitor's postal-code area to the middle of the
-  store's, so it is good to a few kilometres and the site says "about". The
-  areas are looked up from zippopotam.us (`POSTAL_GEOCODER_URL` in
+  from the middle of the visitor's postal-code area to the store itself
+  (`0013` stores each store's coordinates, from the storefront's own store
+  list), so it is good to a few kilometres and the site says "about". The
+  visitor's area is looked up from zippopotam.us (`POSTAL_GEOCODER_URL` in
   `web/.env.example` names another), cached, and written as a miss rather
-  than guessed when the service is down; a store that cannot be placed is
-  shown, not hidden. Store coordinates are not stored: `stores.lat` and
-  `lng` exist and are empty, and filling them from `python -m ingest.stores
-  discover` would make the store side exact and remove those lookups. More
-  stores are a migration and a line in
-  `targets.json` each; `python -m ingest.stores` finds and proves the codes.
+  than guessed when the service is down. A store without coordinates would
+  be placed by its own postal-code area the same way, and one that cannot be
+  placed is shown, not hidden. More stores are a migration and a line in
+  `targets.json` each; `python -m ingest.stores` finds and proves the codes,
+  and prints the coordinates the migration sets.
   Each store adds about 3 minutes to the nightly run. Its timeout is 90
   minutes and a full run must fit in half of it (`test_targets.py`), which
   holds thirteen stores; past that, split the job.

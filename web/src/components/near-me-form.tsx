@@ -68,7 +68,7 @@ export function NearMeForm({
         )}
         <p id="near-privacy" className="near-note">
           Only the first three characters are used, and they are kept in a cookie in this browser.
-          Distances are about, from the middle of each postal-code area.
+          Distances are about: from the middle of your postal-code area to each store.
         </p>
       </form>
       {fsa && (
