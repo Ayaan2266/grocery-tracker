@@ -179,7 +179,8 @@ never holds `DATABASE_URL` or the PCX key.
    framework is detected as Next.js; the build command is `next build`.
 2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the
    anon or `sb_publishable_` key) for Production and Preview.
-   `POSTAL_GEOCODER_URL` is optional (`web/.env.example`).
+   `POSTAL_GEOCODER_URL` is optional (`web/.env.example`), and so is
+   `SITE_URL`, needed only once the site has a custom domain.
 3. Set the function region as close to the database as Vercel offers. The
    Supabase project is in `ca-central-1` (Montréal), and a page makes two or
    three queries in a row, so each one pays the round trip.
@@ -193,7 +194,15 @@ write.
 
 Unknown addresses and product ids get a 404 page with search, and anything a
 page throws gets an error page with a retry, both in the site's own layout
-(`web/src/app/not-found.tsx`, `error.tsx`).
+(`web/src/app/not-found.tsx`, `error.tsx`). A product page shows a placeholder
+in its own shape while its queries run (`product/[id]/loading.tsx`).
+
+A link to any page unfurls in Discord, LinkedIn, iMessage and Slack as a card
+drawn at build time from the site's mark, art and typeface
+(`web/src/app/opengraph-image.tsx`); a product link's card text carries its
+latest price and store. `robots.txt` keeps crawlers out of the basket only, and
+`sitemap.xml` lists the fixed pages. All three take the site's address from
+`SITE_URL`, else Vercel's production domain.
 
 In production the site sends security headers on every response (no framing,
 no MIME sniffing, a strict referrer policy), marks its cookies `Secure`, and
