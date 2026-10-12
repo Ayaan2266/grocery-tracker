@@ -36,13 +36,17 @@ import {
   type LatestPrice,
   type StoreInfo,
 } from "@/lib/queries";
+import { BASE_OPEN_GRAPH } from "@/lib/site";
 import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, secondaryStoreIds, storeArea, storeCountLabel } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
+const DESCRIPTION =
+  "How Loonie checks grocery prices every night, keeps their history, and decides whether today's price is a good one.";
+
 export const metadata: Metadata = {
   title: "How it works | Loonie",
-  description:
-    "How Loonie checks grocery prices every night, keeps their history, and decides whether today's price is a good one.",
+  description: DESCRIPTION,
+  openGraph: { ...BASE_OPEN_GRAPH, title: "How Loonie works", description: DESCRIPTION },
 };
 
 /** The status and the example change once a day, so a few minutes' cache spares the database. */

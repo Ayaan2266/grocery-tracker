@@ -2,10 +2,18 @@ import type { Metadata } from "next";
 import "@fontsource-variable/dm-sans/wght.css";
 import "./globals.css";
 
+import { BASE_OPEN_GRAPH, SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
+
+const TITLE = "Loonie | Know what groceries cost";
+
+// The preview image itself is app/opengraph-image.tsx, which every page inherits.
 export const metadata: Metadata = {
-  title: "Loonie | Know what groceries cost",
-  description:
-    "Search recorded Canadian grocery prices and see clear store and sale context with Loonie.",
+  metadataBase: siteUrl(),
+  title: TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: { ...BASE_OPEN_GRAPH, title: TITLE, description: SITE_DESCRIPTION },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
