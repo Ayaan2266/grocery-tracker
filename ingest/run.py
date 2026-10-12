@@ -7,6 +7,8 @@ Exit codes:
     0  every targeted store ingested
     1  at least one store failed
     2  HTTP 403 -- stop signal, see AccessDenied in sources/loblaw.py
+    3  --fallback had to run the night itself: every store ingested, but the
+       on-time start did not happen or did not finish
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ TARGETS_PATH = Path(__file__).parent / "targets.json"
 EXIT_OK = 0
 EXIT_FAILURE = 1
 EXIT_ACCESS_DENIED = 2
+EXIT_FALLBACK_RAN = 3
 
 
 @dataclass(frozen=True)
@@ -351,6 +354,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do nothing if every store already has a run recorded today. The nightly "
         "workflow passes this, so its late fallback costs no API requests.",
     )
+    parser.add_argument(
+        "--fallback",
+        action="store_true",
+        help="This is the late fallback run: --once-per-day, and if the night still "
+        f"had to be run, run it and then exit {EXIT_FALLBACK_RAN} so the job fails and "
+        "someone is told the on-time start did not happen.",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Debug logging.")
     return parser
 
@@ -401,7 +411,8 @@ def main(argv: list[str] | None = None) -> int:
             log.error("preflight failed, no API requests made -- fix this first:\n  %s", problem)
             return EXIT_FAILURE
         log.info("preflight ok: database reachable, %d store(s) resolved", len(stores))
-        if args.once_per_day and already_ran(settings.database_url, stores, observed_on):
+        once = args.once_per_day or args.fallback
+        if once and already_ran(settings.database_url, stores, observed_on):
             log.info("every store already has a run for %s; nothing to do", observed_on)
             return EXIT_OK
 
@@ -428,7 +439,20 @@ def main(argv: list[str] | None = None) -> int:
     print_summary(outcomes, dry_run=args.dry_run)
     if access_denied:
         return EXIT_ACCESS_DENIED
-    return EXIT_OK if all(o.ok for o in outcomes) else EXIT_FAILURE
+    if not all(o.ok for o in outcomes):
+        return EXIT_FAILURE
+    if args.fallback and not args.dry_run:
+        # The night is recorded, so nothing is lost, but it was recorded hours
+        # late, and the start that should have made this run unnecessary is
+        # broken. A failed job is what sends someone an email.
+        log.error(
+            "the late fallback had to run the night: the on-time start from Supabase "
+            "did not arrive or did not finish. Check net._http_response "
+            "(db/ops/nightly_dispatch.sql); a 401 there means github_dispatch_token "
+            "has expired."
+        )
+        return EXIT_FALLBACK_RAN
+    return EXIT_OK
 
 
 def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: date) -> None:

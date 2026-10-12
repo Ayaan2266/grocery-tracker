@@ -71,7 +71,7 @@ Total infrastructure cost: $0.
 ## Repository layout
 
 ```
-.github/workflows/    ingest.yml (nightly cron + manual tasks), ci.yml (ruff + pytest, eslint + web tests + next build)
+.github/workflows/    ingest.yml (nightly cron, weekly backup, manual tasks), ci.yml (ruff + pytest, eslint + web tests + next build)
 ingest/
   sources/loblaw.py   rate-limited PCX client, canary store verification, store list
   normalize.py        unit-price extraction, canonical units, validation
@@ -133,7 +133,10 @@ fine-grained GitHub token kept in Vault as `github_dispatch_token` (Actions:
 read and write, this repository only). The token expires; when it does the
 dispatch fails with 401 and nights fall back to GitHub's late schedule, so
 replace it with `vault.update_secret` (steps in `db/ops/nightly_dispatch.sql`)
-before then. To check a night, the morning after:
+before then. If it is missed anyway, the fallback says so: the schedule passes
+`--fallback`, which records a night the on-time start missed and then exits 3,
+failing the job so GitHub emails you. A fallback that finds the night done
+stays silent. To check a night, the morning after:
 
 ```sql
 select status_code, error_msg, created from net._http_response order by created desc limit 5;
@@ -188,10 +191,39 @@ Every push to `main` deploys, and every pull request gets a preview. Previews
 read the same database as production, which is safe because the key cannot
 write.
 
+Unknown addresses and product ids get a 404 page with search, and anything a
+page throws gets an error page with a retry, both in the site's own layout
+(`web/src/app/not-found.tsx`, `error.tsx`).
+
 In production the site sends security headers on every response (no framing,
 no MIME sniffing, a strict referrer policy), marks its cookies `Secure`, and
 keeps the store list, coverage counts and how-it-works status in Next's data
 cache for 15 minutes, since they change once a night.
+
+## Backups
+
+Supabase's free plan keeps no backups a project can download, and price
+history cannot be fetched again later. Every Sunday at 09:23 UTC the `backup`
+job of the ingest workflow dumps the `public` schema with `pg_dump` and keeps it
+as a workflow artifact for 90 days, so about thirteen weekly copies exist at any
+time. It also runs on demand: Actions -> Nightly ingest -> Run workflow -> task
+`backup`.
+
+The dump holds every table, view, policy and trigger the site uses, and only
+data the anon key can already read. Vault and cron are left out, so the
+dispatch token never lands in an artifact. The job reads the dump back and
+fails if the price history or products are missing from it.
+
+To restore, download the artifact and load it into an empty Supabase project
+(or any Postgres 17 with roles named `anon` and `authenticated`):
+
+```bash
+pg_restore --no-owner -d "$DATABASE_URL" grocery-tracker-YYYY-MM-DD.dump
+```
+
+It reports one ignored error, `schema "public" already exists`, which is
+expected. Use the session pooler (port 5432) or a direct connection, not the
+6543 pooler the nightly run uses.
 
 ## Unit prices
 

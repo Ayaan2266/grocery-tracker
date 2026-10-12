@@ -7,8 +7,13 @@ on:
     # 5 to 8 hours late, and one can be dropped. The on-time start is a
     # workflow_dispatch sent at 07:10 UTC by Supabase (db/ops/nightly_dispatch.sql);
     # when it has run, this one stops at --once-per-day. Nothing here may depend
-    # on when, or whether, a given run happens.
+    # on when, or whether, a given run happens. When this one finds the night
+    # not done, it runs it and then fails (--fallback), so a broken on-time
+    # start gets an email instead of going unnoticed.
     - cron: "10 7 * * *"
+    # Weekly database backup, Sundays after the night's run. Only the backup
+    # job runs on this one.
+    - cron: "23 9 * * 0"
     # Monthly keepalive. Only the keepalive job runs on this one.
     - cron: "41 10 11 * *"
   workflow_dispatch:
@@ -21,9 +26,10 @@ on:
           (read-only SQL). storage-report: rows written per night, why, and when
           the database reaches 500 MB (read-only SQL). match-report: print the pairs ingest/match.py would
           make across the whole catalogue (read-only). migrate: apply the
-          migrations named below, in order (WRITES to the database).
+          migrations named below, in order (WRITES to the database). backup:
+          dump the public schema now, as the weekly backup does (read-only).
         type: choice
-        options: [ingest, probe-stores, catalogue-sample, storage-report, match-report, migrate]
+        options: [ingest, probe-stores, catalogue-sample, storage-report, match-report, migrate, backup]
         default: ingest
       dry_run:
         description: "ingest only: fetch and normalize without writing to Postgres"
@@ -45,8 +51,8 @@ on:
 jobs:
   ingest:
     if: >-
-      github.event.schedule != '41 10 11 * *'
-      && (github.event_name != 'workflow_dispatch' || inputs.task == 'ingest')
+      github.event.schedule == '10 7 * * *'
+      || (github.event_name == 'workflow_dispatch' && inputs.task == 'ingest')
     # Never run two ingests at once. A queued run that overlaps the previous one
     # would double the request rate against an API we are deliberately being
     # gentle with. Scoped to this job so a keepalive run can never hold up or
@@ -78,8 +84,12 @@ jobs:
         # --once-per-day: the night is started on time from Supabase
         # (db/ops/nightly_dispatch.sql), and this schedule fires hours later as
         # the fallback. Whichever comes second stops before any API request.
+        # --fallback on the schedule: if it is not second, it records the night
+        # and then exits 3, failing the job so the broken start is noticed.
+        # Should GitHub ever fire on time and win the race, that is a false
+        # alarm; the night is recorded either way.
         run: |
-          python -m ingest.run ${{ !inputs.force && '--once-per-day' || '' }} ${{ inputs.dry_run && '--dry-run' || '' }}
+          python -m ingest.run ${{ !inputs.force && '--once-per-day' || '' }} ${{ inputs.dry_run && '--dry-run' || '' }} ${{ github.event_name == 'schedule' && '--fallback' || '' }}
 
   # A new banner's store code has to be proved before a migration adds it: a
   # wrong one returns 200 with zero results, like a store with nothing in
@@ -193,6 +203,59 @@ jobs:
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "${files[0]}"
             echo "::endgroup::"
           done
+
+  # Supabase's free plan keeps no backups a project can download, and price
+  # history cannot be fetched again. Weekly, the public schema (every table the
+  # site reads, all readable with the anon key anyway) is dumped and kept as an
+  # artifact for 90 days. Not vault or cron: the dispatch token stays out.
+  # README.md, "Backups", says how to restore one.
+  backup:
+    if: >-
+      github.event.schedule == '23 9 * * 0'
+      || (github.event_name == 'workflow_dispatch' && inputs.task == 'backup')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # pg_dump must be at least the server's major version (17); the runner's
+      # own client is 16, so it runs from the official image instead.
+      # GitHub's runners have no IPv6, so it goes through the pooler, and in
+      # session mode (5432): pg_dump holds one snapshot for its whole session,
+      # which transaction mode (6543, the nightly run's port) cannot promise.
+      - name: Dump the public schema
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          day=$(date -u +%F)
+          echo "DAY=$day" >> "$GITHUB_ENV"
+          # Masked, and handed over by name rather than on the command line:
+          # with its port changed it no longer matches the secret GitHub masks.
+          export SESSION_URL="${DATABASE_URL/:6543\//:5432/}"
+          echo "::add-mask::$SESSION_URL"
+          docker run --rm --network host -e SESSION_URL postgres:17 \
+            sh -c 'pg_dump "$SESSION_URL" --format=custom --schema=public --extension=pg_trgm' \
+            > "grocery-tracker-$day.dump"
+
+      # A dump that cannot be read back is not a backup. Stop here unless the
+      # price history and the products made it in.
+      - name: Check the dump
+        run: |
+          set -euo pipefail
+          file="grocery-tracker-$DAY.dump"
+          docker run --rm -v "$PWD:/b:ro" postgres:17 pg_restore --list "/b/$file" > contents.txt
+          for table in price_spans products ingest_runs stores; do
+            grep -q "TABLE DATA public $table " contents.txt || { echo "::error::$table is missing from the dump"; exit 1; }
+          done
+          echo "$file: $(du -h "$file" | cut -f1), $(grep -c 'TABLE DATA' contents.txt) tables" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: database-${{ env.DAY }}
+          path: grocery-tracker-${{ env.DAY }}.dump
+          retention-days: 90
+          # Already compressed by pg_dump.
+          compression-level: 0
+          if-no-files-found: error
 
   # GitHub disables scheduled workflows in a public repo after 60 days without
   # repository activity, and the nightly runs themselves don't count. Enabling

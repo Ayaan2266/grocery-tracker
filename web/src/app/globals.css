@@ -253,10 +253,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* ---------------------------------------------------------------------------
    Product page
    --------------------------------------------------------------------------- */
-.product-page, .basket-page { padding: 34px 0 56px; }
+.product-page, .basket-page, .status-page { padding: 34px 0 56px; }
 .back-link { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 18px; color: var(--blue); font-size: 14px; font-weight: 750; text-decoration: none; }
 .back-link:hover { color: var(--coral); text-decoration: underline; text-underline-offset: 4px; }
-.product-heading h1, .basket-page h1 { margin: 0 0 6px; font-size: clamp(30px, 3.6vw, 46px); font-weight: 850; letter-spacing: -.055em; line-height: 1.08; overflow-wrap: anywhere; }
+.product-heading h1, .basket-page h1, .status-page h1 { margin: 0 0 6px; font-size: clamp(30px, 3.6vw, 46px); font-weight: 850; letter-spacing: -.055em; line-height: 1.08; overflow-wrap: anywhere; }
 .product-heading > p:last-child { margin: 0; color: var(--muted); font-size: 16px; }
 .product-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 15px; margin-top: 26px; }
 .price-card, .verdict-card, .chart-card, .store-compare { padding: 24px 26px; border: 1px solid var(--line); border-radius: 18px; background: var(--pale-blue); }
@@ -303,6 +303,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
    --------------------------------------------------------------------------- */
 .clear-basket { border: 0; background: none; cursor: pointer; }
 .basket-empty { margin-top: 20px; }
+.status-page .empty-state { margin-top: 20px; }
+.status-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.status-actions button { cursor: pointer; }
 .qty-controls { display: inline-flex; flex: none; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); }
 .qty-controls form { margin: 0; }
 .qty-controls button { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 999px; background: none; color: var(--navy); cursor: pointer; }
