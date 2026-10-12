@@ -216,6 +216,26 @@ def test_without_once_per_day_an_earlier_run_does_not_stop_a_rerun(monkeypatch) 
     assert fetched == [TARGET]
 
 
+def test_fallback_is_silent_when_the_on_time_run_already_did_the_night(monkeypatch) -> None:
+    fetched = _nightly(monkeypatch, ran=True)
+    assert run.main(["--fallback"]) == 0
+    assert fetched == []
+
+
+def test_fallback_runs_a_missed_night_and_then_reports_it(monkeypatch) -> None:
+    fetched = _nightly(monkeypatch, ran=False)
+    assert run.main(["--fallback"]) == run.EXIT_FALLBACK_RAN
+    assert fetched == [TARGET]
+
+
+def test_a_store_failure_outranks_the_fallback_report(monkeypatch) -> None:
+    _nightly(monkeypatch, ran=False)
+    monkeypatch.setattr(
+        run, "ingest_store", lambda client, target, *args: run.StoreOutcome(target, error="down")
+    )
+    assert run.main(["--fallback"]) == run.EXIT_FAILURE
+
+
 def test_a_failed_check_for_an_earlier_run_lets_the_night_go_ahead(monkeypatch) -> None:
     from ingest import db
 
