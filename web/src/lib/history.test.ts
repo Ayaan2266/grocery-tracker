@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   badgeFor,
+  chartLines,
   chartPoints,
   dailyPrices,
   dayNumber,
@@ -194,4 +195,18 @@ test("the example is the in-stock listing whose price moved most", () => {
   assert.equal(pickExample([]), null);
   // A tie on movement goes to the cheaper listing.
   assert.equal(pickExample([{ ...moved, id: 4, price: 800 }, moved]), 2);
+});
+
+test("a crowded graph keeps the page's own line and the cheapest others, in order", () => {
+  const series = [
+    { key: "own", primary: true, current: 900 },
+    { key: "a", current: 500 },
+    { key: "b", current: 700 },
+    { key: "c" },
+    { key: "d", current: 300 },
+    { key: "e", current: 800 },
+  ];
+  assert.deepEqual(chartLines(series, 3).map((s) => s.key), ["own", "a", "d"]);
+  assert.deepEqual(chartLines(series, 5).map((s) => s.key), ["own", "a", "b", "d", "e"], "no price: dropped first");
+  assert.equal(chartLines(series, 6), series, "few enough: every line, untouched");
 });

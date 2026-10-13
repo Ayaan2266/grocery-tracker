@@ -6,7 +6,7 @@ import {
   countByRegion,
   nearbyStores,
   scopedStoreIds,
-  secondaryStoreIds,
+  storeMarks,
   type NearStores,
   type StoreScope,
 } from "./stores";
@@ -69,8 +69,8 @@ export type ScopedStores = {
   storeIds: number[] | null;
   /** Stores checked nightly that the current scope leaves out. */
   hidden: StoreInfo[];
-  /** Stores drawn with a ring dot and a dashed line: not their banner's first. */
-  secondary: Set<number>;
+  /** Each store's line and dot, as an index into STORE_MARKS (lib/stores.ts). */
+  marks: Map<number, number>;
   counts: { ontario: number; outside: number };
   /** The place the visitor gave, whichever scope is on. */
   near: NearMe | null;
@@ -92,7 +92,7 @@ export async function loadScopedStores(): Promise<ScopedStores> {
     stores: all,
     storeIds,
     hidden,
-    secondary: secondaryStoreIds(all),
+    marks: storeMarks(all),
     counts: countByRegion(all),
     near,
     nearStores,

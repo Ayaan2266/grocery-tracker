@@ -121,6 +121,29 @@ export function chartPoints(series: Series[]): ChartPoint[] {
     });
 }
 
+/**
+ * Lines a price graph draws before the rest are folded behind a button: the
+ * page's own store and the cheapest others. More than this reads as a tangle.
+ */
+export const CHART_MAX_LINES = 6;
+
+/**
+ * The series a graph draws when it has more than `max`: the one the page is
+ * about, then the cheapest others by latest price. A series with no latest
+ * price comes last. The ones kept stay in their given order, so the legend
+ * does not reshuffle when the rest are shown.
+ */
+export function chartLines<T extends { primary?: boolean; current?: number }>(series: T[], max: number): T[] {
+  if (series.length <= max) return series;
+  const price = (s: T) => s.current ?? Number.MAX_SAFE_INTEGER;
+  const kept = new Set(
+    [...series]
+      .sort((a, b) => Number(b.primary ?? false) - Number(a.primary ?? false) || price(a) - price(b))
+      .slice(0, max),
+  );
+  return series.filter((s) => kept.has(s));
+}
+
 /** The span covering a day, for the graph's tooltip. */
 export function spanOn(spans: Span[], day: number): Span | undefined {
   return spans.find(

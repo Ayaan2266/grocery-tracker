@@ -28,8 +28,8 @@ type Store = {
   slug: string;
   name: string;
   area: string | null;
-  /** A banner's second store: a ring dot instead of a filled one. */
-  ring: boolean;
+  /** Which of its banner's stores this is: index into STORE_MARKS. */
+  mark: number;
   /** Its banner is at another store here too, so the cell names the place. */
   repeated: boolean;
 };
@@ -111,7 +111,7 @@ function BasketSummary({
           const isBest = bestComplete?.store.id === t.store.id;
           return (
             <li key={t.store.id} className={isBest ? "is-best" : undefined}>
-              <StoreDot slug={t.store.slug} ring={t.store.ring} />
+              <StoreDot slug={t.store.slug} mark={t.store.mark} />
               <strong>{t.store.name}</strong>
               <small>{coverageNote(t)}</small>
               <span className="store-totals-amount">{formatCents(t.total)}</span>
@@ -161,7 +161,7 @@ function StoreCell({ line, store }: { line: Line; store: Store }) {
     <li className={isCheapest ? "store-cell is-cheapest" : "store-cell"} title={store.area ?? undefined}>
       <span className="store-cell-label">
         <span className="store-cell-name">
-          <StoreDot slug={store.slug} ring={store.ring} />
+          <StoreDot slug={store.slug} mark={store.mark} />
           {store.name}
         </span>
         {store.repeated && store.area && <span className="store-cell-area">{store.area}</span>}
@@ -239,7 +239,7 @@ export default async function BasketPage() {
       slug: listing.banner_slug,
       name: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
       area: storeArea(listing.store_label),
-      ring: scoped.secondary.has(listing.store_id),
+      mark: scoped.marks.get(listing.store_id) ?? 0,
       repeated: false,
     });
   }
@@ -336,7 +336,7 @@ export default async function BasketPage() {
                         <QuantityControls productId={line.product.product_id} quantity={line.quantity} />
                       </div>
                       <ul
-                        className="store-cells"
+                        className={storeList.length > 4 ? "store-cells is-many" : "store-cells"}
                         aria-label={`${line.product.raw_name} at each store`}
                         style={{ "--columns": columns } as CSSProperties}
                       >

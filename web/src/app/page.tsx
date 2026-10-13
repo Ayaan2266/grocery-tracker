@@ -195,7 +195,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                           quantity={basket.get(row.product_id) ?? 0}
                           trend={histories.get(row.product_id)?.trend}
                           badge={histories.get(row.product_id)?.badge}
-                          ring={scoped.secondary.has(row.store_id)}
+                          mark={scoped.marks.get(row.store_id)}
                         />
                       ))}
                     </ul>
@@ -293,7 +293,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     <ul aria-label={storeGroups.length > 1 ? `Stores ${group.label.toLowerCase()}` : "Stores"}>
                       {group.stores.map((store) => (
                         <li key={store.id} className={group.outside ? "store-chip is-outside" : "store-chip"}>
-                          <StoreDot slug={store.banner_slug} ring={scoped.secondary.has(store.id)} as="i" className="" />
+                          <StoreDot slug={store.banner_slug} mark={scoped.marks.get(store.id)} as="i" className="" />
                           {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
                           {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
                         </li>
