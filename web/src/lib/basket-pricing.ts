@@ -98,3 +98,14 @@ export function summarizeBasket(lines: BasketLine[], storeIds: number[], unavail
   }
   return { totals, bestComplete, mixTotal, mixMissing: lines.length + unavailable - mixCount };
 }
+
+/**
+ * Store totals best first: stores with the whole list, cheapest first, then
+ * stores missing something, cheapest first. A store missing items can total
+ * less only because it charges for less, so it never ranks above one that has
+ * everything. Ties keep the store order.
+ */
+export function rankTotals<T extends BasketTotal>(totals: T[]): T[] {
+  const incomplete = (t: T) => Number(t.missing > 0 || t.outOfStock > 0);
+  return [...totals].sort((a, b) => incomplete(a) - incomplete(b) || a.total - b.total || a.storeId - b.storeId);
+}

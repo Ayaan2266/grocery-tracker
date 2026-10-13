@@ -188,13 +188,18 @@ export function PriceChart({
   series,
   titleId,
   subtitle,
+  foldedSubtitle = subtitle,
 }: {
   series: ChartSeries[];
   titleId: string;
+  /** Under the title, with every line drawn. */
   subtitle: string;
+  /** Under the title while lines past CHART_MAX_LINES are folded away. */
+  foldedSubtitle?: string;
 }) {
   const [range, setRange] = useState<RangeLabel>("All");
   const [showAll, setShowAll] = useState(false);
+  const folded = series.length > CHART_MAX_LINES;
   const gradientId = `area-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const allDays = series.flatMap((s) =>
@@ -204,7 +209,7 @@ export function PriceChart({
     <div className="chart-header">
       <div>
         <h2 id={titleId}>Price history</h2>
-        <p>{subtitle}</p>
+        <p>{folded && !showAll ? foldedSubtitle : subtitle}</p>
       </div>
       {active && tabs.length > 1 && (
         <div className="range-tabs" role="group" aria-label="Time range">
@@ -231,7 +236,6 @@ export function PriceChart({
   const active = tabs.find((t) => t.label === range) ?? tabs[tabs.length - 1];
 
   const endIso = isoDay(historyEnd);
-  const folded = series.length > CHART_MAX_LINES;
   const drawn = folded && !showAll ? chartLines(series, CHART_MAX_LINES) : series;
   const shown = drawn
     .map((s) => ({ ...s, spans: active.days === null ? s.spans : windowSpans(s.spans, endIso, active.days) }))

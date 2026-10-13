@@ -9,7 +9,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { readBasket } from "@/lib/basket-server";
-import { buildBasketLines, summarizeBasket, type BasketLine, type BasketTotal } from "@/lib/basket-pricing";
+import { buildBasketLines, rankTotals, summarizeBasket, type BasketLine, type BasketTotal } from "@/lib/basket-pricing";
 import {
   getProducts,
   getSameItemCandidates,
@@ -60,6 +60,13 @@ function QuantityControls({ productId, quantity }: { productId: number; quantity
 
 type StoreTotal = BasketTotal & { store: Store };
 
+/**
+ * Store totals listed before the rest fold away: ten stores run a phone
+ * screen long above the basket itself. Best first, so the fold hides the
+ * dearest. One left over is shown rather than folded.
+ */
+const TOTALS_SHOWN = 5;
+
 function coverageNote({ missing, outOfStock }: StoreTotal): string {
   const parts: string[] = [];
   if (missing > 0) parts.push(`Missing ${missing} item${missing === 1 ? "" : "s"}`);
@@ -103,26 +110,31 @@ function BasketSummary({
   const top = Math.max(...totals.map((t) => t.total), 1);
   const saving = bestComplete ? bestComplete.total - mixTotal : 0;
   const mixNote = mixDescription(lines, storeName, mixMissing > 0);
+  const ranked = rankTotals(totals);
+  const row = (t: StoreTotal) => (
+    <li key={t.store.id} className={bestComplete?.store.id === t.store.id ? "is-best" : undefined}>
+      <StoreDot slug={t.store.slug} mark={t.store.mark} />
+      <strong>{t.store.name}</strong>
+      <small>{coverageNote(t)}</small>
+      <span className="store-totals-amount">{formatCents(t.total)}</span>
+      {t.store.area && <span className="store-totals-area">{t.store.area}</span>}
+      <span className="store-totals-bar" aria-hidden="true">
+        <span style={{ width: `${(t.total / top) * 100}%` }} />
+      </span>
+    </li>
+  );
+  // The rest fold behind a native disclosure, so it opens with JavaScript off.
+  const folded = ranked.length - TOTALS_SHOWN > 1 ? ranked.slice(TOTALS_SHOWN) : [];
   return (
     <aside className="basket-summary" aria-label="Store totals">
       <h2>Store totals</h2>
-      <ul className="store-totals">
-        {totals.map((t) => {
-          const isBest = bestComplete?.store.id === t.store.id;
-          return (
-            <li key={t.store.id} className={isBest ? "is-best" : undefined}>
-              <StoreDot slug={t.store.slug} mark={t.store.mark} />
-              <strong>{t.store.name}</strong>
-              <small>{coverageNote(t)}</small>
-              <span className="store-totals-amount">{formatCents(t.total)}</span>
-              {t.store.area && <span className="store-totals-area">{t.store.area}</span>}
-              <span className="store-totals-bar" aria-hidden="true">
-                <span style={{ width: `${(t.total / top) * 100}%` }} />
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      <ul className="store-totals">{ranked.slice(0, ranked.length - folded.length).map(row)}</ul>
+      {folded.length > 0 && (
+        <details className="store-totals-more">
+          <summary>Show {folded.length} more stores</summary>
+          <ul className="store-totals">{folded.map(row)}</ul>
+        </details>
+      )}
       {bestComplete ? (
         <div className="summary-card summary-best">
           <p className="section-label">Best single shop</p>
