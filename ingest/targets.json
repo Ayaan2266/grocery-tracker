@@ -35,6 +35,31 @@
       "banner": "superstore",
       "store_code": "1033",
       "label": "Real Canadian Superstore - Toronto Gerry Fitzgerald"
+    },
+    {
+      "banner": "loblaw",
+      "store_code": "1007",
+      "label": "Loblaws - Toronto Carlton Street"
+    },
+    {
+      "banner": "nofrills",
+      "store_code": "6791",
+      "label": "No Frills - Toronto Shuter"
+    },
+    {
+      "banner": "nofrills",
+      "store_code": "3643",
+      "label": "No Frills - Toronto M5A 4T9"
+    },
+    {
+      "banner": "superstore",
+      "store_code": "1077",
+      "label": "Real Canadian Superstore - Toronto Don Mills"
+    },
+    {
+      "banner": "superstore",
+      "store_code": "2800",
+      "label": "Real Canadian Superstore - Toronto Weston Road"
     }
   ],
   "canary_terms": ["milk", "bread", "eggs"],

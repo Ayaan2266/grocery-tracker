@@ -152,6 +152,11 @@ def test_migrations_seed_every_verified_store(conn) -> None:
             ("1436", "fortinos", "M6A 3B4"),
             ("8711", "maxi", "J9J 3Z4"),
             ("1033", "superstore", "M3J 3N4"),
+            ("1007", "loblaw", "M5B 1L1"),
+            ("6791", "nofrills", "M5B 0E8"),
+            ("3643", "nofrills", "M5A 4T9"),
+            ("1077", "superstore", "M3C 1V4"),
+            ("2800", "superstore", "M9N 2A7"),
         ]
 
 

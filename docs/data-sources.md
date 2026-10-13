@@ -195,12 +195,21 @@ Known-good store codes, each canary-verified:
 | `1436` | Fortinos North York Lawrence | North York, ON M6A 3B4 |
 | `8711` | Maxi Aylmer Vanier | Gatineau (Aylmer), QC J9J 3Z4 |
 | `1033` | Real Canadian Superstore Gerry Fitzgerald | Toronto, ON M3J 3N4 |
+| `1007` | Loblaws Carlton Street (Maple Leaf Gardens) | Toronto, ON M5B 1L1 |
+| `6791` | No Frills Shuter (Felice's) | Toronto, ON M5B 0E8 |
+| `3643` | No Frills (Rocco's) | Toronto, ON M5A 4T9 |
+| `1077` | Real Canadian Superstore Don Mills | Toronto, ON M3C 1V4 |
+| `2800` | Real Canadian Superstore Weston Road | Toronto, ON M9N 2A7 |
 
 Also verified on 2026-09-25 and not ingested: Zehrs `0505` (Bradford) and
 `0536` (St Catharines), Fortinos `7920` (Etobicoke) and `0096` (Woodbridge),
 Maxi `7566` and `8702` (both Hull). And on 2026-09-29, the four Superstores
 next nearest to Vaughan after `1033`: `2800` (Weston Road, Toronto), `1077`
 (Don Mills, Toronto), `2809` (Brimley Road, Toronto) and `1030` (Aurora).
+`2800` and `1077` were verified again on 2026-10-13 and added in `0014`, with
+three stores near Toronto Metropolitan University; the same run also verified
+Loblaws `1079` (Lower Jarvis) and `1000` (Queen Street) and No Frills `7047`
+(Toronto, M5A 3A3), not ingested.
 
 Superstore `1516` was found by hand before the store list was, and nobody
 checked where it was until the list came back. Its catalogue is the Prairie
