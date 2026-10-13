@@ -14,7 +14,7 @@ import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { RangeBar, verdictText } from "@/components/verdict";
 import { readBasket } from "@/lib/basket-server";
 import { parseProductId } from "@/lib/product-id";
-import { CHART_MAX_LINES, summarize, type Verdict } from "@/lib/history";
+import { summarize, type Verdict } from "@/lib/history";
 import { loadScopedStores } from "@/lib/store-scope";
 import { isWeighedKey, sameItemListings, similarListings, type SameItem } from "@/lib/matching";
 import {
@@ -428,12 +428,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     series={series}
                     titleId="history-title"
                     subtitle={
-                      series.length > CHART_MAX_LINES
-                        ? `This item at the cheapest ${storeKind}stores that carry it. Hover or tap for each day.`
-                        : series.length > 1
-                          ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
-                          : "Hover or tap for the price on each day."
+                      series.length > 1
+                        ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
+                        : "Hover or tap for the price on each day."
                     }
+                    foldedSubtitle={`This item at the cheapest ${storeKind}stores that carry it. Hover or tap for each day.`}
                   />
                 )}
               </section>

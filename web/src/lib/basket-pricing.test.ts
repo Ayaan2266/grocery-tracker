@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildBasketLines, summarizeBasket } from "./basket-pricing.ts";
+import { buildBasketLines, rankTotals, summarizeBasket } from "./basket-pricing.ts";
 import type { LatestPrice } from "./queries.ts";
 
 function listing(id: number, store: number, sku: string, price: number, extra: Partial<LatestPrice> = {}): LatestPrice {
@@ -79,4 +79,11 @@ test("basket lines preserve cookie order regardless of database order", () => {
   const products = [listing(1, 1, "A", 100), listing(2, 1, "B", 200)];
   const lines = buildBasketLines(new Map([[2, 1], [1, 1]]), products, [], [], null);
   assert.deepEqual(lines.map((line) => line.product.product_id), [2, 1]);
+});
+
+test("store totals rank stores with the whole list first, cheapest first", () => {
+  const total = (storeId: number, cents: number, missing = 0, outOfStock = 0) =>
+    ({ storeId, total: cents, carried: 3 - missing - outOfStock, missing, outOfStock });
+  const ranked = rankTotals([total(1, 900), total(2, 400, 1), total(3, 700), total(4, 700), total(5, 500, 0, 1)]);
+  assert.deepEqual(ranked.map((t) => t.storeId), [3, 4, 1, 2, 5]);
 });

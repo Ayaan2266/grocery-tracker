@@ -472,6 +472,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .store-totals-bar span { display: block; height: 100%; border-radius: 999px; background: var(--line); }
 .store-totals .is-best .store-totals-amount { color: #17643a; }
 .store-totals .is-best .store-totals-bar span { background: #9fd9b4; }
+.store-totals-more summary { color: var(--blue-dark); cursor: pointer; font-size: 13px; font-weight: 800; }
+.store-totals-more[open] summary { margin-bottom: 14px; }
 .summary-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--pale-blue); }
 .summary-card .section-label { margin-bottom: 4px; font-size: 11px; }
 .summary-card p:not(.section-label) { margin: 0; font-size: 13px; line-height: 1.4; }
