@@ -20,14 +20,14 @@ export function percentOff(price: number, regular: number | null): number | null
 }
 
 /**
- * The store a price was recorded at: banner, and where that store is. `ring`
- * marks a banner's second store (lib/stores.ts secondaryStoreIds).
+ * The store a price was recorded at: banner, and where that store is. `mark`
+ * tells a banner's stores apart (lib/stores.ts storeMarks).
  */
-export function StoreChip({ row, ring = false }: { row: LatestPrice; ring?: boolean }) {
+export function StoreChip({ row, mark = 0 }: { row: LatestPrice; mark?: number }) {
   const area = storeArea(row.store_label);
   return (
     <span className="store-chip" title={`Recorded ${formatDay(row.observed_on)}`}>
-      <StoreDot slug={row.banner_slug} ring={ring} as="i" className="" />
+      <StoreDot slug={row.banner_slug} mark={mark} as="i" className="" />
       {bannerLabel(row.banner_slug, row.retailer_name)}
       {area && <span className="store-chip-area">{area}</span>}
     </span>
@@ -46,14 +46,14 @@ export function PriceRow({
   id,
   trend,
   badge,
-  ring = false,
+  mark = 0,
 }: {
   row: LatestPrice;
   href: string;
   quantity: number;
   id?: string;
-  /** A banner's second store: a ring dot instead of a filled one. */
-  ring?: boolean;
+  /** Which of its banner's stores this is: index into STORE_MARKS. */
+  mark?: number;
   /** The last few days' prices, oldest first; null for a day it was not seen. */
   trend?: (number | null)[];
   badge?: Badge | null;
@@ -76,7 +76,7 @@ export function PriceRow({
         </h3>
         <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
         <div className="price-row-chips">
-          <StoreChip row={row} ring={ring} />
+          <StoreChip row={row} mark={mark} />
           {badge && <span className={`status-badge status-${badge.tone}`}>{badge.label}</span>}
           {!row.in_stock && <span className="status-badge status-bad">Out of stock</span>}
         </div>

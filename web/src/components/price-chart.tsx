@@ -14,6 +14,8 @@ import {
 } from "recharts";
 
 import {
+  CHART_MAX_LINES,
+  chartLines,
   chartPoints,
   dayNumber,
   isoDay,
@@ -23,6 +25,7 @@ import {
   windowSpans,
   type Span,
 } from "@/lib/history";
+import { markDot, storeMark } from "@/lib/stores";
 
 export type ChartSeries = {
   key: string;
@@ -34,17 +37,24 @@ export type ChartSeries = {
   /** The listing the page is about: drawn on top with a shaded area, and labelled "Latest". */
   primary?: boolean;
   /**
-   * A banner's second store: the same colour, drawn dashed, so two stores of
-   * one chain stay apart without a colour outside the checked set.
+   * Which of its banner's stores this is, as an index into STORE_MARKS: the
+   * same colour with its own dashes, so a chain's stores stay apart without a
+   * colour outside the checked set.
    */
-  dashed?: boolean;
+  mark?: number;
 };
 
-const DASH = "6 4";
-
-/** A short line in the series' colour and style, for the legend. */
+/** A short line in the series' colour and dashes, for the legend. */
 function swatch(s: ChartSeries): string {
-  return s.dashed ? `repeating-linear-gradient(90deg, ${s.color} 0 5px, transparent 5px 8px)` : s.color;
+  const { dash } = storeMark(s.mark);
+  if (!dash) return s.color;
+  let at = 0;
+  const stops = dash.split(" ").map((length, i) => {
+    const stop = `${i % 2 === 0 ? s.color : "transparent"} ${at}px ${at + Number(length)}px`;
+    at += Number(length);
+    return stop;
+  });
+  return `repeating-linear-gradient(90deg, ${stops.join(", ")})`;
 }
 
 const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
@@ -112,9 +122,10 @@ function HistoryTooltip({
         if (entry?.value == null) return null;
         const span = spanOn(s.spans, label);
         const regular = span?.was_price_cents ?? span?.implied_regular_cents ?? null;
+        const dot = markDot(s.color, s.mark);
         return (
           <span key={s.key}>
-            <i className={s.dashed ? "is-ring" : undefined} style={s.dashed ? { borderColor: s.color } : { background: s.color }} aria-hidden="true" />
+            <i className={dot.className ?? undefined} style={dot.style} aria-hidden="true" />
             {s.label}: {dollars(entry.value)}
             {regular !== null && regular > entry.value && (
               <em>
@@ -183,6 +194,7 @@ export function PriceChart({
   subtitle: string;
 }) {
   const [range, setRange] = useState<RangeLabel>("All");
+  const [showAll, setShowAll] = useState(false);
   const gradientId = `area-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const allDays = series.flatMap((s) =>
@@ -219,7 +231,9 @@ export function PriceChart({
   const active = tabs.find((t) => t.label === range) ?? tabs[tabs.length - 1];
 
   const endIso = isoDay(historyEnd);
-  const shown = series
+  const folded = series.length > CHART_MAX_LINES;
+  const drawn = folded && !showAll ? chartLines(series, CHART_MAX_LINES) : series;
+  const shown = drawn
     .map((s) => ({ ...s, spans: active.days === null ? s.spans : windowSpans(s.spans, endIso, active.days) }))
     .filter((s) => s.spans.length > 0);
   const points = chartPoints(shown.map(({ key, spans }) => ({ key, spans })));
@@ -259,13 +273,20 @@ export function PriceChart({
     <>
       {header(tabs, active.label)}
       <ul className="chart-legend">
-        {series.map((s) => (
+        {drawn.map((s) => (
           <li key={s.key}>
             <i style={{ background: swatch(s) }} aria-hidden="true" />
             <strong>{s.label}</strong>
             {s.current !== undefined && <span>{dollars(s.current)}</span>}
           </li>
         ))}
+        {folded && (
+          <li>
+            <button type="button" className="chart-more" aria-pressed={showAll} onClick={() => setShowAll(!showAll)}>
+              {showAll ? "Show fewer" : `Show all ${series.length} stores`}
+            </button>
+          </li>
+        )}
       </ul>
       <div
         className="price-chart"
@@ -323,7 +344,7 @@ export function PriceChart({
                 type="stepAfter"
                 stroke={s.color}
                 strokeWidth={s.primary ? 3 : 2}
-                strokeDasharray={s.dashed ? DASH : undefined}
+                strokeDasharray={storeMark(s.mark).dash ?? undefined}
                 dot={pointCount(s.key) === 1 ? { r: 4, fill: s.color, strokeWidth: 0 } : false}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
                 connectNulls

@@ -14,7 +14,7 @@ import { StoreDot, StoreScopeRow } from "@/components/store-scope";
 import { RangeBar, verdictText } from "@/components/verdict";
 import { readBasket } from "@/lib/basket-server";
 import { parseProductId } from "@/lib/product-id";
-import { summarize, type Verdict } from "@/lib/history";
+import { CHART_MAX_LINES, summarize, type Verdict } from "@/lib/history";
 import { loadScopedStores } from "@/lib/store-scope";
 import { isWeighedKey, sameItemListings, similarListings, type SameItem } from "@/lib/matching";
 import {
@@ -174,11 +174,11 @@ function StoreComparison({
   items,
   currentId,
   query,
-  secondary,
+  marks,
 }: {
   items: SameItem<LatestPrice>[];
-  /** Banners' second stores, drawn with a ring dot. */
-  secondary: Set<number>;
+  /** Each store's dot, as an index into STORE_MARKS. */
+  marks: Map<number, number>;
   currentId: number;
   query: string;
 }) {
@@ -228,7 +228,7 @@ function StoreComparison({
             cheapest !== null && buyable.length > 1 && listing.in_stock && listing.price_cents === cheapest.price_cents;
           return (
             <li key={listing.product_id} className={isCurrent ? "is-current" : undefined}>
-              <StoreDot slug={listing.banner_slug} ring={secondary.has(listing.store_id)} />
+              <StoreDot slug={listing.banner_slug} mark={marks.get(listing.store_id)} />
               <span className="store-compare-name">
                 {isCurrent ? (
                   bannerLabel(listing.banner_slug, listing.retailer_name)
@@ -268,12 +268,12 @@ function StoreComparison({
 function SimilarItems({
   items,
   query,
-  secondary,
+  marks,
   weighed,
 }: {
   items: LatestPrice[];
   query: string;
-  secondary: Set<number>;
+  marks: Map<number, number>;
   weighed: boolean;
 }) {
   return (
@@ -293,7 +293,7 @@ function SimilarItems({
           const unit = formatUnitPrice(item.unit_price_cents, item.comparison_quantity, item.comparison_unit);
           return (
             <li key={item.product_id}>
-              <StoreDot slug={item.banner_slug} ring={secondary.has(item.store_id)} />
+              <StoreDot slug={item.banner_slug} mark={marks.get(item.store_id)} />
               <span className="store-compare-name">
                 <Link href={`/product/${item.product_id}?${new URLSearchParams({ q: query })}`}>
                   {[item.brand, item.raw_name].filter(Boolean).join(" ")}
@@ -373,7 +373,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       current: listing.price_cents,
       spans: spansFor(listing.product_id),
       primary: listing.product_id === id,
-      dashed: scoped.secondary.has(listing.store_id),
+      mark: scoped.marks.get(listing.store_id),
     }))
     .filter((s) => s.spans.length > 0);
   const verdict = product ? summarize(spansFor(id), product.price_cents) : null;
@@ -402,7 +402,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
           ) : (
             <>
               <header className="product-heading">
-                <StoreChip row={product} ring={scoped.secondary.has(product.store_id)} />
+                <StoreChip row={product} mark={scoped.marks.get(product.store_id)} />
                 <h1>{product.raw_name}</h1>
                 <p>{[product.brand, product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
               </header>
@@ -428,9 +428,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     series={series}
                     titleId="history-title"
                     subtitle={
-                      series.length > 1
-                        ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
-                        : "Hover or tap for the price on each day."
+                      series.length > CHART_MAX_LINES
+                        ? `This item at the cheapest ${storeKind}stores that carry it. Hover or tap for each day.`
+                        : series.length > 1
+                          ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
+                          : "Hover or tap for the price on each day."
                     }
                   />
                 )}
@@ -445,11 +447,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
                   items={sameItems}
                   currentId={product.product_id}
                   query={query}
-                  secondary={scoped.secondary}
+                  marks={scoped.marks}
                 />
               )}
 
-              {similar.length > 0 && <SimilarItems items={similar} query={query} secondary={scoped.secondary} weighed={isWeighedKey(product?.substitute_key)} />}
+              {similar.length > 0 && <SimilarItems items={similar} query={query} marks={scoped.marks} weighed={isWeighedKey(product?.substitute_key)} />}
 
               {scopeMatters && <StoreScopeRow scoped={scoped} where="results" />}
             </>

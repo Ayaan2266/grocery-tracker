@@ -37,7 +37,7 @@ import {
   type StoreInfo,
 } from "@/lib/queries";
 import { BASE_OPEN_GRAPH } from "@/lib/site";
-import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, secondaryStoreIds, storeArea, storeCountLabel } from "@/lib/stores";
+import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, storeArea, storeMarks, storeCountLabel } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
 const DESCRIPTION =
@@ -549,7 +549,7 @@ function Worked({ example, failed, label }: { example: WorkedExample | null; fai
   );
 }
 
-function StoreCard({ store, ring }: { store: StoreStatus; ring: boolean }) {
+function StoreCard({ store, mark }: { store: StoreStatus; mark: number | undefined }) {
   const place = storeArea(store.label);
   const name = BANNER_SHORT[store.banner_slug] ?? store.retailer_name;
   const color = BANNER_COLORS[store.banner_slug] ?? "#53617e";
@@ -557,7 +557,7 @@ function StoreCard({ store, ring }: { store: StoreStatus; ring: boolean }) {
   return (
     <li className="store-card" style={{ borderLeftColor: color }}>
       <div className="store-card-head">
-        <StoreDot slug={store.banner_slug} ring={ring} />
+        <StoreDot slug={store.banner_slug} mark={mark} />
         <h4>{name}</h4>
         {store.postal_code && <span className="store-card-postal">{store.postal_code}</span>}
       </div>
@@ -600,7 +600,7 @@ function StoreCard({ store, ring }: { store: StoreStatus; ring: boolean }) {
 
 /** Every store, the Ontario ones the site shows by default first. */
 function StoreBoard({ status }: { status: NightlyStatus }) {
-  const secondary = secondaryStoreIds(status.stores);
+  const marks = storeMarks(status.stores);
   const groups = [
     { title: "Ontario", note: "Shown by default", stores: status.stores.filter((s) => isOntario(s.postal_code)) },
     {
@@ -621,7 +621,7 @@ function StoreBoard({ status }: { status: NightlyStatus }) {
           )}
           <ul className="store-board">
             {group.stores.map((store) => (
-              <StoreCard key={store.id} store={store} ring={secondary.has(store.id)} />
+              <StoreCard key={store.id} store={store} mark={marks.get(store.id)} />
             ))}
           </ul>
         </div>

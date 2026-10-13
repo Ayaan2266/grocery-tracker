@@ -10,8 +10,10 @@ import {
   isOntario,
   nearbyStores,
   scopedStoreIds,
-  secondaryStoreIds,
+  STORE_MARKS,
   storeCountLabel,
+  storeMark,
+  storeMarks,
   shortStoreNames,
   storeArea,
   storeName,
@@ -89,7 +91,7 @@ test("a banner at two stores is named with its place, a banner at one without", 
   assert.equal(one(toronto), "Superstore");
 });
 
-test("a banner's second store is the one drawn differently, Ontario first", () => {
+test("each store of a banner gets its own mark, Ontario first", () => {
   const stores = [
     { id: 1, banner_slug: "nofrills", postal_code: "L4K 0C1" },
     { id: 2, banner_slug: "superstore", postal_code: "R3N 2A1" }, // Winnipeg, added first
@@ -97,8 +99,26 @@ test("a banner's second store is the one drawn differently, Ontario first", () =
     { id: 7, banner_slug: "superstore", postal_code: "M3J 3N4" }, // Toronto
     { id: 9, banner_slug: "superstore", postal_code: "L4G 7Y3" }, // Aurora, a later GTA store
   ];
-  assert.deepEqual([...secondaryStoreIds(stores)].sort(), [2, 9]);
-  assert.equal(secondaryStoreIds(stores.slice(0, 3)).size, 0, "one store per banner: nothing to tell apart");
+  const marks = storeMarks(stores);
+  assert.deepEqual(
+    [7, 9, 2].map((id) => marks.get(id)),
+    [0, 1, 2],
+    "Toronto first, then Aurora, then Winnipeg: three different marks",
+  );
+  assert.equal(marks.get(1), 0);
+  assert.equal(marks.get(6), 0);
+  assert.ok([...storeMarks(stores.slice(0, 3)).values()].every((mark) => mark === 0), "one store per banner: nothing to tell apart");
+});
+
+test("a banner's marks are all different, and past the fourth never the first store's", () => {
+  const stores = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, banner_slug: "nofrills", postal_code: "M5B 2K3" }));
+  const marks = [...storeMarks(stores).values()];
+  assert.deepEqual(marks.slice(0, STORE_MARKS.length), [0, 1, 2, 3]);
+  assert.ok(marks.slice(1).every((mark) => mark !== 0));
+  const looks = STORE_MARKS.map((mark) => `${mark.dash}|${mark.dot}`);
+  assert.equal(new Set(looks).size, STORE_MARKS.length, "no two marks draw the same line and dot");
+  assert.equal(storeMark(undefined), STORE_MARKS[0]);
+  assert.equal(storeMark(99), STORE_MARKS[0]);
 });
 
 test("stores are counted by region", () => {

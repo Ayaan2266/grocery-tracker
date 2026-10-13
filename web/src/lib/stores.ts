@@ -163,26 +163,54 @@ export function shortStoreNames<T extends Named>(listings: T[]): (listing: T) =>
 type Located = { id: number; banner_slug: string; postal_code: string | null };
 
 /**
- * Stores that are not their banner's first: they share its colour, so the site
- * draws them differently (a ring dot, a dashed line) instead of giving them a
- * colour of their own, which would break the colour-blind check above. Within a
- * banner the Ontario store comes first, then the one added earliest.
+ * How a banner's stores are told apart. They share its colour, so each one
+ * after the first gets its own line and dot instead of a colour of its own,
+ * which would break the colour-blind check above. `dash` is an SVG
+ * stroke-dasharray (null for solid) and `dot` the class that draws the dot
+ * (null for filled; globals.css).
  */
-export function secondaryStoreIds(stores: Located[]): Set<number> {
-  const byBanner = new Map<string, Located[]>();
-  for (const store of stores) {
-    const group = byBanner.get(store.banner_slug) ?? [];
-    group.push(store);
-    byBanner.set(store.banner_slug, group);
-  }
-  const secondary = new Set<number>();
+export const STORE_MARKS = [
+  { dash: null, dot: null },
+  { dash: "6 4", dot: "is-ring" },
+  { dash: "2 3", dot: "is-target" },
+  { dash: "9 3 2 3", dot: "is-half" },
+] as const;
+
+export type StoreMark = (typeof STORE_MARKS)[number];
+
+/** The mark for a store, by its index from storeMarks; the first store's for an unknown one. */
+export function storeMark(index: number | undefined): StoreMark {
+  return STORE_MARKS[index ?? 0] ?? STORE_MARKS[0];
+}
+
+/**
+ * A dot in a banner's colour, drawn with a store's mark: filled for the first
+ * store, and otherwise a class whose border and fill take the colour from
+ * `color` (currentColor in globals.css).
+ */
+export function markDot(
+  color: string,
+  index: number | undefined,
+): { className: string | null; style: { background?: string; borderColor?: string; color?: string } } {
+  const { dot } = storeMark(index);
+  return dot ? { className: dot, style: { borderColor: color, color } } : { className: null, style: { background: color } };
+}
+
+/**
+ * Each store's mark, as an index into STORE_MARKS. Within a banner the Ontario
+ * store comes first, then the one added earliest. Past the fourth store the
+ * marks after the first repeat: a repeat never looks like the banner's first
+ * store, and the store is named in text everywhere it appears.
+ */
+export function storeMarks(stores: Located[]): Map<number, number> {
+  const byBanner = Map.groupBy(stores, (store) => store.banner_slug);
+  const marks = new Map<number, number>();
   for (const group of byBanner.values()) {
     group
       .sort((a, b) => Number(isOntario(b.postal_code)) - Number(isOntario(a.postal_code)) || a.id - b.id)
-      .slice(1)
-      .forEach((store) => secondary.add(store.id));
+      .forEach((store, rank) => marks.set(store.id, rank === 0 ? 0 : 1 + ((rank - 1) % (STORE_MARKS.length - 1))));
   }
-  return secondary;
+  return marks;
 }
 
 /** How many stores are in Ontario and how many are not. */

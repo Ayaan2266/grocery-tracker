@@ -2,7 +2,7 @@ import { NearMeForm } from "@/components/near-me-form";
 import { setStoreScope } from "@/app/stores/actions";
 import { DEFAULT_NEAR_RADIUS } from "@/lib/postal";
 import type { ScopedStores } from "@/lib/store-scope";
-import { BANNER_COLORS, storeName, type StoreScope } from "@/lib/stores";
+import { BANNER_COLORS, markDot, storeName, type StoreScope } from "@/lib/stores";
 
 const list = new Intl.ListFormat("en-CA", { type: "conjunction" });
 
@@ -139,25 +139,27 @@ export function StoreScopeRow({ scoped, where }: { scoped: ScopedStores; where: 
 }
 
 /**
- * A banner's colour as a dot: filled for its first store, a ring for any other
- * store of the same banner, so two Superstores never look like one.
+ * A banner's colour as a dot: filled for its first store, then a ring, a ring
+ * round a centre and a half-filled dot for the others (STORE_MARKS), so two
+ * Superstores never look like one.
  */
 export function StoreDot({
   slug,
-  ring = false,
+  mark = 0,
   as: Tag = "span",
   className = "store-dot",
 }: {
   slug: string;
-  ring?: boolean;
+  /** Index into STORE_MARKS, from ScopedStores.marks. */
+  mark?: number;
   as?: "span" | "i";
   className?: string;
 }) {
-  const color = BANNER_COLORS[slug] ?? "#53617e";
+  const dot = markDot(BANNER_COLORS[slug] ?? "#53617e", mark);
   return (
     <Tag
-      className={[className, ring ? "is-ring" : ""].filter(Boolean).join(" ") || undefined}
-      style={ring ? { borderColor: color } : { background: color }}
+      className={[className, dot.className].filter(Boolean).join(" ") || undefined}
+      style={dot.style}
       aria-hidden="true"
     />
   );
