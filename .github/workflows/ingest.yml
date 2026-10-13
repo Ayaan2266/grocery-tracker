@@ -62,9 +62,10 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # About 3 minutes a store: seven took 21 min 44 s on 2026-10-01 (168
-    # requests each at 1 req/sec, plus writes). A full run must fit in half of
-    # this (ingest/tests/test_targets.py reads it from here), so 90 minutes
-    # holds thirteen stores; past that, split the job rather than raise it again.
+    # requests each at 1 req/sec, plus writes), so the twelve since 0014 take
+    # about 37. A full run must fit in half of this (ingest/tests/test_targets.py
+    # reads it from here), so 90 minutes holds thirteen stores; past that, split
+    # the job rather than raise it again.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7

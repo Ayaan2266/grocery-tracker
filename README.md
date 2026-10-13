@@ -5,7 +5,7 @@
 
 **Live:** _launching on Vercel in October 2026_
 
-Daily store-level price history for Canadian groceries, from seven stores
+Daily store-level price history for Canadian groceries, from twelve stores
 across six Loblaw-owned banners (No Frills, Real Canadian Superstore, Loblaws,
 Zehrs, Fortinos, Maxi), checked every night since 2026-09-21. It answers two
 questions:
@@ -82,11 +82,11 @@ ingest/
   money.py            dollars to integer cents, in one place
   config.py           environment settings, rate-limit floor
   run.py              CLI entry point
-  targets.json        7 stores x 167 search terms (data, not code)
+  targets.json        12 stores x 167 search terms (data, not code)
   tests/              offline; respx intercepts every outbound request.
                       test_db_integration.py needs a Postgres and skips without one.
                       fixtures/labelled_pairs.json: hand-labelled matches
-db/migrations/        numbered SQL, 0001 to 0012
+db/migrations/        numbered SQL, 0001 to 0014
 db/queries/           read-only diagnostics, including the weekly storage report
 db/ops/               nightly_dispatch.sql: starts the nightly run on time from Supabase
 web/                  Next.js app
@@ -307,16 +307,19 @@ Maintained honestly. Overclaiming reads as junior.
 - **Unit price is unavailable for 0.12% of products.** 16 are measured in
   metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
   volume, so they get a NULL rather than a fabricated number.
-- **Seven stores, two of them outside Ontario.** Superstore 1516, ingested
+- **Twelve stores, two of them outside Ontario.** Superstore 1516, ingested
   since day one, turned out to be Kenaston in Winnipeg when the store list
   was finally read (`0010`), and Maxi's is in Gatineau. It is why Superstore
   carries Beatrice where the Ontario stores carry Neilson. Both keep running,
   so their history keeps growing, but the site shows the Ontario stores
   (postal codes starting K, L, M, N or P) unless a visitor switches to all of
   them. `0011` added a GTA Superstore, 1033 on Gerry Fitzgerald Drive in
-  Toronto: the nearest of all 119 to Vaughan, since none is inside it. The
-  two Superstores share a colour on graphs, so with every store shown the
-  legend and store lists tell them apart by place. A visitor can enter a
+  Toronto: the nearest of all 119 to Vaughan, since none is inside it.
+  `0014` added five more in Toronto: Loblaws on Carlton Street and two No
+  Frills, all within 1.2 km of Toronto Metropolitan University, and the Don
+  Mills and Weston Road Superstores. A banner's stores share its colour on
+  graphs and are told apart by line and dot (solid, dashed, dotted,
+  dash-dot), and the legend and store lists name the place. A visitor can enter a
   postal code and a radius to see the stores near it, in any province; that
   is stored in a cookie as the first three characters only. The distance is
   from the middle of the visitor's postal-code area to the store itself
@@ -329,9 +332,9 @@ Maintained honestly. Overclaiming reads as junior.
   placed is shown, not hidden. More stores are a migration and a line in
   `targets.json` each; `python -m ingest.stores` finds and proves the codes,
   and prints the coordinates the migration sets.
-  Each store adds about 3 minutes to the nightly run. Its timeout is 90
-  minutes and a full run must fit in half of it (`test_targets.py`), which
-  holds thirteen stores; past that, split the job.
+  Each store adds about 3 minutes to the nightly run, so twelve take about
+  37. Its timeout is 90 minutes and a full run must fit in half of it
+  (`test_targets.py`), which holds thirteen stores; past that, split the job.
 - **Unit prices before 2026-09-24 are reconstructed.** The runs before then
   stored none, or the API's figure on the regular price. `0008` works out
   what today's code would have stored, from the shelf price and package size
