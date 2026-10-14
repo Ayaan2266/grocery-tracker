@@ -197,7 +197,7 @@ Known-good store codes, each canary-verified:
 | `1033` | Real Canadian Superstore Gerry Fitzgerald | Toronto, ON M3J 3N4 |
 | `1007` | Loblaws Carlton Street (Maple Leaf Gardens) | Toronto, ON M5B 1L1 |
 | `6791` | No Frills Shuter (Felice's) | Toronto, ON M5B 0E8 |
-| `3643` | No Frills (Rocco's) | Toronto, ON M5A 4T9 |
+| `3643` | No Frills Front Street East (Rocco's) | 200 Front St E, Toronto, ON M5A 4T9 |
 | `1077` | Real Canadian Superstore Don Mills | Toronto, ON M3C 1V4 |
 | `2800` | Real Canadian Superstore Weston Road | Toronto, ON M9N 2A7 |
 
