@@ -86,7 +86,7 @@ ingest/
   tests/              offline; respx intercepts every outbound request.
                       test_db_integration.py needs a Postgres and skips without one.
                       fixtures/labelled_pairs.json: hand-labelled matches
-db/migrations/        numbered SQL, 0001 to 0014
+db/migrations/        numbered SQL, 0001 to 0015
 db/queries/           read-only diagnostics, including the weekly storage report
 db/ops/               nightly_dispatch.sql: starts the nightly run on time from Supabase
 web/                  Next.js app
