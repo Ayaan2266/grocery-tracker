@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteUrl();
   return [
     { url: new URL("/", base).toString(), changeFrequency: "daily", priority: 1 },
+    { url: new URL("/changes", base).toString(), changeFrequency: "daily", priority: 0.8 },
     { url: new URL("/how-it-works", base).toString(), changeFrequency: "weekly", priority: 0.6 },
   ];
 }

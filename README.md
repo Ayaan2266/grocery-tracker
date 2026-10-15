@@ -36,6 +36,10 @@ and it is also the only part that cannot be built in a weekend.
 - **Basket:** add items from any store and see what the whole list costs at
   each store, which store has everything for least, and what a mix of stores
   would save.
+- **Price changes:** every shelf price that went up or down overnight, biggest
+  change first, filterable by store, with the sale that started or ended
+  behind it where the store says. Thursday, when the weekly flyers turn over,
+  is the busy night.
 - **Stores:** Ontario stores by default, every store with one click, or the
   stores within a radius of a postal code. Only the first three characters
   of the postal code are used.
@@ -86,11 +90,11 @@ ingest/
   tests/              offline; respx intercepts every outbound request.
                       test_db_integration.py needs a Postgres and skips without one.
                       fixtures/labelled_pairs.json: hand-labelled matches
-db/migrations/        numbered SQL, 0001 to 0015
+db/migrations/        numbered SQL, 0001 to 0016
 db/queries/           read-only diagnostics, including the weekly storage report
 db/ops/               nightly_dispatch.sql: starts the nightly run on time from Supabase
 web/                  Next.js app
-  src/app/            pages: search (/), /product/[id], /basket, /how-it-works,
+  src/app/            pages: search (/), /product/[id], /basket, /changes, /how-it-works,
                       and the server actions behind the basket and store forms
   src/components/     price chart, sparklines, result rows, store picker
   src/lib/            Supabase queries, cross-store matching, basket pricing,
@@ -187,7 +191,9 @@ never holds `DATABASE_URL` or the PCX key.
    three queries in a row, so each one pays the round trip.
 4. Apply any migration the code needs before it deploys: Actions -> Nightly
    ingest -> Run workflow -> task `migrate`. `0012` is an index the product
-   page benefits from; nothing breaks without it.
+   page benefits from; nothing breaks without it. `0016` adds the views the
+   price-changes page reads; without it that page says price data is
+   unavailable and every other page is unaffected.
 
 Every push to `main` deploys, and every pull request gets a preview. Previews
 read the same database as production, which is safe because the key cannot
