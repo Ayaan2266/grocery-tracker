@@ -9,6 +9,8 @@
   --lilac: #e9e1ff;
   --pink: #ffdfeb;
   --pale-blue: #edf5ff;
+  /* The loading bar: the site's blue, lightened so it shows against the blue header. */
+  --sky: #5aa9ff;
   --muted: #53617e;
   --line: #d8e3fa;
   --white: #fff;
@@ -218,6 +220,19 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* ---------------------------------------------------------------------------
+   Loading bar (components/navigation-progress.tsx)
+   --------------------------------------------------------------------------- */
+.nav-progress { position: fixed; z-index: 100; inset: 0 0 auto; height: 3px; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
+.nav-progress[data-state="loading"] { opacity: 1; }
+/* Run to the end, then fade. */
+.nav-progress[data-state="finishing"] { transition-delay: .2s; }
+.nav-progress-bar { position: relative; overflow: hidden; width: var(--progress, 0%); height: 100%; border-radius: 0 3px 3px 0; background: var(--sky); box-shadow: 0 0 8px rgba(90,169,255,.8); transition: width .25s ease; }
+.nav-progress[data-state="idle"] .nav-progress-bar { transition: none; }
+/* The rolling shine that says it is still working while the bar creeps. */
+.nav-progress-bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 120px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); animation: nav-progress-roll 1.1s linear infinite; }
+@keyframes nav-progress-roll { from { transform: translateX(-120px); } to { transform: translateX(100vw); } }
+
+/* ---------------------------------------------------------------------------
    Header basket link, compact header for inner pages
    --------------------------------------------------------------------------- */
 .basket-link { display: inline-flex; align-items: center; gap: 7px; }
@@ -294,6 +309,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .skeleton-heading { width: min(260px, 70%); height: 28px; margin-bottom: 6px; }
 .skeleton-button { width: 150px; height: 40px; margin-top: 14px; border-radius: 999px; }
 .skeleton-chart { width: 100%; height: 320px; margin-top: 16px; border-radius: 12px; }
+.skeleton-section { margin-top: 22px; }
 .chart-card h2, .store-compare h2 { margin: 0 0 4px; font-size: 24px; font-weight: 850; letter-spacing: -.045em; }
 .price-chart { width: 100%; height: 320px; }
 .chart-tooltip { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: 0 8px 22px rgba(15,44,110,.12); color: var(--navy); font-size: 13px; }
