@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { setNearMe, setStoreScope, type NearMeState } from "@/app/stores/actions";
+import { finishNavigationProgress } from "@/components/navigation-progress";
 import { NEAR_RADII } from "@/lib/postal";
 
 /**
@@ -28,6 +29,13 @@ export function NearMeForm({
   // Open when asked for, and held open while there is an error to read. Kept in
   // state so that a later success does not close it under the visitor.
   const [asked, setAsked] = useState(false);
+  // A postal code that cannot be placed changes nothing on the page, so the
+  // loading bar would not hear the page arrive. Tell it the answer is in.
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending) finishNavigationProgress();
+    wasPending.current = pending;
+  }, [pending]);
   return (
     <details
       className="near-details"

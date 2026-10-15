@@ -16,17 +16,22 @@ export function HeaderBar({ current, items = 0 }: { current?: HeaderPage; items?
         <Image src="/brand/loonie-mark.svg" alt="" width={48} height={48} priority />
         <span>Loonie</span>
       </Link>
+      {/*
+        Prefetched in full while the visitor reads, so the header's pages open
+        at once. Each is cheap to render: their nightly data sits in the data
+        cache (lib/cached-queries.ts), and only the basket reads per visitor.
+      */}
       <nav aria-label="Main navigation">
-        <Link href="/" aria-current={current === "home" ? "page" : undefined}>Home</Link>
+        <Link href="/" prefetch aria-current={current === "home" ? "page" : undefined}>Home</Link>
         {/* "Changes" on a phone, where three links have to fit beside the brand. */}
-        <Link href="/changes" aria-current={current === "changes" ? "page" : undefined}>
+        <Link href="/changes" prefetch aria-current={current === "changes" ? "page" : undefined}>
           <span className="nav-long">Price changes</span>
           <span className="nav-short" aria-hidden="true">Changes</span>
         </Link>
-        <Link href="/how-it-works" aria-current={current === "how-it-works" ? "page" : undefined}>
+        <Link href="/how-it-works" prefetch aria-current={current === "how-it-works" ? "page" : undefined}>
           How it works
         </Link>
-        <Link href="/basket" className="basket-link" aria-current={current === "basket" ? "page" : undefined}>
+        <Link href="/basket" prefetch className="basket-link" aria-current={current === "basket" ? "page" : undefined}>
           <ShoppingBasket size={18} aria-hidden="true" />
           Basket
           {items > 0 && (

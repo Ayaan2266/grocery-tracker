@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@fontsource-variable/dm-sans/wght.css";
 import "./globals.css";
 
+import { NavigationProgress } from "@/components/navigation-progress";
 import { BASE_OPEN_GRAPH, SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
 
 const TITLE = "Loonie | Know what groceries cost";
@@ -21,7 +22,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <NavigationProgress />
+        {children}
+      </body>
     </html>
   );
 }

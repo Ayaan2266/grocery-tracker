@@ -1,14 +1,16 @@
+import Form from "next/form";
 import { ArrowRight, Search } from "lucide-react";
 
 /**
- * A plain GET form: it works before JavaScript loads, and every search is a
- * shareable URL. `compact` is the smaller version in the header of inner pages.
+ * A GET form: every search is a shareable URL, and it works before JavaScript
+ * loads. Once it has, next/form turns the submit into a client-side navigation,
+ * so a search fetches only the new results instead of reloading the whole page.
+ * `compact` is the smaller version in the header of inner pages.
  */
 export function SearchForm({ query = "", compact = false }: { query?: string; compact?: boolean }) {
   return (
-    <form
+    <Form
       action="/#prices"
-      method="get"
       role="search"
       className={compact ? "search-form search-form-compact" : "search-form"}
     >
@@ -26,6 +28,6 @@ export function SearchForm({ query = "", compact = false }: { query?: string; co
         <span>Search prices</span>
         <ArrowRight size={compact ? 18 : 21} aria-hidden="true" />
       </button>
-    </form>
+    </Form>
   );
 }
