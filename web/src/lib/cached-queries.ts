@@ -1,6 +1,16 @@
 import { unstable_cache } from "next/cache";
 
-import { getCoverage, getStores, type Coverage, type Result, type StoreInfo } from "./queries";
+import type { Direction, PriceChangeCount } from "./changes";
+import {
+  getCoverage,
+  getPriceChangeCounts,
+  getPriceChanges,
+  getStores,
+  type Coverage,
+  type PriceChangePage,
+  type Result,
+  type StoreInfo,
+} from "./queries";
 
 /**
  * Reads that every page render makes and that change at most once a night:
@@ -40,4 +50,34 @@ export function getStoresCached(): Promise<Result<StoreInfo[]>> {
 
 export function getCoverageCached(): Promise<Result<Coverage | null>> {
   return settle(coverage);
+}
+
+const changeCounts = unstable_cache(async () => orThrow(await getPriceChangeCounts()), ["price-change-counts"], {
+  revalidate: CACHE_SECONDS,
+});
+
+export function getPriceChangeCountsCached(): Promise<Result<PriceChangeCount[]>> {
+  return settle(changeCounts);
+}
+
+/**
+ * A night's changes change once a night too. The arguments are part of the
+ * cache key, so each filter and page length is cached on its own; the store
+ * list is sorted first so the same set always makes the same key.
+ */
+const changes = unstable_cache(
+  async (day: string, direction: Direction, storeIds: number[] | null, limit: number) =>
+    orThrow(await getPriceChanges({ day, direction, storeIds, limit })),
+  ["price-changes"],
+  { revalidate: CACHE_SECONDS },
+);
+
+export function getPriceChangesCached(options: {
+  day: string;
+  direction: Direction;
+  storeIds: number[] | null;
+  limit: number;
+}): Promise<Result<PriceChangePage>> {
+  const ids = options.storeIds === null ? null : [...options.storeIds].sort((a, b) => a - b);
+  return settle(() => changes(options.day, options.direction, ids, options.limit));
 }

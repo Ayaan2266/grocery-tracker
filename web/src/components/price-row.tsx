@@ -23,7 +23,13 @@ export function percentOff(price: number, regular: number | null): number | null
  * The store a price was recorded at: banner, and where that store is. `mark`
  * tells a banner's stores apart (lib/stores.ts storeMarks).
  */
-export function StoreChip({ row, mark = 0 }: { row: LatestPrice; mark?: number }) {
+export function StoreChip({
+  row,
+  mark = 0,
+}: {
+  row: Pick<LatestPrice, "banner_slug" | "retailer_name" | "store_label" | "observed_on">;
+  mark?: number;
+}) {
   const area = storeArea(row.store_label);
   return (
     <span className="store-chip" title={`Recorded ${formatDay(row.observed_on)}`}>

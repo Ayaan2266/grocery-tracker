@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { getPriceHistory, getSameItemCandidates, getSimilarCandidates, searchProducts, type LatestPrice } from "./queries.ts";
+import {
+  getPriceChanges,
+  getPriceHistory,
+  getSameItemCandidates,
+  getSimilarCandidates,
+  searchProducts,
+  type LatestPrice,
+} from "./queries.ts";
 
 const originalFetch = globalThis.fetch;
 let requests: URL[];
@@ -55,4 +62,26 @@ test("similar products beyond the former global 100-row limit are retained", asy
   const rows = Array.from({ length: 137 }, (_, i) => ({ product_id: i + 1 }));
   respond = () => Response.json(rows);
   assert.equal((await getSimilarCandidates(["milk", "bread"])).data?.length, 137);
+});
+
+test("price drops ask for one night's drops, biggest percentage first", async () => {
+  await getPriceChanges({ day: "2026-10-15", direction: "down", storeIds: [3, 7], limit: 40 });
+  const params = requests[0].searchParams;
+  assert.equal(requests[0].pathname, "/rest/v1/price_changes");
+  assert.equal(params.get("changed_on"), "eq.2026-10-15");
+  assert.equal(params.get("change_cents"), "lt.0");
+  assert.equal(params.get("store_id"), "in.(3,7)");
+  assert.equal(params.get("order"), "change_percent.asc,change_cents.asc,product_id.asc");
+  assert.equal(params.get("limit"), "41", "one extra row tells Show more there is more");
+});
+
+test("price increases sort the other way, and every store is read when none is chosen", async () => {
+  respond = () => Response.json(Array.from({ length: 3 }, (_, i) => ({ product_id: i })));
+  const page = await getPriceChanges({ day: "2026-10-15", direction: "up", storeIds: null, limit: 2 });
+  const params = requests[0].searchParams;
+  assert.equal(params.get("change_cents"), "gt.0");
+  assert.equal(params.get("store_id"), null);
+  assert.equal(params.get("order"), "change_percent.desc,change_cents.desc,product_id.asc");
+  assert.equal(page.data?.rows.length, 2);
+  assert.equal(page.data?.hasMore, true);
 });

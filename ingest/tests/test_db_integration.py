@@ -514,7 +514,13 @@ class TestViews:
             )
             views = dict(cur.fetchall())
 
-        assert set(views) == {"ingest_coverage", "price_observations", "product_latest_price"}
+        assert set(views) == {
+            "ingest_coverage",
+            "price_change_counts",
+            "price_changes",
+            "price_observations",
+            "product_latest_price",
+        }
         for name, options in views.items():
             assert options and "security_invoker=true" in options, (
                 f"{name} does not run as the invoker"
@@ -1241,3 +1247,125 @@ def test_stores_run_on_finds_only_that_days_runs(conn) -> None:
 
     assert db.stores_run_on(conn, [nofrills, loblaws], DAY) == {nofrills}
     assert db.stores_run_on(conn, [nofrills, loblaws], DAY + timedelta(days=1)) == set()
+
+
+class TestPriceChanges:
+    """What changed overnight, 0016: the price-changes page reads these views."""
+
+    D1, D2, D3 = (date(2026, 9, d) for d in (21, 22, 23))
+
+    @staticmethod
+    def changes(conn) -> list[tuple]:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT retailer_sku, store_code, changed_on, previous_price_cents, price_cents,
+                       change_cents, change_percent
+                  FROM price_changes
+                 ORDER BY store_code, retailer_sku
+                """
+            )
+            return cur.fetchall()
+
+    def test_drops_and_rises_since_the_previous_run(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn, store_id, [make_row(1, 500), make_row(2, 500), make_row(3, 500)], self.D1
+        )
+        db.write_store_observations(
+            conn, store_id, [make_row(1, 400), make_row(2, 550), make_row(3, 500)], self.D2
+        )
+
+        assert self.changes(conn) == [
+            ("SKU000001_EA", "3131", self.D2, 500, 400, -100, Decimal("-20.0")),
+            ("SKU000002_EA", "3131", self.D2, 500, 550, 50, Decimal("10.0")),
+        ], "the unchanged product is not a change"
+
+    def test_only_the_latest_run_counts(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(1, 400)], self.D2)
+        db.write_store_observations(conn, store_id, [make_row(1, 400)], self.D3)
+
+        assert self.changes(conn) == [], "Tuesday's drop is not news on Wednesday"
+
+    def test_a_listing_that_was_missing_last_night_is_not_a_change(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500), make_row(2, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(2, 500)], self.D2)
+        db.write_store_observations(conn, store_id, [make_row(1, 300), make_row(2, 500)], self.D3)
+
+        assert self.changes(conn) == []
+
+    def test_a_night_the_store_did_not_run_is_bridged(self, conn) -> None:
+        """The previous run is the store's, not the calendar's: a failed night is skipped."""
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(1, 450)], self.D3)
+
+        assert [c[3:6] for c in self.changes(conn)] == [(500, 450, -50)]
+
+    def test_out_of_stock_and_same_price_changes_are_left_out(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn,
+            store_id,
+            [make_row(1, 500, in_stock=True), make_row(2, 500, in_stock=False)],
+            self.D1,
+        )
+        db.write_store_observations(
+            conn,
+            store_id,
+            # 1 goes out of stock at a new price; 2 comes back at the same one.
+            [make_row(1, 300, in_stock=False), make_row(2, 500, in_stock=True)],
+            self.D2,
+        )
+
+        assert self.changes(conn) == []
+
+    def test_each_store_is_read_at_its_own_latest_run(self, conn) -> None:
+        nofrills = db.resolve_store_id(conn, "nofrills", "3131")
+        loblaws = db.resolve_store_id(conn, "loblaw", "1032")
+        db.write_store_observations(conn, nofrills, [make_row(1, 500)], self.D1)
+        db.write_store_observations(conn, nofrills, [make_row(1, 400)], self.D2)
+        db.write_store_observations(conn, loblaws, [make_row(1, 500)], self.D2)
+        db.write_store_observations(conn, loblaws, [make_row(1, 600)], self.D3)
+
+        assert [(c[1], c[2], c[5]) for c in self.changes(conn)] == [
+            ("1032", self.D3, 100),
+            ("3131", self.D2, -100),
+        ]
+
+    def test_counts_tally_drops_and_rises_per_store(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        tonight = {1: 400, 2: 450, 3: 600, 4: 500, 5: 500}
+        db.write_store_observations(conn, store_id, [make_row(i, 500) for i in tonight], self.D1)
+        db.write_store_observations(
+            conn, store_id, [make_row(i, price) for i, price in tonight.items()], self.D2
+        )
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT store_id, changed_on, drops, rises FROM price_change_counts")
+            assert cur.fetchall() == [(store_id, self.D2, 2, 1)]
+
+    def test_anon_can_read_both_views(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(1, 400)], self.D2)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT count(*) FROM price_changes")
+            assert cur.fetchone()[0] == 1
+            cur.execute("SELECT drops FROM price_change_counts")
+            assert cur.fetchone()[0] == 1
+
+    def test_the_views_cannot_be_written_through(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(1, 400)], self.D2)
+
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.Error):
+                cur.execute("UPDATE price_changes SET price_cents = 1")

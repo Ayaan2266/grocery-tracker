@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBasket } from "lucide-react";
 
-export type HeaderPage = "home" | "how-it-works" | "basket";
+export type HeaderPage = "home" | "changes" | "how-it-works" | "basket";
 
 /**
  * The header itself, given the basket count. SiteHeader reads the count from
@@ -18,6 +18,11 @@ export function HeaderBar({ current, items = 0 }: { current?: HeaderPage; items?
       </Link>
       <nav aria-label="Main navigation">
         <Link href="/" aria-current={current === "home" ? "page" : undefined}>Home</Link>
+        {/* "Changes" on a phone, where three links have to fit beside the brand. */}
+        <Link href="/changes" aria-current={current === "changes" ? "page" : undefined}>
+          <span className="nav-long">Price changes</span>
+          <span className="nav-short" aria-hidden="true">Changes</span>
+        </Link>
         <Link href="/how-it-works" aria-current={current === "how-it-works" ? "page" : undefined}>
           How it works
         </Link>

@@ -1,5 +1,6 @@
 import { getSupabase, MISSING_CREDENTIALS } from "./supabase.ts";
 import { fetchAll, type QueryResult } from "./pagination.ts";
+import type { Direction, PriceChange, PriceChangeCount } from "./changes.ts";
 
 /**
  * One row of `product_latest_price`: a product carrying its most recent
@@ -423,4 +424,62 @@ export async function getCoverage(): Promise<Result<Coverage | null>> {
 
   if (error) return { data: null, error: error.message };
   return { data: (data as Coverage) ?? null, error: null };
+}
+
+/**
+ * Every store's drop and rise counts for the night it last ran: one row per
+ * store, so a dozen rows whatever the night was like (price_change_counts,
+ * db/migrations/0016).
+ */
+export async function getPriceChangeCounts(): Promise<Result<PriceChangeCount[]>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const { data, error } = await supabase
+    .from("price_change_counts")
+    .select("store_id, changed_on, drops, rises")
+    .order("store_id");
+  if (error) return { data: null, error: error.message };
+  return { data: (data ?? []) as PriceChangeCount[], error: null };
+}
+
+export const CHANGES_PAGE_SIZE = 40;
+
+export type PriceChangePage = { rows: PriceChange[]; hasMore: boolean };
+
+/**
+ * One page of a night's price changes, biggest first: the largest drop by
+ * percentage for "down", the largest rise for "up", then by amount, then by
+ * product so the order is stable across pages. `storeIds` limits it to those
+ * stores; null reads every store. Asks for one row more than it shows, like
+ * searchProducts, so "Show more" needs no count.
+ */
+export async function getPriceChanges({
+  day,
+  direction,
+  storeIds,
+  limit = CHANGES_PAGE_SIZE,
+}: {
+  day: string;
+  direction: Direction;
+  storeIds: number[] | null;
+  limit?: number;
+}): Promise<Result<PriceChangePage>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
+  const capped = Math.min(Math.max(limit, 1), MAX_RESULTS);
+  const ascending = direction === "down";
+  let query = supabase.from("price_changes").select("*").eq("changed_on", day);
+  query = direction === "down" ? query.lt("change_cents", 0) : query.gt("change_cents", 0);
+  if (storeIds !== null) query = query.in("store_id", storeIds);
+  const { data, error } = await query
+    .order("change_percent", { ascending })
+    .order("change_cents", { ascending })
+    .order("product_id")
+    .limit(capped + 1);
+
+  if (error) return { data: null, error: error.message };
+  const rows = (data ?? []) as PriceChange[];
+  return { data: { rows: rows.slice(0, capped), hasMore: rows.length > capped }, error: null };
 }
