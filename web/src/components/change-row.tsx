@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";
 import { StoreChip } from "@/components/price-row";
-import { changeReason, changeSpoken, changeText, type PriceChange } from "@/lib/changes";
+import { changeReason, changeSpoken, changeText, isWeighed, type PriceChange } from "@/lib/changes";
 import { formatCents } from "@/lib/utils";
 
 /**
@@ -25,6 +25,7 @@ export function ChangeRow({
 }) {
   const down = change.change_cents < 0;
   const reason = changeReason(change);
+  const weighed = isWeighed(change);
   return (
     <li className={down ? "change-row is-down" : "change-row is-up"} id={id}>
       <div className="change-row-product">
@@ -33,7 +34,10 @@ export function ChangeRow({
             {change.raw_name}
           </Link>
         </h3>
-        <p>{[change.brand, change.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+        <p>
+          {[change.brand, weighed ? "Sold by weight" : change.package_size].filter(Boolean).join(" · ") ||
+            "Grocery item"}
+        </p>
         <div className="price-row-chips">
           <StoreChip row={{ ...change, observed_on: change.changed_on }} mark={mark} />
           {reason === "sale-started" && change.was_price_cents !== null && (
@@ -45,6 +49,7 @@ export function ChangeRow({
       <div className="change-row-amount">
         <s><span className="visually-hidden">Was </span>{formatCents(change.previous_price_cents)}</s>
         <strong><span className="visually-hidden">Now </span>{formatCents(change.price_cents)}</strong>
+        {weighed && <small className="change-row-unit">per piece, est.</small>}
         <span className="change-badge">
           {down ? <ArrowDown size={13} strokeWidth={3} aria-hidden="true" /> : <ArrowUp size={13} strokeWidth={3} aria-hidden="true" />}
           <span aria-hidden="true">{changeText(change)}</span>

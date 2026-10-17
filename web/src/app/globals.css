@@ -747,6 +747,10 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 .change-row-amount s { color: var(--muted); font-size: 14px; font-weight: 650; }
 .change-row-amount strong { color: var(--blue-dark); font-size: 26px; font-weight: 850; letter-spacing: -.03em; line-height: 1.05; }
 .change-row.is-down .change-row-amount strong { color: #17643a; }
+.change-row-unit { color: var(--muted); font-size: 12px; font-weight: 700; }
+.weighed-changes { display: grid; gap: 12px; margin-top: 34px; }
+.weighed-changes h2 { margin: 0; font-size: 24px; font-weight: 850; letter-spacing: -.04em; }
+.weighed-changes > p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 15px; line-height: 1.45; }
 .change-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 850; white-space: nowrap; }
 .is-down .change-badge { background: #e3f6ea; color: #17643a; }
 .is-up .change-badge { background: var(--pink); color: #ad1630; }

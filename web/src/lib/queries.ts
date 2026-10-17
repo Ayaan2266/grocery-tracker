@@ -445,25 +445,31 @@ export async function getPriceChangeCounts(): Promise<Result<PriceChangeCount[]>
 
 export const CHANGES_PAGE_SIZE = 40;
 
+/** Codes of items sold by weight, as a LIKE pattern: they end in "_KG". */
+const WEIGHED_PATTERN = "%\\_KG";
+
 export type PriceChangePage = { rows: PriceChange[]; hasMore: boolean };
 
 /**
  * One page of a night's price changes, biggest first: the largest drop by
  * percentage for "down", the largest rise for "up", then by amount, then by
  * product so the order is stable across pages. `storeIds` limits it to those
- * stores; null reads every store. Asks for one row more than it shows, like
- * searchProducts, so "Show more" needs no count.
+ * stores; null reads every store. `weighed` keeps only items sold by weight
+ * (true) or only packaged ones (false); left out, it reads both. Asks for one
+ * row more than it shows, like searchProducts, so "Show more" needs no count.
  */
 export async function getPriceChanges({
   day,
   direction,
   storeIds,
   limit = CHANGES_PAGE_SIZE,
+  weighed,
 }: {
   day: string;
   direction: Direction;
   storeIds: number[] | null;
   limit?: number;
+  weighed?: boolean;
 }): Promise<Result<PriceChangePage>> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
@@ -473,6 +479,10 @@ export async function getPriceChanges({
   let query = supabase.from("price_changes").select("*").eq("changed_on", day);
   query = direction === "down" ? query.lt("change_cents", 0) : query.gt("change_cents", 0);
   if (storeIds !== null) query = query.in("store_id", storeIds);
+  // The same rule as isWeighed (lib/changes.ts), in SQL LIKE: "\_" is a
+  // literal underscore, not "any one character".
+  if (weighed === true) query = query.like("retailer_sku", WEIGHED_PATTERN);
+  if (weighed === false) query = query.not("retailer_sku", "like", WEIGHED_PATTERN);
   const { data, error } = await query
     .order("change_percent", { ascending })
     .order("change_cents", { ascending })

@@ -8,6 +8,7 @@ import {
   changesHref,
   dayHeading,
   isFlyerNight,
+  isWeighed,
   latestChangeDay,
   parseDirection,
   parseStoreFilter,
@@ -80,4 +81,11 @@ test("links keep the filters and leave out the defaults", () => {
   assert.equal(changesHref({ direction: "down", store: null }), "/changes");
   assert.equal(changesHref({ direction: "up", store: 7 }), "/changes?dir=up&store=7");
   assert.equal(changesHref({ direction: "down", store: null, count: 60 }), "/changes?n=60");
+});
+
+test("items sold by weight are told apart by their _KG code, as ingestion does", () => {
+  assert.equal(isWeighed({ retailer_sku: "20036155001_KG" }), true, "loose Brussels sprouts");
+  assert.equal(isWeighed({ retailer_sku: "21456738001_EA" }), false, "the 907 g bag");
+  assert.equal(isWeighed({ retailer_sku: "21104064_EA" }), false);
+  assert.equal(isWeighed({ retailer_sku: "20036155001KG" }), false, "the underscore is part of the suffix");
 });

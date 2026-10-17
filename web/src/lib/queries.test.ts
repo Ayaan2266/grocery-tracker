@@ -85,3 +85,13 @@ test("price increases sort the other way, and every store is read when none is c
   assert.equal(page.data?.rows.length, 2);
   assert.equal(page.data?.hasMore, true);
 });
+
+test("price changes can keep only packaged items, or only items sold by weight", async () => {
+  await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, limit: 40, weighed: false });
+  await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, limit: 12, weighed: true });
+  await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, limit: 40 });
+  // A literal underscore: "_" alone in LIKE would match any one character.
+  assert.equal(requests[0].searchParams.get("retailer_sku"), "not.like.%\\_KG");
+  assert.equal(requests[1].searchParams.get("retailer_sku"), "like.%\\_KG");
+  assert.equal(requests[2].searchParams.get("retailer_sku"), null, "both kinds when left out");
+});
