@@ -10,6 +10,10 @@ import {
   isFlyerNight,
   isWeighed,
   latestChangeDay,
+  parseChain,
+  parseDeal,
+  parseMinChange,
+  parseSort,
   parseDirection,
   parseStoreFilter,
   percentText,
@@ -88,4 +92,41 @@ test("items sold by weight are told apart by their _KG code, as ingestion does",
   assert.equal(isWeighed({ retailer_sku: "21456738001_EA" }), false, "the 907 g bag");
   assert.equal(isWeighed({ retailer_sku: "21104064_EA" }), false);
   assert.equal(isWeighed({ retailer_sku: "20036155001KG" }), false, "the underscore is part of the suffix");
+});
+
+test("deal filters only apply to the direction they describe", () => {
+  assert.equal(parseDeal("sale", "down"), "sale");
+  assert.equal(parseDeal("sale", "up"), null, "a rise is never a sale starting");
+  assert.equal(parseDeal("ended", "up"), "ended");
+  assert.equal(parseDeal("ended", "down"), null);
+  assert.equal(parseDeal("unmarked", "down"), "unmarked");
+  assert.equal(parseDeal("unmarked", "up"), "unmarked");
+  assert.equal(parseDeal("", "down"), null);
+  assert.equal(parseDeal(undefined, "up"), null);
+});
+
+test("size and chain filters accept only the offered values", () => {
+  assert.equal(parseMinChange("25"), 25);
+  for (const bad of [undefined, "", "0", "30", "-10", "25abc"]) assert.equal(parseMinChange(bad), null, String(bad));
+  assert.equal(parseChain("superstore", ["nofrills", "superstore"]), "superstore");
+  assert.equal(parseChain("maxi", ["nofrills"]), null, "a chain outside the store scope");
+  assert.equal(parseChain("", ["nofrills"]), null);
+});
+
+test("links keep every filter, and leave out the ones not set", () => {
+  assert.equal(
+    changesHref({ direction: "up", store: 7, chain: "superstore", deal: "ended", min: 25, count: 80 }),
+    "/changes?dir=up&chain=superstore&store=7&deal=ended&min=25&n=80",
+  );
+  assert.equal(changesHref({ direction: "down", store: null, chain: null, deal: null, min: null }), "/changes");
+});
+
+test("the sort defaults to the biggest change, and only offered orders count", () => {
+  assert.equal(parseSort(undefined), "change");
+  assert.equal(parseSort(""), "change");
+  assert.equal(parseSort("price-asc"), "price-asc");
+  assert.equal(parseSort("name-desc"), "name-desc");
+  assert.equal(parseSort("random"), "change");
+  assert.equal(changesHref({ direction: "down", store: null, sort: "name-asc" }), "/changes?sort=name-asc");
+  assert.equal(changesHref({ direction: "down", store: null, sort: "change" }), "/changes", "the default stays out of the URL");
 });

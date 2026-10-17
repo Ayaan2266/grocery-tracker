@@ -156,19 +156,82 @@ export function isFlyerNight(iso: string): boolean {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 4;
 }
 
+/**
+ * What the store says about a change, as a filter. A drop is a marked sale
+ * when the store now shows a regular price; a rise is a sale ending when it
+ * showed one last night and not tonight (changeReason). "unmarked" is every
+ * other change in that direction.
+ */
+export type Deal = "sale" | "ended" | "unmarked";
+
+/** The deal filters that make sense for each direction, in menu order. */
+export const DEALS: Record<Direction, { value: Deal; label: string }[]> = {
+  down: [
+    { value: "sale", label: "Marked as a store sale" },
+    { value: "unmarked", label: "No sale marked" },
+  ],
+  up: [
+    { value: "ended", label: "A sale ended" },
+    { value: "unmarked", label: "Not a sale ending" },
+  ],
+};
+
+/** A deal filter, only when it applies to this direction. */
+export function parseDeal(raw: string | undefined, direction: Direction): Deal | null {
+  return DEALS[direction].find((d) => d.value === raw)?.value ?? null;
+}
+
+/** The smallest changes worth a filter, in percent. */
+export const MIN_CHANGES = [10, 25, 50] as const;
+
+export function parseMinChange(raw: string | undefined): number | null {
+  const n = Number(raw);
+  return (MIN_CHANGES as readonly number[]).includes(n) ? n : null;
+}
+
+/** A chain filter, only when it names a banner the page is showing. */
+export function parseChain(raw: string | undefined, banners: string[]): string | null {
+  return raw && banners.includes(raw) ? raw : null;
+}
+
+/** How the list is ordered. "change" is the default: the biggest change first. */
+export type Sort = "change" | "price-asc" | "price-desc" | "name-asc" | "name-desc";
+
+export const SORTS: { value: Sort; label: string }[] = [
+  { value: "change", label: "Biggest change" },
+  { value: "price-asc", label: "Price: low to high" },
+  { value: "price-desc", label: "Price: high to low" },
+  { value: "name-asc", label: "Name: A to Z" },
+  { value: "name-desc", label: "Name: Z to A" },
+];
+
+export function parseSort(raw: string | undefined): Sort {
+  return SORTS.find((s) => s.value === raw)?.value ?? "change";
+}
+
+export type ChangeFilters = { chain: string | null; deal: Deal | null; min: number | null; sort?: Sort };
+
 /** The page's own address with its filters, for tabs, chips and "Show more". */
 export function changesHref({
   direction,
   store,
   count,
+  chain = null,
+  deal = null,
+  min = null,
+  sort = "change",
 }: {
   direction: Direction;
   store: number | null;
   count?: number;
-}): string {
+} & Partial<ChangeFilters>): string {
   const params = new URLSearchParams();
   if (direction === "up") params.set("dir", "up");
+  if (chain !== null) params.set("chain", chain);
   if (store !== null) params.set("store", String(store));
+  if (deal !== null) params.set("deal", deal);
+  if (min !== null) params.set("min", String(min));
+  if (sort !== "change") params.set("sort", sort);
   if (count !== undefined) params.set("n", String(count));
   const query = params.toString();
   return query ? `/changes?${query}` : "/changes";

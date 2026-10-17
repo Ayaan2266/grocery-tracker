@@ -95,3 +95,39 @@ test("price changes can keep only packaged items, or only items sold by weight",
   assert.equal(requests[1].searchParams.get("retailer_sku"), "like.%\\_KG");
   assert.equal(requests[2].searchParams.get("retailer_sku"), null, "both kinds when left out");
 });
+
+test("deal and size filters become the database conditions changeReason describes", async () => {
+  await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, deal: "sale", minPercent: 25 });
+  await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, deal: "unmarked" });
+  await getPriceChanges({ day: "2026-10-17", direction: "up", storeIds: null, deal: "ended", minPercent: 10 });
+  await getPriceChanges({ day: "2026-10-17", direction: "up", storeIds: null, deal: "unmarked" });
+  const [saleDown, unmarkedDown, endedUp, unmarkedUp] = requests.map((r) => r.searchParams);
+  assert.equal(saleDown.get("was_price_cents"), "not.is.null");
+  assert.equal(saleDown.get("change_percent"), "lte.-25");
+  assert.equal(unmarkedDown.get("was_price_cents"), "is.null");
+  assert.equal(endedUp.get("previous_was_price_cents"), "not.is.null");
+  assert.equal(endedUp.get("was_price_cents"), "is.null");
+  assert.equal(endedUp.get("change_percent"), "gte.10");
+  assert.equal(unmarkedUp.get("or"), "(previous_was_price_cents.is.null,was_price_cents.not.is.null)");
+});
+
+test("a page of changes reports how many match in all", async () => {
+  respond = () => new Response("[]", { headers: { "content-type": "application/json", "content-range": "0-0/57" } });
+  const page = await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, minPercent: 50 });
+  assert.equal(page.data?.total, 57);
+});
+
+test("the list can be ordered by price or by name, with product id last for stable pages", async () => {
+  const sorts = ["price-asc", "price-desc", "name-asc", "name-desc", "change"] as const;
+  for (const sort of sorts) await getPriceChanges({ day: "2026-10-17", direction: "down", storeIds: null, sort });
+  assert.deepEqual(
+    requests.map((r) => r.searchParams.get("order")),
+    [
+      "price_cents.asc,raw_name.asc,product_id.asc",
+      "price_cents.desc,raw_name.asc,product_id.asc",
+      "raw_name.asc,price_cents.asc,product_id.asc",
+      "raw_name.desc,price_cents.asc,product_id.asc",
+      "change_percent.asc,change_cents.asc,product_id.asc",
+    ],
+  );
+});
