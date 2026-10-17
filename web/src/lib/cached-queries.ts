@@ -66,8 +66,8 @@ export function getPriceChangeCountsCached(): Promise<Result<PriceChangeCount[]>
  * list is sorted first so the same set always makes the same key.
  */
 const changes = unstable_cache(
-  async (day: string, direction: Direction, storeIds: number[] | null, limit: number) =>
-    orThrow(await getPriceChanges({ day, direction, storeIds, limit })),
+  async (day: string, direction: Direction, storeIds: number[] | null, limit: number, weighed: boolean | null) =>
+    orThrow(await getPriceChanges({ day, direction, storeIds, limit, weighed: weighed ?? undefined })),
   ["price-changes"],
   { revalidate: CACHE_SECONDS },
 );
@@ -77,7 +77,8 @@ export function getPriceChangesCached(options: {
   direction: Direction;
   storeIds: number[] | null;
   limit: number;
+  weighed?: boolean;
 }): Promise<Result<PriceChangePage>> {
   const ids = options.storeIds === null ? null : [...options.storeIds].sort((a, b) => a - b);
-  return settle(() => changes(options.day, options.direction, ids, options.limit));
+  return settle(() => changes(options.day, options.direction, ids, options.limit, options.weighed ?? null));
 }

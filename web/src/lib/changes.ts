@@ -86,6 +86,20 @@ export function tally(counts: PriceChangeCount[], day: string | null, storeIds: 
   return { drops, rises, byStore };
 }
 
+/** The code suffix of an item sold by weight (WEIGHED_SUFFIX in ingest/match.py). */
+export const WEIGHED_SUFFIX = "_KG";
+
+/**
+ * Sold by weight: loose produce and deli counter items. The shelf price is for
+ * one piece at a weight the store estimates (lib/matching.ts), so a change can
+ * be the estimate moving as much as the price, and a large one reads like a
+ * mistake beside packaged goods. The page lists these apart and never names
+ * one as the night's biggest change.
+ */
+export function isWeighed(change: Pick<PriceChange, "retailer_sku">): boolean {
+  return change.retailer_sku.endsWith(WEIGHED_SUFFIX);
+}
+
 const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 
 /** The size of a percentage change, no sign: whole percent from 1% up, one decimal below. */

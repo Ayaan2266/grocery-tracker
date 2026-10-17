@@ -38,6 +38,9 @@ function first(value: string | string[] | undefined): string | undefined {
 
 const count = (n: number) => n.toLocaleString("en-CA");
 
+/** Items sold by weight listed under the main list, biggest change first. */
+const WEIGHED_SHOWN = 12;
+
 /** "Biggest: Old Cheddar at Loblaws Toronto Carlton Street, down 31%." */
 function biggest(change: PriceChange | undefined): string | null {
   if (!change) return null;
@@ -68,15 +71,20 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
   const ids = store !== null ? [store] : scoped.storeIds;
   const other: Direction = direction === "down" ? "up" : "down";
 
-  const [list, otherTop] = day
+  // Packaged items make the list and the headline cards; items sold by weight
+  // get their own short list below it (isWeighed in lib/changes.ts says why).
+  const [list, otherTop, weighedList] = day
     ? await Promise.all([
-        getPriceChangesCached({ day, direction, storeIds: ids, limit }),
-        getPriceChangesCached({ day, direction: other, storeIds: ids, limit: 1 }),
+        getPriceChangesCached({ day, direction, storeIds: ids, limit, weighed: false }),
+        getPriceChangesCached({ day, direction: other, storeIds: ids, limit: 1, weighed: false }),
+        getPriceChangesCached({ day, direction, storeIds: ids, limit: WEIGHED_SHOWN, weighed: true }),
       ])
-    : [null, null];
+    : [null, null, null];
   const rows = list?.data?.rows ?? [];
   const hasMore = (list?.data?.hasMore ?? false) && limit < MAX_RESULTS;
-  const error = scoped.error ?? counts.error ?? list?.error ?? otherTop?.error ?? null;
+  const weighedRows = weighedList?.data?.rows ?? [];
+  const weighedMore = weighedList?.data?.hasMore ?? false;
+  const error = scoped.error ?? counts.error ?? list?.error ?? otherTop?.error ?? weighedList?.error ?? null;
 
   const top = { [direction]: rows[0], [other]: otherTop?.data?.rows[0] } as Record<Direction, PriceChange | undefined>;
   const filtered = store !== null ? totals.byStore.get(store) ?? { drops: 0, rises: 0 } : totals;
@@ -224,7 +232,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                 </>
               )}
 
-              {rows.length > 0 ? (
+              {rows.length > 0 && (
                 <ul className="change-list">
                   {rows.map((change, index) => (
                     <ChangeRow
@@ -236,7 +244,8 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                     />
                   ))}
                 </ul>
-              ) : (
+              )}
+              {rows.length === 0 && weighedRows.length === 0 && (
                 <div className="empty-state">
                   <p>No price {word} {store !== null ? `at ${storeLabel(store)} ` : ""}overnight.</p>
                   <p>
@@ -258,6 +267,27 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                 >
                   Show more price {word} <ArrowDown size={18} aria-hidden="true" />
                 </Link>
+              )}
+
+              {weighedRows.length > 0 && (
+                <section className="weighed-changes" aria-labelledby="weighed-heading">
+                  <h2 id="weighed-heading">Sold by weight</h2>
+                  <p>
+                    Loose produce and deli items are priced per piece at a weight the store estimates, so a change
+                    here can be that estimate moving as well as the price. They are listed apart from packaged
+                    groceries{weighedMore ? `; the ${WEIGHED_SHOWN} biggest are shown` : ""}.
+                  </p>
+                  <ul className="change-list">
+                    {weighedRows.map((change) => (
+                      <ChangeRow
+                        key={change.product_id}
+                        change={change}
+                        quantity={basket.get(change.product_id) ?? 0}
+                        mark={scoped.marks.get(change.store_id)}
+                      />
+                    ))}
+                  </ul>
+                </section>
               )}
 
               <p className="price-note">
