@@ -1,6 +1,6 @@
 import { getSupabase, MISSING_CREDENTIALS } from "./supabase.ts";
 import { fetchAll, type QueryResult } from "./pagination.ts";
-import type { Direction, PriceChange, PriceChangeCount } from "./changes.ts";
+import type { Deal, Direction, PriceChange, PriceChangeCount, Sort } from "./changes.ts";
 
 /**
  * One row of `product_latest_price`: a product carrying its most recent
@@ -448,15 +448,24 @@ export const CHANGES_PAGE_SIZE = 40;
 /** Codes of items sold by weight, as a LIKE pattern: they end in "_KG". */
 const WEIGHED_PATTERN = "%\\_KG";
 
-export type PriceChangePage = { rows: PriceChange[]; hasMore: boolean };
+export type PriceChangePage = {
+  rows: PriceChange[];
+  hasMore: boolean;
+  /** Every change matching the filters, for "N match"; null if the count was not returned. */
+  total: number | null;
+};
 
 /**
  * One page of a night's price changes, biggest first: the largest drop by
  * percentage for "down", the largest rise for "up", then by amount, then by
  * product so the order is stable across pages. `storeIds` limits it to those
  * stores; null reads every store. `weighed` keeps only items sold by weight
- * (true) or only packaged ones (false); left out, it reads both. Asks for one
- * row more than it shows, like searchProducts, so "Show more" needs no count.
+ * (true) or only packaged ones (false); left out, it reads both. `deal` keeps
+ * the changes the store does or does not explain (Deal in lib/changes.ts) and
+ * `minPercent` the ones at least that large. `sort` reorders the page by
+ * tonight's price or by name instead (Sort in lib/changes.ts). Asks for one row more than it
+ * shows, like searchProducts, so "Show more" needs no count; the exact count
+ * comes back too, for the filtered total.
  */
 export async function getPriceChanges({
   day,
@@ -464,32 +473,52 @@ export async function getPriceChanges({
   storeIds,
   limit = CHANGES_PAGE_SIZE,
   weighed,
+  deal = null,
+  minPercent = null,
+  sort = "change",
 }: {
   day: string;
   direction: Direction;
   storeIds: number[] | null;
   limit?: number;
   weighed?: boolean;
+  deal?: Deal | null;
+  minPercent?: number | null;
+  sort?: Sort;
 }): Promise<Result<PriceChangePage>> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
   const capped = Math.min(Math.max(limit, 1), MAX_RESULTS);
   const ascending = direction === "down";
-  let query = supabase.from("price_changes").select("*").eq("changed_on", day);
+  let query = supabase.from("price_changes").select("*", { count: "exact" }).eq("changed_on", day);
   query = direction === "down" ? query.lt("change_cents", 0) : query.gt("change_cents", 0);
   if (storeIds !== null) query = query.in("store_id", storeIds);
   // The same rule as isWeighed (lib/changes.ts), in SQL LIKE: "\_" is a
   // literal underscore, not "any one character".
   if (weighed === true) query = query.like("retailer_sku", WEIGHED_PATTERN);
   if (weighed === false) query = query.not("retailer_sku", "like", WEIGHED_PATTERN);
-  const { data, error } = await query
-    .order("change_percent", { ascending })
-    .order("change_cents", { ascending })
-    .order("product_id")
-    .limit(capped + 1);
+  // The same rules as changeReason (lib/changes.ts), for one direction each.
+  if (deal === "sale") query = query.not("was_price_cents", "is", null);
+  if (deal === "ended") query = query.not("previous_was_price_cents", "is", null).is("was_price_cents", null);
+  if (deal === "unmarked") {
+    query = direction === "down"
+      ? query.is("was_price_cents", null)
+      : query.or("previous_was_price_cents.is.null,was_price_cents.not.is.null");
+  }
+  if (minPercent !== null) {
+    query = direction === "down" ? query.lte("change_percent", -minPercent) : query.gte("change_percent", minPercent);
+  }
+  if (sort === "price-asc" || sort === "price-desc") {
+    query = query.order("price_cents", { ascending: sort === "price-asc" }).order("raw_name");
+  } else if (sort === "name-asc" || sort === "name-desc") {
+    query = query.order("raw_name", { ascending: sort === "name-asc" }).order("price_cents");
+  } else {
+    query = query.order("change_percent", { ascending }).order("change_cents", { ascending });
+  }
+  const { data, error, count } = await query.order("product_id").limit(capped + 1);
 
   if (error) return { data: null, error: error.message };
   const rows = (data ?? []) as PriceChange[];
-  return { data: { rows: rows.slice(0, capped), hasMore: rows.length > capped }, error: null };
+  return { data: { rows: rows.slice(0, capped), hasMore: rows.length > capped, total: count ?? null }, error: null };
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { ChangeRow } from "@/components/change-row";
+import { ChangesFilters } from "@/components/changes-filters";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -14,7 +15,11 @@ import {
   dayHeading,
   isFlyerNight,
   latestChangeDay,
+  parseChain,
+  parseDeal,
   parseDirection,
+  parseMinChange,
+  parseSort,
   parseStoreFilter,
   percentText,
   tally,
@@ -30,7 +35,15 @@ export const metadata: Metadata = {
   description: "Every grocery shelf price that went up or down overnight, biggest change first.",
 };
 
-type SearchParams = { dir?: string | string[]; store?: string | string[]; n?: string | string[] };
+type SearchParams = {
+  dir?: string | string[];
+  store?: string | string[];
+  n?: string | string[];
+  chain?: string | string[];
+  deal?: string | string[];
+  min?: string | string[];
+  sort?: string | string[];
+};
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -65,28 +78,45 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
     readBasket(),
   ]);
   const inScope = scoped.storeIds ?? scoped.stores.map((s) => s.id);
-  const store = parseStoreFilter(first(params.store), inScope);
+  const bannerOf = (id: number) => scoped.stores.find((s) => s.id === id)?.banner_slug;
+  const chains = [...new Set(inScope.map(bannerOf).filter((b): b is string => b !== undefined))];
+  // A chain narrows the page to its stores: the counts, the store chips and
+  // the list. A store from another chain falls back to the whole chain.
+  const chain = parseChain(first(params.chain), chains);
+  const chainIds = chain === null ? null : inScope.filter((id) => bannerOf(id) === chain);
+  const deal = parseDeal(first(params.deal), direction);
+  const min = parseMinChange(first(params.min));
+  const sort = parseSort(first(params.sort));
+  const filters = { chain, deal, min, sort };
+  const store = parseStoreFilter(first(params.store), chainIds ?? inScope);
   const day = counts.data ? latestChangeDay(counts.data) : null;
-  const totals = tally(counts.data ?? [], day, scoped.storeIds);
-  const ids = store !== null ? [store] : scoped.storeIds;
+  const totals = tally(counts.data ?? [], day, chainIds ?? scoped.storeIds);
+  const ids = store !== null ? [store] : chainIds ?? scoped.storeIds;
   const other: Direction = direction === "down" ? "up" : "down";
 
   // Packaged items make the list and the headline cards; items sold by weight
   // get their own short list below it (isWeighed in lib/changes.ts says why).
-  const [list, otherTop, weighedList] = day
+  // The headline cards name each direction's biggest change, whatever the
+  // list's sort and deal or size filters, so they read their own one row.
+  const [list, thisTop, otherTop, weighedList] = day
     ? await Promise.all([
-        getPriceChangesCached({ day, direction, storeIds: ids, limit, weighed: false }),
+        getPriceChangesCached({ day, direction, storeIds: ids, limit, weighed: false, deal, minPercent: min, sort }),
+        getPriceChangesCached({ day, direction, storeIds: ids, limit: 1, weighed: false }),
         getPriceChangesCached({ day, direction: other, storeIds: ids, limit: 1, weighed: false }),
-        getPriceChangesCached({ day, direction, storeIds: ids, limit: WEIGHED_SHOWN, weighed: true }),
+        getPriceChangesCached({ day, direction, storeIds: ids, limit: WEIGHED_SHOWN, weighed: true, deal, minPercent: min, sort }),
       ])
-    : [null, null, null];
+    : [null, null, null, null];
   const rows = list?.data?.rows ?? [];
   const hasMore = (list?.data?.hasMore ?? false) && limit < MAX_RESULTS;
   const weighedRows = weighedList?.data?.rows ?? [];
   const weighedMore = weighedList?.data?.hasMore ?? false;
-  const error = scoped.error ?? counts.error ?? list?.error ?? otherTop?.error ?? weighedList?.error ?? null;
+  const error =
+    scoped.error ?? counts.error ?? list?.error ?? thisTop?.error ?? otherTop?.error ?? weighedList?.error ?? null;
+  // The store counts cannot see deal or size, so a filtered view counts its own.
+  const matching =
+    deal !== null || min !== null ? (list?.data?.total ?? 0) + (weighedList?.data?.total ?? 0) : null;
 
-  const top = { [direction]: rows[0], [other]: otherTop?.data?.rows[0] } as Record<Direction, PriceChange | undefined>;
+  const top = { [direction]: thisTop?.data?.rows[0], [other]: otherTop?.data?.rows[0] } as Record<Direction, PriceChange | undefined>;
   const filtered = store !== null ? totals.byStore.get(store) ?? { drops: 0, rises: 0 } : totals;
   const shown = direction === "down" ? filtered.drops : filtered.rises;
   const storesWithChanges = scoped.stores.filter((s) => totals.byStore.has(s.id));
@@ -164,7 +194,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                   {(["down", "up"] as const).map((d) => (
                     <Link
                       key={d}
-                      href={changesHref({ direction: d, store })}
+                      href={changesHref({ direction: d, store, chain, min, sort, deal: parseDeal(deal ?? undefined, d) })}
                       aria-current={d === direction ? "true" : undefined}
                       scroll={false}
                     >
@@ -177,24 +207,39 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
               </div>
               {scopeHelp && <p className="scope-help">{scopeHelp}</p>}
 
+              <ChangesFilters
+                key={`${direction}|${store}|${chain}|${deal}|${min}|${sort}`}
+                direction={direction}
+                store={store}
+                chains={chains}
+                filters={filters}
+              />
+              {matching !== null && (
+                <p className="filter-result" role="status">
+                  {count(matching)} of {count(shown)} price {word} match.{" "}
+                  <Link href={changesHref({ direction, store, chain, sort })} scroll={false}>Clear deal and size</Link>
+                </p>
+              )}
+
               {storesWithChanges.length > 1 && (
                 <>
                   <nav className="store-filter" aria-label="Store">
                     <span className="store-filter-label">Store</span>
                     <Link
-                      href={changesHref({ direction, store: null })}
+                      href={changesHref({ direction, store: null, ...filters })}
                       aria-current={store === null ? "true" : undefined}
                       className="store-filter-all"
                       scroll={false}
                     >
-                      All stores · {count(direction === "down" ? totals.drops : totals.rises)}
+                      {chain === null ? "All stores" : `All ${BANNER_SHORT[chain] ?? chain}`} ·{" "}
+                      {count(direction === "down" ? totals.drops : totals.rises)}
                     </Link>
                     {storesWithChanges.map((s) => {
                       const c = totals.byStore.get(s.id)!;
                       return (
                         <Link
                           key={s.id}
-                          href={changesHref({ direction, store: s.id })}
+                          href={changesHref({ direction, store: s.id, ...filters })}
                           aria-current={store === s.id ? "true" : undefined}
                           className="store-chip"
                           scroll={false}
@@ -212,15 +257,16 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                     <summary>Store: {store === null ? "All stores" : storeLabel(store)} ({count(shown)})</summary>
                     <ul>
                       <li>
-                        <Link href={changesHref({ direction, store: null })} aria-current={store === null ? "true" : undefined}>
-                          All stores · {count(direction === "down" ? totals.drops : totals.rises)}
+                        <Link href={changesHref({ direction, store: null, ...filters })} aria-current={store === null ? "true" : undefined}>
+                          {chain === null ? "All stores" : `All ${BANNER_SHORT[chain] ?? chain}`} ·{" "}
+                          {count(direction === "down" ? totals.drops : totals.rises)}
                         </Link>
                       </li>
                       {storesWithChanges.map((s) => {
                         const c = totals.byStore.get(s.id)!;
                         return (
                           <li key={s.id}>
-                            <Link href={changesHref({ direction, store: s.id })} aria-current={store === s.id ? "true" : undefined}>
+                            <Link href={changesHref({ direction, store: s.id, ...filters })} aria-current={store === s.id ? "true" : undefined}>
                               <StoreDot slug={s.banner_slug} mark={scoped.marks.get(s.id)} />
                               {storeLabel(s.id)} · {count(direction === "down" ? c.drops : c.rises)}
                             </Link>
@@ -245,14 +291,23 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                   ))}
                 </ul>
               )}
-              {rows.length === 0 && weighedRows.length === 0 && (
+              {rows.length === 0 && weighedRows.length === 0 && matching !== null && (
+                <div className="empty-state">
+                  <p>No price {word} {store !== null ? `at ${storeLabel(store)} ` : ""}match these filters.</p>
+                  <p>
+                    <Link href={changesHref({ direction, store, chain, sort })}>Clear deal and size</Link> to see every{" "}
+                    {direction === "down" ? "drop" : "increase"}.
+                  </p>
+                </div>
+              )}
+              {rows.length === 0 && weighedRows.length === 0 && matching === null && (
                 <div className="empty-state">
                   <p>No price {word} {store !== null ? `at ${storeLabel(store)} ` : ""}overnight.</p>
                   <p>
                     {direction === "down" ? (
-                      <Link href={changesHref({ direction: "up", store })}>See the increases</Link>
+                      <Link href={changesHref({ direction: "up", store, chain, sort })}>See the increases</Link>
                     ) : (
-                      <Link href={changesHref({ direction: "down", store })}>See the drops</Link>
+                      <Link href={changesHref({ direction: "down", store, chain, sort })}>See the drops</Link>
                     )}{" "}
                     or <Link href="/">search a staple</Link>.
                   </p>
@@ -262,7 +317,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
               {hasMore && (
                 <Link
                   className="show-more"
-                  href={`${changesHref({ direction, store, count: limit + CHANGES_PAGE_SIZE })}#change-${limit}`}
+                  href={`${changesHref({ direction, store, count: limit + CHANGES_PAGE_SIZE, ...filters })}#change-${limit}`}
                   scroll={false}
                 >
                   Show more price {word} <ArrowDown size={18} aria-hidden="true" />
