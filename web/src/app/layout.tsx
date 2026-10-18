@@ -22,7 +22,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
+      {/* Extensions such as Grammarly add attributes to <body> before React
+          hydrates. This silences only <body>'s own attributes, not its children. */}
+      <body suppressHydrationWarning>
         <NavigationProgress />
         {children}
       </body>
