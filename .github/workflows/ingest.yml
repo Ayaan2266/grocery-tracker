@@ -48,6 +48,12 @@ on:
         type: string
         default: ""
 
+# The jobs read the repository; the database and the PCX API are reached with
+# secrets, not the job token. keepalive sets its own permissions, which replace
+# these for that job only.
+permissions:
+  contents: read
+
 jobs:
   ingest:
     if: >-
