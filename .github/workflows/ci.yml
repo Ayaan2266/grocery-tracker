@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Checking out and testing reads the repository and writes nothing to it, so
+# the job token can do no more than that, whatever the repository default is.
+permissions:
+  contents: read
+
 jobs:
   python:
     name: ruff + pytest
