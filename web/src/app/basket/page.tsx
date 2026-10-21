@@ -206,6 +206,7 @@ function CheaperSimilar({ line }: { line: Line }) {
   return (
     <p className="similar-hint">
       <span className="similar-hint-label">Similar for less</span>
+      <ProductPhoto url={similar.image_url} variant="mini" />
       <Link href={`/product/${similar.product_id}`}>
         {[similar.brand, similar.raw_name].filter(Boolean).join(" ")}
       </Link>{" "}
