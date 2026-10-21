@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ShoppingBasket } from "lucide-react";
 
+import { LazyPhoto } from "@/components/lazy-photo";
 import { photoUrl } from "@/lib/images";
 
 const VARIANTS = {
@@ -16,7 +17,8 @@ const VARIANTS = {
  * A product's photo, loaded straight from the store's image server
  * (lib/images.ts). Unoptimized on purpose: the store already serves each
  * photo at the size asked for, and Vercel's free plan only resizes so many
- * images a month. Without a photo a list thumbnail is a pale tile with a
+ * images a month. List photos load only as they are scrolled near, so a
+ * long page does not fetch every photo at once. Without a photo a list thumbnail is a pale tile with a
  * basket, so rows still line up; the others are left out. The alt text
  * is empty because the product's name is always right beside it.
  */
@@ -38,15 +40,8 @@ export function ProductPhoto({
       </span>
     );
   }
-  return (
-    <Image
-      src={src}
-      alt=""
-      width={size}
-      height={size}
-      unoptimized
-      priority={variant === "large"}
-      className={className}
-    />
-  );
+  // The product page's photo is at the top, so it loads first; list photos
+  // wait until they are scrolled near (lazy-photo.tsx).
+  if (variant !== "large") return <LazyPhoto src={src} size={size} className={className} />;
+  return <Image src={src} alt="" width={size} height={size} unoptimized priority className={className} />;
 }
