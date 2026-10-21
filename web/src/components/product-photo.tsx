@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ShoppingBasket } from "lucide-react";
 
 import { photoUrl } from "@/lib/images";
 
@@ -15,8 +16,8 @@ const VARIANTS = {
  * A product's photo, loaded straight from the store's image server
  * (lib/images.ts). Unoptimized on purpose: the store already serves each
  * photo at the size asked for, and Vercel's free plan only resizes so many
- * images a month. Without a photo a list thumbnail is an empty tile of the
- * same size, so rows still line up; the others are left out. The alt text
+ * images a month. Without a photo a list thumbnail is a pale tile with a
+ * basket, so rows still line up; the others are left out. The alt text
  * is empty because the product's name is always right beside it.
  */
 export function ProductPhoto({
@@ -29,7 +30,14 @@ export function ProductPhoto({
   const { size, file } = VARIANTS[variant];
   const src = photoUrl(url, file);
   const className = `product-photo is-${variant}`;
-  if (!src) return variant === "thumb" ? <span className={`${className} is-empty`} aria-hidden="true" /> : null;
+  if (!src) {
+    if (variant !== "thumb") return null;
+    return (
+      <span className={`${className} is-empty`} aria-hidden="true">
+        <ShoppingBasket size={22} strokeWidth={2} />
+      </span>
+    );
+  }
   return (
     <Image
       src={src}
