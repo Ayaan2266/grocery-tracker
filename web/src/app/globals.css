@@ -368,9 +368,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .price-row-product { grid-area: product; }
 .price-row-product h3 { font-size: 17px; font-weight: 850; }
 .price-row-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 9px; }
-.store-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--navy); font-size: 12px; font-weight: 800; white-space: nowrap; }
-.store-chip i { width: 8px; height: 8px; border-radius: 999px; }
-.store-chip-area { color: var(--muted); font-weight: 700; }
+.store-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 3px 10px 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--navy); font-size: 12px; font-weight: 800; white-space: nowrap; }
+.store-chip i { flex: none; width: 8px; height: 8px; border-radius: 999px; }
+/* The chip stays one line; a long place name ends in an ellipsis. */
+.store-chip-area { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 700; }
 .store-chip-area::before { content: "·"; margin-right: 6px; }
 .status-badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .status-good { background: #e3f6ea; color: #17643a; }
@@ -471,7 +472,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .store-cell small { color: var(--muted); font-size: 12px; }
 .store-cell.is-cheapest { border-color: #9fd9b4; background: #e3f6ea; }
 .store-cell.is-cheapest strong { color: #17643a; }
-.similar-hint { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.similar-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .similar-hint a { color: var(--blue-dark); font-weight: 800; }
 .similar-hint-label { padding: 2px 8px; border-radius: 999px; background: #e3f6ea; color: #17643a; font-size: 11px; font-weight: 850; }
 .basket-summary { grid-area: summary; position: sticky; top: 20px; display: grid; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--white); box-shadow: 0 14px 34px rgba(15,44,110,.1); }
@@ -516,10 +517,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .basket-summary { padding: 18px; }
 }
 
-/* Similar items reuse the store comparison rows; the size sits where the bar does. */
+/* Similar items reuse the store comparison rows; the size sits where the bar
+   does, and the photo where the store dot does, the dot moving into the
+   store's label. */
 .similar-size { color: var(--muted); font-size: 13px; font-weight: 700; }
+.similar-items .store-compare-name small { display: inline-flex; align-items: center; gap: 5px; }
+.similar-items .store-compare-name small i { flex: none; width: 7px; height: 7px; border-radius: 999px; }
 @media (max-width: 600px) {
+  /* Two lines beside the photo: the name across, then size and price. */
+  .similar-items li { grid-template-areas: "dot name name" "dot bar price"; }
   .similar-items .similar-size { grid-area: bar; }
+  .similar-items li > .product-photo { grid-area: dot; align-self: start; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -787,8 +795,6 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
   .store-filter-menu a[aria-current="true"] { background: var(--pale-blue); color: var(--blue-dark); font-weight: 850; }
   .change-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "product product" "amount action"; gap: 10px; padding: 16px; }
   .change-row-product h3 { white-space: normal; }
-  /* A long banner and place wraps inside its chip instead of running off the row. */
-  .change-row .store-chip { white-space: normal; }
   .change-row-amount { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .change-row-amount strong { font-size: 24px; }
 }
@@ -799,9 +805,12 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Product photos (components/product-photo.tsx). The store's photos are
    product shots on white, so the tile is white too. A thumbnail without a
-   photo stays as an empty tile so a list keeps its left edge. */
+   photo is a pale tile with a basket, so a list keeps its left edge and the
+   gap never reads as a broken image. Design: Figma "Seven stores", 7 to 10. */
 .product-photo { flex: none; display: block; width: 56px; height: 56px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); object-fit: contain; }
 .product-photo.is-large { width: 160px; height: 160px; padding: 8px; border-radius: 20px; }
+.product-photo.is-mini { width: 32px; height: 32px; border-radius: 8px; }
+.product-photo.is-empty { display: grid; place-items: center; background: #f6f9ff; color: #9aa8c7; }
 .price-row-product, .change-row-product { display: flex; align-items: center; gap: 14px; }
 .row-text { flex: 1; min-width: 0; }
 .product-heading { display: flex; align-items: center; gap: 26px; }
@@ -812,6 +821,8 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
   .product-photo.is-thumb { width: 48px; height: 48px; border-radius: 10px; }
   /* Names wrap here, so the photo sits beside the first line, not the middle. */
   .price-row-product, .change-row-product { align-items: flex-start; }
+  /* With the photo taking width, one line cut most names short: allow two. */
+  .price-row-product h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
   .product-photo.is-large { width: 120px; height: 120px; }
   .product-heading { flex-direction: column; align-items: flex-start; gap: 16px; }
 }

@@ -294,12 +294,15 @@ function SimilarItems({
           const unit = formatUnitPrice(item.unit_price_cents, item.comparison_quantity, item.comparison_unit);
           return (
             <li key={item.product_id}>
-              <StoreDot slug={item.banner_slug} mark={marks.get(item.store_id)} />
+              <ProductPhoto url={item.image_url} variant="thumb" />
               <span className="store-compare-name">
                 <Link href={`/product/${item.product_id}?${new URLSearchParams({ q: query })}`}>
                   {[item.brand, item.raw_name].filter(Boolean).join(" ")}
                 </Link>
-                <small>{storeName(item.banner_slug, item.retailer_name, item.store_label)}</small>
+                <small>
+                  <StoreDot slug={item.banner_slug} mark={marks.get(item.store_id)} as="i" className="" />
+                  {storeName(item.banner_slug, item.retailer_name, item.store_label)}
+                </small>
               </span>
               <span className="similar-size">{item.package_size}</span>
               <span className="store-compare-price">
