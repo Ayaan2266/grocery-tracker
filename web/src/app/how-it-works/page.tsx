@@ -668,6 +668,10 @@ function Faq({ status }: { status: NightlyStatus | null }) {
       a: "Yes, it’s free: an independent, non-commercial project with no accounts and no ads. Your basket is kept in a cookie in your own browser.",
     },
     {
+      q: "Where do the product photos come from?",
+      a: "From the stores themselves. Loonie keeps only a link to each photo, and your browser loads it straight from Loblaw’s image server, the one their own websites use. That server sees the request, as it would for any page that shows the photo. Nothing else about your visit is sent to it.",
+    },
+    {
       q: "Why can’t I find an item?",
       a: (
         <>

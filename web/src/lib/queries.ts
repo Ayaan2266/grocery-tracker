@@ -49,6 +49,11 @@ export type LatestPrice = {
    */
   identity_key?: string | null;
   substitute_key?: string | null;
+  /**
+   * The store's photo at 400 px; see lib/images.ts. Absent on a database
+   * without migration 0017, null when the store has none.
+   */
+  image_url?: string | null;
 };
 
 export type Coverage = {

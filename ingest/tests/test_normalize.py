@@ -9,7 +9,7 @@ below is the one that changes.
 from __future__ import annotations
 
 from ingest.money import dollars_to_cents
-from ingest.normalize import normalize_entry
+from ingest.normalize import extract_image_url, normalize_entry
 from ingest.sources.loblaw import Product
 from ingest.tests.conftest import product_entry
 
@@ -111,3 +111,66 @@ class TestNormalizeEntry:
         assert row.unit_price_source == "derived"
         assert row.unit_price_cents == 16
         assert row.comparison_unit == "ml"
+
+
+def photo(n: int) -> dict[str, str | None]:
+    """One imageAssets entry as the live API sent it on 2026-10-21."""
+    base = f"https://digital.loblaws.ca/PCX/21425018_EA/en/{n}/21425018_en_{n}"
+    return {
+        "imageUrl": None,
+        "thumbnailUrl": f"{base}_120.png",
+        "smallUrl": f"{base}_250.png",
+        "mediumUrl": f"{base}_400.png",
+        "largeUrl": f"{base}_800.png",
+        "extraLargeUrl": f"{base}_1200.png",
+        "smallRetinaUrl": None,
+        "mediumRetinaUrl": None,
+        "largeRetinaUrl": None,
+    }
+
+
+class TestImageUrl:
+    def test_keeps_the_first_photo_at_400_px(self) -> None:
+        assert (
+            extract_image_url([photo(1), photo(2)])
+            == "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_400.png"
+        )
+
+    def test_falls_back_to_another_size_of_the_same_photo(self) -> None:
+        first = {**photo(1), "mediumUrl": None}
+        assert extract_image_url([first, photo(2)]) == first["largeUrl"]
+
+    def test_moves_on_to_the_next_photo_when_one_has_no_link(self) -> None:
+        empty = dict.fromkeys(photo(1))
+        assert extract_image_url([empty, photo(2)]) == photo(2)["mediumUrl"]
+
+    def test_no_photos_is_no_link(self) -> None:
+        assert extract_image_url(None) is None
+        assert extract_image_url([]) is None
+
+    def test_only_an_https_link_is_kept(self) -> None:
+        """It goes straight into an <img> on the site."""
+        assert extract_image_url([{"mediumUrl": "javascript:alert(1)"}]) is None
+        assert extract_image_url([{"mediumUrl": "http://digital.loblaws.ca/a_400.png"}]) is None
+        assert extract_image_url([{"mediumUrl": "//digital.loblaws.ca/a_400.png"}]) is None
+
+    def test_an_unexpected_shape_is_skipped_not_fatal(self) -> None:
+        assert extract_image_url("https://digital.loblaws.ca/a_400.png") is None
+        assert extract_image_url({"mediumUrl": "https://digital.loblaws.ca/a_400.png"}) is None
+        assert extract_image_url(["https://x", 7, {"mediumUrl": 7}]) is None
+
+    def test_normalize_entry_carries_the_link(self) -> None:
+        row = parse(imageAssets=[photo(1)])
+        assert row is not None
+        assert row.image_url == photo(1)["mediumUrl"]
+
+    def test_a_product_without_imageassets_still_parses(self) -> None:
+        row = parse()
+        assert row is not None
+        assert row.image_url is None
+
+    def test_malformed_imageassets_never_fail_the_product(self) -> None:
+        row = parse(imageAssets="not a list")
+        assert row is not None
+        assert row.price_cents == 644
+        assert row.image_url is None

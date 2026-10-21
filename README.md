@@ -30,6 +30,8 @@ and it is also the only part that cannot be built in a weekend.
 - **Search** every store's latest price, cheapest first or by unit price
   (per 100 g, per 100 ml, each), with a 7-day sparkline and a badge from the
   last 30 days: lowest recorded, below typical, above typical, or steady.
+  Each result shows the store's own product photo, loaded from the store's
+  image server; only the link is stored (`db/migrations/0017`).
 - **Product page:** the full price history as a chart, a verdict on whether
   today's price is a good one, the same item at every other store, and
   similar items from other brands ranked by unit price.

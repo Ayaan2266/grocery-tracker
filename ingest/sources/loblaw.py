@@ -120,6 +120,12 @@ class Product(_Model):
     # the skips so a systemic change still shows up in the summary.
     prices: Prices | None = None
 
+    # Up to six photos, each a dict of links at several sizes. Carried through
+    # untyped like comparison_prices: a photo is never worth failing a night
+    # over, so normalize.extract_image_url owns the parsing and skips anything
+    # it does not recognise.
+    image_assets: Any = Field(default=None, alias="imageAssets")
+
 
 class Pagination(_Model):
     total_results: int = Field(alias="totalResults", ge=0)

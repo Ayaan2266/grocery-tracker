@@ -276,7 +276,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .back-link { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 18px; color: var(--blue); font-size: 14px; font-weight: 750; text-decoration: none; }
 .back-link:hover { color: var(--coral); text-decoration: underline; text-underline-offset: 4px; }
 .product-heading h1, .basket-page h1, .status-page h1, .changes-page h1 { margin: 0 0 6px; font-size: clamp(30px, 3.6vw, 46px); font-weight: 850; letter-spacing: -.055em; line-height: 1.08; overflow-wrap: anywhere; }
-.product-heading > p:last-child { margin: 0; color: var(--muted); font-size: 16px; }
+.product-heading-text > p:last-child { margin: 0; color: var(--muted); font-size: 16px; }
 .product-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 15px; margin-top: 26px; }
 .price-card, .verdict-card, .chart-card, .store-compare { padding: 24px 26px; border: 1px solid var(--line); border-radius: 18px; background: var(--pale-blue); }
 .price-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -795,4 +795,23 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 380px) {
   /* The smallest phones fit two links beside the brand, which links home itself. */
   .site-header nav a[href="/"] { display: none; }
+}
+
+/* Product photos (components/product-photo.tsx). The store's photos are
+   product shots on white, so the tile is white too. A thumbnail without a
+   photo stays as an empty tile so a list keeps its left edge. */
+.product-photo { flex: none; display: block; width: 56px; height: 56px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); object-fit: contain; }
+.product-photo.is-large { width: 160px; height: 160px; padding: 8px; border-radius: 20px; }
+.price-row-product, .change-row-product { display: flex; align-items: center; gap: 14px; }
+.row-text { flex: 1; min-width: 0; }
+.product-heading { display: flex; align-items: center; gap: 26px; }
+.product-heading-text { flex: 1; min-width: 0; }
+.basket-item-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+@media (max-width: 600px) {
+  .product-photo.is-thumb { width: 48px; height: 48px; border-radius: 10px; }
+  /* Names wrap here, so the photo sits beside the first line, not the middle. */
+  .price-row-product, .change-row-product { align-items: flex-start; }
+  .product-photo.is-large { width: 120px; height: 120px; }
+  .product-heading { flex-direction: column; align-items: flex-start; gap: 16px; }
 }

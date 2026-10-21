@@ -78,12 +78,33 @@ Per entry in `results[]`:
 | `prices.price.value` | Current price. Stored as integer cents. |
 | `prices.wasPrice` | **Non-null only when on sale.** The only sale signal. |
 | `prices.comparisonPrices[]` | Already normalized to $/100g or $/100ml. |
+| `imageAssets[]` | Product photos. The first one's link is stored; see below. |
 | `pagination.totalResults` | Paging. |
 
 `comparisonPrices` being pre-normalized deletes most of the unit-normalization
 work originally budgeted for week 1. `normalize.py` is a validation layer over
 it, not a parser. The parser only runs as a fallback for products that return
 an empty `comparisonPrices`.
+
+### imageAssets, verified 2026-10-21
+
+A list with one entry per photo, up to six for the product sampled (`21425018_EA`):
+
+```json
+{"imageUrl": null,
+ "thumbnailUrl":  "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_120.png",
+ "smallUrl":      "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_250.png",
+ "mediumUrl":     "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_400.png",
+ "largeUrl":      "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_800.png",
+ "extraLargeUrl": "https://digital.loblaws.ca/PCX/21425018_EA/en/1/21425018_en_1_1200.png",
+ "smallRetinaUrl": null, "mediumRetinaUrl": null, "largeRetinaUrl": null}
+```
+
+The sizes differ only in the end of the file name. The nightly run keeps the
+first photo's `mediumUrl` (`extract_image_url`, falling back to another size
+or the next photo), and the site swaps the `_400` for the width it needs
+(`web/src/lib/images.ts`). It is carried untyped, like `comparisonPrices`, so
+a change in its shape can never fail a night.
 
 ### comparisonPrices, verified 2026-09-22
 
