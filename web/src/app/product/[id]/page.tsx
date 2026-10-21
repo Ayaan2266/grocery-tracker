@@ -6,6 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";
 import { PriceChart, type ChartSeries } from "@/components/price-chart";
+import { ProductPhoto } from "@/components/product-photo";
 import { StoreChip, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
@@ -402,9 +403,12 @@ export default async function ProductPage({ params, searchParams }: Props) {
           ) : (
             <>
               <header className="product-heading">
-                <StoreChip row={product} mark={scoped.marks.get(product.store_id)} />
-                <h1>{product.raw_name}</h1>
-                <p>{[product.brand, product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+                <ProductPhoto url={product.image_url} variant="large" />
+                <div className="product-heading-text">
+                  <StoreChip row={product} mark={scoped.marks.get(product.store_id)} />
+                  <h1>{product.raw_name}</h1>
+                  <p>{[product.brand, product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+                </div>
               </header>
 
               <div className="product-grid">

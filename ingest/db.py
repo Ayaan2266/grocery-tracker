@@ -63,19 +63,21 @@ SELECT s.id
 CHUNK_SIZE = 1000
 
 # identity_key and substitute_key are ingest/match.py's reading of the same
-# name, brand and package, so they are refreshed along with them.
+# name, brand and package, so they are refreshed along with them. image_url is
+# the store's current photo (0017), refreshed the same way.
 UPSERT_PRODUCTS = """
 INSERT INTO products (
     store_id, retailer_sku, raw_name, brand, package_size, size_value, size_unit,
-    identity_key, substitute_key
+    identity_key, substitute_key, image_url
 )
 SELECT %(store_id)s, u.sku, u.name, u.brand, u.pkg, u.size_value, u.size_unit,
-       u.identity_key, u.substitute_key
+       u.identity_key, u.substitute_key, u.image_url
   FROM unnest(
            %(skus)s::text[], %(names)s::text[], %(brands)s::text[],
            %(pkgs)s::text[], %(size_values)s::numeric[], %(size_units)s::text[],
-           %(identity_keys)s::text[], %(substitute_keys)s::text[]
-       ) AS u(sku, name, brand, pkg, size_value, size_unit, identity_key, substitute_key)
+           %(identity_keys)s::text[], %(substitute_keys)s::text[], %(image_urls)s::text[]
+       ) AS u(sku, name, brand, pkg, size_value, size_unit, identity_key, substitute_key,
+              image_url)
 ON CONFLICT (store_id, retailer_sku) DO UPDATE
    SET raw_name       = EXCLUDED.raw_name,
        brand          = EXCLUDED.brand,
@@ -83,14 +85,15 @@ ON CONFLICT (store_id, retailer_sku) DO UPDATE
        size_value     = EXCLUDED.size_value,
        size_unit      = EXCLUDED.size_unit,
        identity_key   = EXCLUDED.identity_key,
-       substitute_key = EXCLUDED.substitute_key
+       substitute_key = EXCLUDED.substitute_key,
+       image_url      = EXCLUDED.image_url
 RETURNING retailer_sku, id
 """
 
 # The newest columns the writes depend on. Selecting them costs nothing and
 # fails with the column's name when a migration has not been applied.
 SCHEMA_CHECK = """
-SELECT p.identity_key, p.substitute_key,
+SELECT p.identity_key, p.substitute_key, p.image_url,
        s.first_observed_on, s.last_confirmed_on, s.implied_regular_cents,
        r.run_on, r.products_observed
   FROM products p, price_spans s, ingest_runs r
@@ -222,7 +225,7 @@ def check_schema(conn: psycopg.Connection) -> None:
     except (psycopg.errors.UndefinedColumn, psycopg.errors.UndefinedTable) as exc:
         conn.rollback()
         raise SchemaOutOfDate(
-            f"{exc.diag.message_primary}. Apply db/migrations/0009_product_match_keys.sql "
+            f"{exc.diag.message_primary}. Apply db/migrations/0017_product_images.sql "
             "(and any other migration not yet applied) before running this code."
         ) from exc
 
@@ -323,6 +326,7 @@ def write_store_observations(
                         "size_units": [r.size_unit for r in chunk],
                         "identity_keys": [identity for identity, _ in match_keys],
                         "substitute_keys": [substitute for _, substitute in match_keys],
+                        "image_urls": [r.image_url for r in chunk],
                     },
                 )
                 product_ids = {sku: pid for sku, pid in cur.fetchall()}

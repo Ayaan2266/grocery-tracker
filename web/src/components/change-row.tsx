@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";
+import { ProductPhoto } from "@/components/product-photo";
 import { StoreChip } from "@/components/price-row";
 import { changeReason, changeSpoken, changeText, isWeighed, type PriceChange } from "@/lib/changes";
 import { formatCents } from "@/lib/utils";
@@ -29,21 +30,24 @@ export function ChangeRow({
   return (
     <li className={down ? "change-row is-down" : "change-row is-up"} id={id}>
       <div className="change-row-product">
-        <h3>
-          <Link href={`/product/${change.product_id}`} className="price-row-link">
-            {change.raw_name}
-          </Link>
-        </h3>
-        <p>
-          {[change.brand, weighed ? "Sold by weight" : change.package_size].filter(Boolean).join(" · ") ||
-            "Grocery item"}
-        </p>
-        <div className="price-row-chips">
-          <StoreChip row={{ ...change, observed_on: change.changed_on }} mark={mark} />
-          {reason === "sale-started" && change.was_price_cents !== null && (
-            <span className="status-badge status-good">Sale · was {formatCents(change.was_price_cents)}</span>
-          )}
-          {reason === "sale-ended" && <span className="status-badge status-neutral">Sale ended</span>}
+        <ProductPhoto url={change.image_url} variant="thumb" />
+        <div className="row-text">
+          <h3>
+            <Link href={`/product/${change.product_id}`} className="price-row-link">
+              {change.raw_name}
+            </Link>
+          </h3>
+          <p>
+            {[change.brand, weighed ? "Sold by weight" : change.package_size].filter(Boolean).join(" · ") ||
+              "Grocery item"}
+          </p>
+          <div className="price-row-chips">
+            <StoreChip row={{ ...change, observed_on: change.changed_on }} mark={mark} />
+            {reason === "sale-started" && change.was_price_cents !== null && (
+              <span className="status-badge status-good">Sale · was {formatCents(change.was_price_cents)}</span>
+            )}
+            {reason === "sale-ended" && <span className="status-badge status-neutral">Sale ended</span>}
+          </div>
         </div>
       </div>
       <div className="change-row-amount">

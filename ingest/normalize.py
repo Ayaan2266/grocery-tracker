@@ -126,6 +126,9 @@ class NormalizedPrice:
     # The API's unit price on the same basis as unit_price_cents, when it gave
     # one in the same unit. Kept for the nightly cross-check only; not stored.
     api_unit_price_cents: int | None = None
+    # The first photo's link, from extract_image_url. Stored on products, not
+    # on the span: a new photo is not a price change.
+    image_url: str | None = None
 
     @property
     def on_sale(self) -> bool:
@@ -368,6 +371,33 @@ def _was_price_cents(was_price: Price | float | None) -> int | None:
     return dollars_to_cents(was_price)
 
 
+# Which of a photo's sizes to keep, best first. 400 px is enough for the
+# product page, and the site swaps the size in the name for smaller ones
+# (web/src/lib/images.ts), so the rest are only fallbacks.
+IMAGE_SIZE_KEYS = ("mediumUrl", "largeUrl", "smallUrl", "extraLargeUrl", "thumbnailUrl", "imageUrl")
+
+
+def extract_image_url(image_assets: Any) -> str | None:
+    """The first photo's link from imageAssets, or None when there is none.
+
+    Verified 2026-10-21: a list of dicts, one per photo, each holding
+    thumbnailUrl, smallUrl, mediumUrl, largeUrl and extraLargeUrl
+    (120 to 1200 px) on https://digital.loblaws.ca/, with imageUrl and the
+    *RetinaUrl keys null. Read defensively all the same: only an https link is
+    kept, because the site puts it straight into an <img>.
+    """
+    if not isinstance(image_assets, list):
+        return None
+    for asset in image_assets:
+        if not isinstance(asset, dict):
+            continue
+        for key in IMAGE_SIZE_KEYS:
+            url = asset.get(key)
+            if isinstance(url, str) and url.startswith("https://") and len(url) <= 2048:
+                return url
+    return None
+
+
 def normalize_entry(entry: Product) -> NormalizedPrice | None:
     """Normalize one search result. Returns None when there is no usable price."""
     if entry.prices is None or entry.prices.price is None:
@@ -408,6 +438,7 @@ def normalize_entry(entry: Product) -> NormalizedPrice | None:
         unit_price_source=unit_price.source if unit_price else "none",
         in_stock=entry.stock_status == IN_STOCK_STATUS,
         api_unit_price_cents=api.cents if api and derived and api.unit == derived.unit else None,
+        image_url=extract_image_url(entry.image_assets),
     )
     if rate is None:
         return row

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Minus, Plus, X } from "lucide-react";
 
 import { changeQuantity, clearBasket, removeFromBasket } from "@/app/basket/actions";
+import { ProductPhoto } from "@/components/product-photo";
 import { SearchForm } from "@/components/search-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -339,11 +340,14 @@ export default async function BasketPage() {
                   {lines.map((line) => (
                     <li key={line.product.product_id} className="basket-item">
                       <div className="basket-item-head">
-                        <div>
-                          <h2>
-                            <Link href={`/product/${line.product.product_id}`}>{line.product.raw_name}</Link>
-                          </h2>
-                          <p>{[line.product.brand, line.product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+                        <div className="basket-item-title">
+                          <ProductPhoto url={line.product.image_url} variant="thumb" />
+                          <div className="row-text">
+                            <h2>
+                              <Link href={`/product/${line.product.product_id}`}>{line.product.raw_name}</Link>
+                            </h2>
+                            <p>{[line.product.brand, line.product.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+                          </div>
                         </div>
                         <QuantityControls productId={line.product.product_id} quantity={line.quantity} />
                       </div>

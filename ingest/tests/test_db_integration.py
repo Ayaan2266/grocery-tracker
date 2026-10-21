@@ -1142,8 +1142,14 @@ def test_0008_refuses_to_run_when_the_parsers_disagree(schema_conn) -> None:
 
 
 def test_the_schema_check_names_the_missing_migration(schema_conn) -> None:
+    apply_migrations(schema_conn, before="0017_product_images.sql")
+    with pytest.raises(db.SchemaOutOfDate, match="image_url.*0017"):
+        db.check_schema(schema_conn)
+
+
+def test_the_schema_check_still_refuses_a_much_older_database(schema_conn) -> None:
     apply_migrations(schema_conn, before="0009_product_match_keys.sql")
-    with pytest.raises(db.SchemaOutOfDate, match="0009"):
+    with pytest.raises(db.SchemaOutOfDate, match="identity_key"):
         db.check_schema(schema_conn)
 
 
@@ -1369,3 +1375,59 @@ class TestPriceChanges:
             cur.execute("SET LOCAL ROLE anon")
             with pytest.raises(psycopg.errors.Error):
                 cur.execute("UPDATE price_changes SET price_cents = 1")
+
+
+class TestProductImages:
+    """0017. The store's photo link is kept with the product and reaches both views."""
+
+    PHOTO = "https://digital.loblaws.ca/PCX/SKU000001_EA/en/1/SKU000001_en_1_400.png"
+    NEW_PHOTO = "https://digital.loblaws.ca/PCX/SKU000001_EA/en/2/SKU000001_en_2_400.png"
+    D1, D2 = date(2026, 9, 21), date(2026, 9, 22)
+
+    @staticmethod
+    def image(conn, view: str = "product_latest_price") -> list[tuple]:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT retailer_sku, image_url FROM {view} ORDER BY retailer_sku")
+            return cur.fetchall()
+
+    def test_the_link_is_written_and_read_back_through_the_view(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1), image_url=self.PHOTO), make_row(2)], self.D1
+        )
+        assert self.image(conn) == [("SKU000001_EA", self.PHOTO), ("SKU000002_EA", None)]
+
+    def test_the_link_follows_the_store_photo(self, conn) -> None:
+        """Identity, not history: tonight's photo replaces last night's, prices untouched."""
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1), image_url=self.PHOTO)], self.D1
+        )
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1), image_url=self.NEW_PHOTO)], self.D2
+        )
+
+        assert self.image(conn) == [("SKU000001_EA", self.NEW_PHOTO)]
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM price_spans")
+            assert cur.fetchone()[0] == 1, "a new photo is not a price change"
+
+    def test_the_price_changes_view_carries_the_link(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1, 500), image_url=self.PHOTO)], self.D1
+        )
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1, 400), image_url=self.PHOTO)], self.D2
+        )
+        assert self.image(conn, "price_changes") == [("SKU000001_EA", self.PHOTO)]
+
+    def test_anon_can_read_the_link(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(
+            conn, store_id, [replace(make_row(1), image_url=self.PHOTO)], self.D1
+        )
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT image_url FROM product_latest_price")
+            assert cur.fetchone()[0] == self.PHOTO

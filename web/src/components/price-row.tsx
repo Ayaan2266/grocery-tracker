@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BasketButton } from "@/components/basket-button";
+import { ProductPhoto } from "@/components/product-photo";
 import { Sparkline } from "@/components/sparkline";
 import { StoreDot } from "@/components/store-scope";
 import type { Badge } from "@/lib/history";
@@ -75,16 +76,19 @@ export function PriceRow({
   return (
     <li className="price-row" id={id}>
       <div className="price-row-product">
-        <h3>
-          <Link href={href} className="price-row-link">
-            {row.raw_name}
-          </Link>
-        </h3>
-        <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
-        <div className="price-row-chips">
-          <StoreChip row={row} mark={mark} />
-          {badge && <span className={`status-badge status-${badge.tone}`}>{badge.label}</span>}
-          {!row.in_stock && <span className="status-badge status-bad">Out of stock</span>}
+        <ProductPhoto url={row.image_url} variant="thumb" />
+        <div className="row-text">
+          <h3>
+            <Link href={href} className="price-row-link">
+              {row.raw_name}
+            </Link>
+          </h3>
+          <p>{[row.brand, row.package_size].filter(Boolean).join(" · ") || "Grocery item"}</p>
+          <div className="price-row-chips">
+            <StoreChip row={row} mark={mark} />
+            {badge && <span className={`status-badge status-${badge.tone}`}>{badge.label}</span>}
+            {!row.in_stock && <span className="status-badge status-bad">Out of stock</span>}
+          </div>
         </div>
       </div>
       <div className="price-row-trend" aria-hidden={trend ? undefined : true}>

@@ -28,6 +28,8 @@ export type PriceChange = {
   previous_was_price_cents: number | null;
   was_price_cents: number | null;
   implied_regular_cents: number | null;
+  /** The store's photo; absent on a database without migration 0017. */
+  image_url?: string | null;
 };
 
 /** One store's tally for the night it last ran. */
