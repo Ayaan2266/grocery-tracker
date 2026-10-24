@@ -294,7 +294,7 @@ export async function getPriceHistory(productIds: number[]): Promise<Result<Pric
 export type StoreInfo = {
   id: number;
   store_code: string;
-  /** "Real Canadian Superstore - Winnipeg Kenaston": banner, then place. */
+  /** "Real Canadian Superstore - Toronto Don Mills": banner, then place. */
   label: string | null;
   postal_code: string | null;
   /** Where the store is, when known. Null until filled in; see lib/store-scope.ts. */

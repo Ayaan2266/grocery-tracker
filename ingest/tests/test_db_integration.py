@@ -146,11 +146,9 @@ def test_migrations_seed_every_verified_store(conn) -> None:
         """)
         assert cur.fetchall() == [
             ("3131", "nofrills", "L4K 0C1"),
-            ("1516", "superstore", "R3N 2A1"),
             ("1032", "loblaw", "L3P 1W2"),
             ("0552", "zehrs", "L9P 1N2"),
             ("1436", "fortinos", "M6A 3B4"),
-            ("8711", "maxi", "J9J 3Z4"),
             ("1033", "superstore", "M3J 3N4"),
             ("1007", "loblaw", "M5B 1L1"),
             ("6791", "nofrills", "M5B 0E8"),
@@ -183,6 +181,77 @@ def test_every_targeted_store_has_a_row(conn) -> None:
 
     for target in load_targets().stores:
         db.resolve_store_id(conn, target.banner, target.store_code)
+
+
+class TestDropStoresOutsideOntario:
+    """0018. Winnipeg and Gatineau go, with everything they held; nothing else does."""
+
+    DROP_MIGRATION = "0018_drop_stores_outside_ontario.sql"
+    STORES = (("nofrills", "3131"), ("superstore", "1516"), ("maxi", "8711"))
+
+    @pytest.fixture
+    def dropped(self, schema_conn):
+        apply_migrations(schema_conn, before=self.DROP_MIGRATION)
+        for banner, code in self.STORES:
+            store_id = db.resolve_store_id(schema_conn, banner, code)
+            for day in (DAY, DAY + timedelta(days=1)):
+                db.write_store_observations(schema_conn, store_id, [make_row(1), make_row(2)], day)
+        with schema_conn.cursor() as cur:
+            # One correction per store, as 0008 wrote for the stores it found.
+            cur.execute(
+                """
+                INSERT INTO unit_price_backfill
+                    (product_id, first_observed_on, unit_price_cents, comparison_unit,
+                     comparison_quantity, unit_price_source)
+                SELECT DISTINCT ON (p.store_id) p.id, %s, 16, 'ml', 100, 'derived'
+                  FROM products p ORDER BY p.store_id, p.id
+                """,
+                (DAY,),
+            )
+        schema_conn.commit()
+
+        with schema_conn.cursor() as cur:
+            cur.execute((MIGRATIONS / self.DROP_MIGRATION).read_text(encoding="utf-8"))
+        schema_conn.commit()
+        apply_migrations(schema_conn, after=self.DROP_MIGRATION)
+        return schema_conn
+
+    def counts(self, conn) -> dict[str, int]:
+        with conn.cursor() as cur:
+            result = {}
+            for table in ("products", "price_spans", "unit_price_backfill", "ingest_runs"):
+                cur.execute(f"SELECT count(*) FROM {table}")
+                result[table] = cur.fetchone()[0]
+            return result
+
+    def test_only_the_ontario_store_keeps_its_history(self, dropped) -> None:
+        assert self.counts(dropped) == {
+            "products": 2,
+            "price_spans": 2,
+            "unit_price_backfill": 1,
+            "ingest_runs": 2,
+        }
+        assert spans(dropped, "SKU000001_EA") == [(DAY, DAY + timedelta(days=1), 500)]
+
+    def test_the_stores_and_maxi_are_gone(self, dropped) -> None:
+        with dropped.cursor() as cur:
+            cur.execute("SELECT store_code FROM stores WHERE store_code IN ('1516', '8711')")
+            assert cur.fetchall() == []
+            cur.execute("SELECT banner_slug FROM retailers ORDER BY banner_slug")
+            assert [row[0] for row in cur.fetchall()] == [
+                "fortinos",
+                "loblaw",
+                "nofrills",
+                "superstore",
+                "zehrs",
+            ]
+
+    def test_history_is_append_only_again_afterwards(self, dropped) -> None:
+        with dropped.cursor() as cur, pytest.raises(psycopg.errors.RaiseException):
+            cur.execute("DELETE FROM price_spans")
+        dropped.rollback()
+        with dropped.cursor() as cur, pytest.raises(psycopg.errors.RaiseException):
+            cur.execute("DELETE FROM unit_price_backfill")
 
 
 def test_a_batch_writes_products_and_observations(conn) -> None:
@@ -623,14 +692,14 @@ class TestPriceSpans:
         cover it and the rebuilt series still skips it. Runs are per store:
         another store running on D2 must not make this one's D2 appear."""
         nofrills = db.resolve_store_id(conn, "nofrills", "3131")
-        superstore = db.resolve_store_id(conn, "superstore", "1516")
+        superstore = db.resolve_store_id(conn, "superstore", "1033")
         for day in (self.D1, self.D2, self.D3):
             db.write_store_observations(conn, nofrills, [make_row(1)], day)
         for day in (self.D1, self.D3):
             db.write_store_observations(conn, superstore, [make_row(1)], day)
 
-        assert spans(conn, "SKU000001_EA", "1516") == [(self.D1, self.D3, 500)]
-        assert history(conn, "SKU000001_EA", "1516") == [(self.D1, 500), (self.D3, 500)]
+        assert spans(conn, "SKU000001_EA", "1033") == [(self.D1, self.D3, 500)]
+        assert history(conn, "SKU000001_EA", "1033") == [(self.D1, 500), (self.D3, 500)]
 
     def test_a_same_day_rerun_with_the_previous_price_does_not_overlap_rows(self, conn) -> None:
         """D2's first write opened a row at 450. A re-run that sees yesterday's
@@ -725,7 +794,7 @@ class TestAppendOnly:
 class TestSpansBackfill:
     """0006 converts the daily table already in Supabase. Checked on a copy.
 
-    D1-D4: nofrills ran every night. Superstore's D3 failed, so it has no rows
+    D1-D4: nofrills ran every night. Loblaws' D3 failed, so it has no rows
     that night. Each product exercises one rule of the conversion.
     """
 
@@ -737,7 +806,7 @@ class TestSpansBackfill:
         "DIPS_EA": ("3131", {21: (500, True), 22: (500, True), 23: (450, True), 24: (500, True)}),
         "GAP_EA": ("3131", {21: (300, True), 23: (300, True), 24: (300, True)}),
         "STOCK_EA": ("3131", {21: (200, True), 22: (200, False), 23: (200, False)}),
-        "FAILED_NIGHT_EA": ("1516", {21: (700, True), 22: (700, True), 24: (700, True)}),
+        "FAILED_NIGHT_EA": ("1032", {21: (700, True), 22: (700, True), 24: (700, True)}),
     }
 
     EXPECTED_SPANS = {
@@ -772,7 +841,7 @@ class TestSpansBackfill:
                         """,
                         (product_id, price_cents, in_stock, date(2026, 9, day)),
                     )
-            # Every nofrills product is absent from superstore and vice versa,
+            # Every nofrills product is absent from loblaw and vice versa,
             # so "the store ran" is exactly "some product has a row that night".
         schema_conn.commit()
 
@@ -800,9 +869,9 @@ class TestSpansBackfill:
                 """
             )
             assert cur.fetchall() == [
-                ("1516", self.D1, 1),
-                ("1516", self.D2, 1),
-                ("1516", self.D4, 1),
+                ("1032", self.D1, 1),
+                ("1032", self.D2, 1),
+                ("1032", self.D4, 1),
                 ("3131", self.D1, 4),
                 ("3131", self.D2, 3),
                 ("3131", self.D3, 4),
@@ -830,7 +899,7 @@ class TestSpansBackfill:
     def test_the_next_night_continues_converted_history(self, migrated) -> None:
         """Converted spans and nightly writes follow the same rule, so the first
         run after the migration extends what the migration built."""
-        superstore = db.resolve_store_id(migrated, "superstore", "1516")
+        loblaws = db.resolve_store_id(migrated, "loblaw", "1032")
         # The values the backfill fixture stored for this product on D4.
         row = replace(
             make_row(0, 700, in_stock=True),
@@ -839,11 +908,11 @@ class TestSpansBackfill:
             was_price_cents=None,
         )
 
-        result = db.write_store_observations(migrated, superstore, [row], date(2026, 9, 25))
+        result = db.write_store_observations(migrated, loblaws, [row], date(2026, 9, 25))
 
         assert result.errors == []
         assert result.spans_opened == 0
-        assert spans(migrated, "FAILED_NIGHT_EA", "1516") == [(self.D1, date(2026, 9, 25), 700)]
+        assert spans(migrated, "FAILED_NIGHT_EA", "1032") == [(self.D1, date(2026, 9, 25), 700)]
 
 
 class TestImpliedRegularPrice:
@@ -871,7 +940,7 @@ class TestImpliedRegularPrice:
         )
 
     def test_it_is_stored_and_read_back_through_every_view(self, conn) -> None:
-        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        store_id = db.resolve_store_id(conn, "superstore", "1033")
         db.write_store_observations(conn, store_id, [self.deal()], self.D1)
 
         with conn.cursor() as cur:
@@ -883,7 +952,7 @@ class TestImpliedRegularPrice:
             assert cur.fetchone()[0] == 230
 
     def test_anon_can_read_it(self, conn) -> None:
-        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        store_id = db.resolve_store_id(conn, "superstore", "1033")
         db.write_store_observations(conn, store_id, [self.deal()], self.D1)
 
         with conn.cursor() as cur:
@@ -892,21 +961,21 @@ class TestImpliedRegularPrice:
             assert cur.fetchone()[0] == 230
 
     def test_an_unchanged_deal_extends_its_row(self, conn) -> None:
-        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        store_id = db.resolve_store_id(conn, "superstore", "1033")
         for day in (self.D1, self.D2):
             db.write_store_observations(conn, store_id, [self.deal()], day)
 
-        assert spans(conn, "MANGO_EA", "1516") == [(self.D1, self.D2, 150)]
+        assert spans(conn, "MANGO_EA", "1033") == [(self.D1, self.D2, 150)]
 
     def test_the_deal_ending_opens_a_new_row(self, conn) -> None:
         """Same shelf price, but the API no longer implies a higher regular one:
         the deal is over, and that is a change worth keeping."""
-        store_id = db.resolve_store_id(conn, "superstore", "1516")
+        store_id = db.resolve_store_id(conn, "superstore", "1033")
         db.write_store_observations(conn, store_id, [self.deal()], self.D1)
         result = db.write_store_observations(conn, store_id, [self.deal(implied=None)], self.D2)
 
         assert result.spans_opened == 1
-        assert len(spans(conn, "MANGO_EA", "1516")) == 2
+        assert len(spans(conn, "MANGO_EA", "1033")) == 2
 
 
 class TestUnitPriceBackfill:
@@ -1173,7 +1242,7 @@ class TestMatchKeys:
 
     def test_keys_are_written_and_read_back_through_the_view(self, conn) -> None:
         nofrills = db.resolve_store_id(conn, "nofrills", "3131")
-        superstore = db.resolve_store_id(conn, "superstore", "1516")
+        superstore = db.resolve_store_id(conn, "superstore", "1033")
         db.write_store_observations(conn, nofrills, [self.milk("N_EA", "Neilson", "2% Milk")], DAY)
         db.write_store_observations(
             conn, superstore, [self.milk("B_EA", "Beatrice", "Partly Skimmed Milk 2%")], DAY

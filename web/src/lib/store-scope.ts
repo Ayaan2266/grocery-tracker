@@ -2,14 +2,7 @@ import { cookies } from "next/headers";
 
 import { lookupFsa } from "./geocode";
 import { decodeNear, parsePostalCode, type NearMe, type Point } from "./postal";
-import {
-  countByRegion,
-  nearbyStores,
-  scopedStoreIds,
-  storeMarks,
-  type NearStores,
-  type StoreScope,
-} from "./stores";
+import { nearbyStores, scopedStoreIds, storeMarks, type NearStores, type StoreScope } from "./stores";
 import { getStoresCached } from "./cached-queries";
 import type { StoreInfo } from "./queries";
 
@@ -18,7 +11,8 @@ import type { StoreInfo } from "./queries";
  * server renders every page, so the choice applies on the first paint and
  * switching works with JavaScript off.
  *
- *   loonie_stores  "all" or "near". Absent means the default, Ontario.
+ *   loonie_stores  "near", or absent for the default, every store. ("all",
+ *                  written before db/migrations/0018, reads as absent.)
  *   loonie_near    the place the visitor gave, as lib/postal.ts encodes it:
  *                  the FSA ("L4K"), its centre and the radius. Never a full
  *                  postal code.
@@ -32,7 +26,7 @@ export async function readStorePreference(): Promise<{ scope: StoreScope; near: 
   const near = decodeNear(jar.get(NEAR_COOKIE)?.value);
   const chosen = jar.get(STORE_SCOPE_COOKIE)?.value;
   // "near" with no readable place behind it is the default, not an empty site.
-  const scope: StoreScope = chosen === "all" ? "all" : chosen === "near" && near ? "near" : "ontario";
+  const scope: StoreScope = chosen === "near" && near ? "near" : "all";
   return { scope, near };
 }
 
@@ -71,7 +65,6 @@ export type ScopedStores = {
   hidden: StoreInfo[];
   /** Each store's line and dot, as an index into STORE_MARKS (lib/stores.ts). */
   marks: Map<number, number>;
-  counts: { ontario: number; outside: number };
   /** The place the visitor gave, whichever scope is on. */
   near: NearMe | null;
   /** The stores near that place, nearest first, whichever scope is on. */
@@ -93,7 +86,6 @@ export async function loadScopedStores(): Promise<ScopedStores> {
     storeIds,
     hidden,
     marks: storeMarks(all),
-    counts: countByRegion(all),
     near,
     nearStores,
   };

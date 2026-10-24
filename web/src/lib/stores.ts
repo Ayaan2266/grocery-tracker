@@ -7,7 +7,6 @@ export const BANNER_LABELS: Record<string, string> = {
   loblaw: "Loblaws",
   zehrs: "Zehrs",
   fortinos: "Fortinos",
-  maxi: "Maxi",
 };
 
 /** Short names for tight spots: graph legends and basket columns. */
@@ -17,14 +16,13 @@ export const BANNER_SHORT: Record<string, string> = {
   loblaw: "Loblaws",
   zehrs: "Zehrs",
   fortinos: "Fortinos",
-  maxi: "Maxi",
 };
 
 /**
  * One colour per banner, never reassigned, so a store keeps its colour on
  * every graph whichever others appear beside it. Checked as a set against the
  * white chart surface, every pair against every other, for colour-blind
- * separation: the closest pair is ΔE 7.9, which is only acceptable because
+ * separation: no pair is closer than ΔE 7.9, which is only acceptable because
  * the legend, tooltip and store lists always name the store in text too.
  */
 export const BANNER_COLORS: Record<string, string> = {
@@ -33,7 +31,6 @@ export const BANNER_COLORS: Record<string, string> = {
   loblaw: "#0b49bd",
   zehrs: "#15803d",
   fortinos: "#b5479f",
-  maxi: "#0ea5b7",
 };
 
 export function bannerLabel(slug: string, fallback: string): string {
@@ -41,11 +38,10 @@ export function bannerLabel(slug: string, fallback: string): string {
 }
 
 /**
- * Where a store is, from its label: "Real Canadian Superstore - Winnipeg
- * Kenaston" gives "Winnipeg Kenaston". The stores are far apart, and a banner
- * can be tracked at more than one (Superstore in Toronto and in Winnipeg), so
- * a price never appears without the place it was recorded. Null for a label
- * with no place.
+ * Where a store is, from its label: "Real Canadian Superstore - Toronto Don
+ * Mills" gives "Toronto Don Mills". A banner can be tracked at more than one
+ * store (four Superstores), and prices differ between them, so a price never
+ * appears without the place it was recorded. Null for a label with no place.
  */
 export function storeArea(label: string | null | undefined): string | null {
   if (!label) return null;
@@ -54,7 +50,7 @@ export function storeArea(label: string | null | undefined): string | null {
   return area || null;
 }
 
-/** "Superstore · Winnipeg Kenaston", or just the banner when the place is unknown. */
+/** "Superstore · Toronto Don Mills", or just the banner when the place is unknown. */
 export function storeName(slug: string, fallback: string, label: string | null | undefined): string {
   const area = storeArea(label);
   const name = BANNER_SHORT[slug] ?? fallback;
@@ -62,21 +58,12 @@ export function storeName(slug: string, fallback: string, label: string | null |
 }
 
 /**
- * Canada Post gives every province its own first letters, and K, L, M, N and
- * P are Ontario's. A store with no postal code is not assumed to be anywhere.
+ * Which stores the site shows. "all" is the default: every store checked
+ * nightly, all of them in Ontario since db/migrations/0018 dropped the two
+ * that were not. "near" is the stores within a radius of a postal code the
+ * visitor gave.
  */
-export function isOntario(postalCode: string | null | undefined): boolean {
-  return /^[KLMNP]/i.test(postalCode?.trim() ?? "");
-}
-
-/**
- * Which stores the site shows. "ontario" is the default: Superstore in
- * Winnipeg and Maxi in Gatineau keep being checked every night, so their
- * history keeps growing, but a shopper in Ontario cannot buy there, and their
- * prices (and brands) follow another region. "near" is the stores within a
- * radius of a postal code the visitor gave, in any province.
- */
-export type StoreScope = "ontario" | "all" | "near";
+export type StoreScope = "all" | "near";
 
 type Placed = { id: number; lat: number | null; lng: number | null };
 
@@ -115,25 +102,20 @@ export function nearbyStores(stores: Placed[], near: NearMe): NearStores {
 
 /**
  * The ids of the stores in scope, or null for no filter. Null too when no
- * store is known to be in Ontario, as when the store list failed to load:
- * showing every store beats showing nothing. "near" without a place to be near
- * is the default, Ontario.
+ * store is near, as when the store list failed to load: showing every store
+ * beats showing nothing. "near" without a place to be near is every store.
  */
 export function scopedStoreIds(
-  stores: { id: number; postal_code: string | null; lat?: number | null; lng?: number | null }[],
+  stores: { id: number; lat?: number | null; lng?: number | null }[],
   scope: StoreScope,
   near: NearMe | null = null,
 ): number[] | null {
-  if (scope === "all") return null;
-  if (scope === "near" && near !== null) {
-    const found = nearbyStores(
-      stores.map((store) => ({ id: store.id, lat: store.lat ?? null, lng: store.lng ?? null })),
-      near,
-    );
-    return found.ids.length > 0 ? found.ids : null;
-  }
-  const ids = stores.filter((store) => isOntario(store.postal_code)).map((store) => store.id);
-  return ids.length > 0 ? ids : null;
+  if (scope !== "near" || near === null) return null;
+  const found = nearbyStores(
+    stores.map((store) => ({ id: store.id, lat: store.lat ?? null, lng: store.lng ?? null })),
+    near,
+  );
+  return found.ids.length > 0 ? found.ids : null;
 }
 
 export function inScope(storeIds: number[] | null, storeId: number): boolean {
@@ -160,7 +142,7 @@ export function shortStoreNames<T extends Named>(listings: T[]): (listing: T) =>
       : (BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name);
 }
 
-type Located = { id: number; banner_slug: string; postal_code: string | null };
+type Located = { id: number; banner_slug: string };
 
 /**
  * How a banner's stores are told apart. They share its colour, so each one
@@ -197,26 +179,20 @@ export function markDot(
 }
 
 /**
- * Each store's mark, as an index into STORE_MARKS. Within a banner the Ontario
- * store comes first, then the one added earliest. Past the fourth store the
- * marks after the first repeat: a repeat never looks like the banner's first
- * store, and the store is named in text everywhere it appears.
+ * Each store's mark, as an index into STORE_MARKS. Within a banner the store
+ * added earliest comes first. Past the fourth store the marks after the first
+ * repeat: a repeat never looks like the banner's first store, and the store is
+ * named in text everywhere it appears.
  */
 export function storeMarks(stores: Located[]): Map<number, number> {
   const byBanner = Map.groupBy(stores, (store) => store.banner_slug);
   const marks = new Map<number, number>();
   for (const group of byBanner.values()) {
     group
-      .sort((a, b) => Number(isOntario(b.postal_code)) - Number(isOntario(a.postal_code)) || a.id - b.id)
+      .sort((a, b) => a.id - b.id)
       .forEach((store, rank) => marks.set(store.id, rank === 0 ? 0 : 1 + ((rank - 1) % (STORE_MARKS.length - 1))));
   }
   return marks;
-}
-
-/** How many stores are in Ontario and how many are not. */
-export function countByRegion(stores: { postal_code: string | null }[]): { ontario: number; outside: number } {
-  const ontario = stores.filter((store) => isOntario(store.postal_code)).length;
-  return { ontario, outside: stores.length - ontario };
 }
 
 /**

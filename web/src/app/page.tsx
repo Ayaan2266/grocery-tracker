@@ -10,7 +10,7 @@ import { NearMeDetails, StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHe
 import { readBasket } from "@/lib/basket-server";
 import { getCoverageCached } from "@/lib/cached-queries";
 import { loadScopedStores } from "@/lib/store-scope";
-import { BANNER_SHORT, inScope, isOntario, storeArea } from "@/lib/stores";
+import { BANNER_SHORT, inScope, storeArea } from "@/lib/stores";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
@@ -117,10 +117,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   ]);
   const storeList = scoped.stores;
   const scopeHelp = storeScopeHelp(scoped, "results");
-  const storeGroups = [
-    { label: "Ontario", outside: false, stores: storeList.filter((s) => isOntario(s.postal_code)) },
-    { label: "Outside Ontario", outside: true, stores: storeList.filter((s) => !isOntario(s.postal_code)) },
-  ].filter((group) => group.stores.length > 0);
   const chains = new Set(
     storeList.filter((store) => inScope(scoped.storeIds, store.id)).map((store) => store.banner_slug),
   ).size;
@@ -287,20 +283,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             {storeList.length > 0 && (
               <div className="coverage-stores">
                 <p>Checked every night. Prices differ between locations, so every price says where it was recorded.</p>
-                {storeGroups.map((group) => (
-                  <div key={group.label} className="store-group">
-                    {storeGroups.length > 1 && <span className="store-group-label">{group.label}</span>}
-                    <ul aria-label={storeGroups.length > 1 ? `Stores ${group.label.toLowerCase()}` : "Stores"}>
-                      {group.stores.map((store) => (
-                        <li key={store.id} className={group.outside ? "store-chip is-outside" : "store-chip"}>
-                          <StoreDot slug={store.banner_slug} mark={scoped.marks.get(store.id)} as="i" className="" />
-                          {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
-                          {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                <div className="store-group">
+                  <ul aria-label="Stores">
+                    {storeList.map((store) => (
+                      <li key={store.id} className="store-chip">
+                        <StoreDot slug={store.banner_slug} mark={scoped.marks.get(store.id)} as="i" className="" />
+                        {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
+                        {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 {!query && <StoreScopeRow scoped={scoped} where="home" />}
               </div>
             )}

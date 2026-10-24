@@ -22,15 +22,13 @@ function refresh(): void {
 }
 
 /**
- * Ontario, every store, or the stores near the postal code given earlier.
- * "near" with no place saved is Ontario, and "forget" drops the place too.
+ * Every store, or the stores near the postal code given earlier. "near" with
+ * no place saved is every store, and "forget" drops the place too.
  */
 export async function setStoreScope(form: FormData): Promise<void> {
   const store = await cookies();
   const scope = form.get("scope");
-  if (scope === "all") {
-    store.set(STORE_SCOPE_COOKIE, "all", COOKIE);
-  } else if (scope === "near" && store.get(NEAR_COOKIE)) {
+  if (scope === "near" && store.get(NEAR_COOKIE)) {
     store.set(STORE_SCOPE_COOKIE, "near", COOKIE);
   } else {
     store.delete(STORE_SCOPE_COOKIE);

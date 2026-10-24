@@ -34,18 +34,17 @@ def test_every_store_is_fully_specified() -> None:
 def test_only_verified_store_codes_are_targeted() -> None:
     """Guessed codes return 200 with zero results, which looks like success.
 
-    Zehrs, Fortinos and Maxi were found by `python -m ingest.stores discover`
+    Zehrs and Fortinos were found by `python -m ingest.stores discover`
     on 2026-09-25, Superstore 1033 on 2026-09-29, and the five Toronto stores
     on 2026-10-13, each returning products on the canary search
-    (db/migrations/0010, 0011, 0014).
+    (db/migrations/0010, 0011, 0014). The two outside Ontario, Superstore
+    1516 and Maxi 8711, were dropped in 0018.
     """
     verified = {
         ("nofrills", "3131"),
-        ("superstore", "1516"),
         ("loblaw", "1032"),
         ("zehrs", "0552"),
         ("fortinos", "1436"),
-        ("maxi", "8711"),
         ("superstore", "1033"),
         ("loblaw", "1007"),
         ("nofrills", "6791"),
