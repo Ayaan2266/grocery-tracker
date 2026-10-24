@@ -205,7 +205,9 @@ Verified: `nofrills`, `superstore`, `loblaw`, `zehrs`, `fortinos`, `maxi`.
 Unverified (no known-good storeId yet): `provigo`, `independent`, `valumart`,
 `wholesaleclub`, `atlantic`, `dominion`.
 
-Known-good store codes, each canary-verified:
+Known-good store codes, each canary-verified. The two outside Ontario,
+`1516` and `8711`, were ingested until 2026-10-24 and dropped, with their
+history, in `0018`:
 
 | Code | Store | Where |
 |---|---|---|

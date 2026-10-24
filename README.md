@@ -5,9 +5,9 @@
 
 **Live:** _launching on Vercel in October 2026_
 
-Daily store-level price history for Canadian groceries, from twelve stores
-across six Loblaw-owned banners (No Frills, Real Canadian Superstore, Loblaws,
-Zehrs, Fortinos, Maxi), checked every night since 2026-09-21. It answers two
+Daily store-level price history for Canadian groceries, from ten Ontario
+stores across five Loblaw-owned banners (No Frills, Real Canadian Superstore,
+Loblaws, Zehrs, Fortinos), checked every night since 2026-09-21. It answers two
 questions:
 
 1. Which store near me is cheapest for this basket right now?
@@ -42,9 +42,8 @@ and it is also the only part that cannot be built in a weekend.
   change first, filterable by store, with the sale that started or ended
   behind it where the store says. Thursday, when the weekly flyers turn over,
   is the busy night.
-- **Stores:** Ontario stores by default, every store with one click, or the
-  stores within a radius of a postal code. Only the first three characters
-  of the postal code are used.
+- **Stores:** every store by default, or the stores within a radius of a
+  postal code. Only the first three characters of the postal code are used.
 - **How it works:** the nightly check explained, with live status from last
   night's run and a worked example of a verdict.
 
@@ -315,14 +314,13 @@ Maintained honestly. Overclaiming reads as junior.
 - **Unit price is unavailable for 0.12% of products.** 16 are measured in
   metres (foil, plastic wrap), 7 in sheets or packs. They have no mass or
   volume, so they get a NULL rather than a fabricated number.
-- **Twelve stores, two of them outside Ontario.** Superstore 1516, ingested
-  since day one, turned out to be Kenaston in Winnipeg when the store list
-  was finally read (`0010`), and Maxi's is in Gatineau. It is why Superstore
-  carries Beatrice where the Ontario stores carry Neilson. Both keep running,
-  so their history keeps growing, but the site shows the Ontario stores
-  (postal codes starting K, L, M, N or P) unless a visitor switches to all of
-  them. `0011` added a GTA Superstore, 1033 on Gerry Fitzgerald Drive in
-  Toronto: the nearest of all 119 to Vaughan, since none is inside it.
+- **Ten stores, all in Ontario.** Superstore 1516, ingested since day one,
+  turned out to be Kenaston in Winnipeg when the store list was finally read
+  (`0010`), and Maxi 8711 was in Gatineau. Nobody using the site could shop
+  at either, so `0018` stopped checking both and deleted their history: about
+  17% of the database and 16% of its nightly growth. `0011` added a GTA
+  Superstore, 1033 on Gerry Fitzgerald Drive in Toronto: the nearest of all
+  119 to Vaughan, since none is inside it.
   `0014` added five more in Toronto: Loblaws on Carlton Street and two No
   Frills, all within 1.2 km of Toronto Metropolitan University, and the Don
   Mills and Weston Road Superstores. A banner's stores share its colour on
@@ -340,8 +338,8 @@ Maintained honestly. Overclaiming reads as junior.
   placed is shown, not hidden. More stores are a migration and a line in
   `targets.json` each; `python -m ingest.stores` finds and proves the codes,
   and prints the coordinates the migration sets.
-  Each store adds about 3 minutes to the nightly run, so twelve take about
-  37. Its timeout is 90 minutes and a full run must fit in half of it
+  Each store adds about 3 minutes to the nightly run, so ten take about
+  31. Its timeout is 90 minutes and a full run must fit in half of it
   (`test_targets.py`), which holds thirteen stores; past that, split the job.
 - **Unit prices before 2026-09-24 are reconstructed.** The runs before then
   stored none, or the API's figure on the regular price. `0008` works out

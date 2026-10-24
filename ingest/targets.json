@@ -7,11 +7,6 @@
       "label": "No Frills - Vaughan"
     },
     {
-      "banner": "superstore",
-      "store_code": "1516",
-      "label": "Real Canadian Superstore - Winnipeg Kenaston"
-    },
-    {
       "banner": "loblaw",
       "store_code": "1032",
       "label": "Loblaws - Markham Bullock Drive"
@@ -25,11 +20,6 @@
       "banner": "fortinos",
       "store_code": "1436",
       "label": "Fortinos - North York Lawrence"
-    },
-    {
-      "banner": "maxi",
-      "store_code": "8711",
-      "label": "Maxi - Aylmer Vanier"
     },
     {
       "banner": "superstore",

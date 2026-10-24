@@ -13,7 +13,7 @@ export type BasketLine = {
   cheaperSimilar: LatestPrice | null;
 };
 
-/** Match across all stores before filtering by region, preserving ambiguity checks. */
+/** Match across all stores before narrowing to the stores in scope, preserving ambiguity checks. */
 export function buildBasketLines(
   basket: Basket,
   products: LatestPrice[],

@@ -42,7 +42,7 @@ on:
       probe:
         description: "probe-stores only: arguments for python -m ingest.stores"
         type: string
-        default: "discover zehrs fortinos maxi --near 43.6534,-79.3839"
+        default: "discover zehrs fortinos --near 43.6534,-79.3839"
       migrations:
         description: "migrate only: migration numbers to apply, in order, e.g. 0008 0009 0010"
         type: string

@@ -37,7 +37,7 @@ import {
   type StoreInfo,
 } from "@/lib/queries";
 import { BASE_OPEN_GRAPH } from "@/lib/site";
-import { BANNER_COLORS, BANNER_SHORT, isOntario, scopedStoreIds, storeArea, storeMarks, storeCountLabel } from "@/lib/stores";
+import { BANNER_COLORS, BANNER_SHORT, storeArea, storeMarks, storeCountLabel } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
 const DESCRIPTION =
@@ -146,14 +146,9 @@ type WorkedExample = { row: LatestPrice; spans: Span[] };
  */
 const loadExample = unstable_cache(
   async (term: string): Promise<WorkedExample | null> => {
-    // From the Ontario stores, like the site's default search. Cached for every
-    // visitor, so it cannot follow one visitor's choice.
-    const stores = await getStores();
-    if (stores.error !== null) throw new Error(stores.error);
-    const found = await searchProducts(term, {
-      limit: EXAMPLE_CANDIDATES,
-      storeIds: scopedStoreIds(stores.data ?? [], "ontario"),
-    });
+    // From every store, like the site's default search. Cached for every
+    // visitor, so it cannot follow one visitor's choice of stores near them.
+    const found = await searchProducts(term, { limit: EXAMPLE_CANDIDATES });
     if (found.error !== null) throw new Error(found.error);
     const rows = found.data.rows;
     if (rows.length === 0) return null;
@@ -598,35 +593,15 @@ function StoreCard({ store, mark }: { store: StoreStatus; mark: number | undefin
   );
 }
 
-/** Every store, the Ontario ones the site shows by default first. */
+/** Every store checked nightly. */
 function StoreBoard({ status }: { status: NightlyStatus }) {
   const marks = storeMarks(status.stores);
-  const groups = [
-    { title: "Ontario", note: "Shown by default", stores: status.stores.filter((s) => isOntario(s.postal_code)) },
-    {
-      title: "Outside Ontario",
-      note: "Still checked every night; shown when you choose All stores",
-      stores: status.stores.filter((s) => !isOntario(s.postal_code)),
-    },
-  ].filter((group) => group.stores.length > 0);
-  const grouped = groups.length > 1;
   return (
-    <div className="store-board-groups">
-      {groups.map((group) => (
-        <div key={group.title} className="store-board-group">
-          {grouped && (
-            <h3 className="store-board-heading">
-              {group.title} <span>{group.note}</span>
-            </h3>
-          )}
-          <ul className="store-board">
-            {group.stores.map((store) => (
-              <StoreCard key={store.id} store={store} mark={marks.get(store.id)} />
-            ))}
-          </ul>
-        </div>
+    <ul className="store-board">
+      {status.stores.map((store) => (
+        <StoreCard key={store.id} store={store} mark={marks.get(store.id)} />
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -645,13 +620,14 @@ function Faq({ status }: { status: NightlyStatus | null }) {
       ),
     },
     {
-      q: "Why are the stores in different cities?",
+      q: "Which stores does Loonie check?",
       a: (
         <>
-          Loonie checks {status?.stores.length ? `${inWords(status.stores.length)} stores` : "a handful of stores"}
-          {places.length > 0 && <>: {places.map((p) => `${p.name} in ${p.place}`).join(", ")}</>}. Prices,
-          and even brands, vary by region, which is why every price shows where it was recorded. Search,
-          product pages and the basket show the Ontario stores unless you choose to show all of them, or to see only the stores near a postal code.
+          Loonie checks {status?.stores.length ? `${inWords(status.stores.length)} stores` : "a handful of stores"} in
+          Ontario{places.length > 0 && <>: {places.map((p) => `${p.name} in ${p.place}`).join(", ")}</>}. Prices
+          differ between locations, even within one chain, which is why every price shows where it was recorded.
+          Search, product pages and the basket show every store unless you choose to see only the stores near a
+          postal code.
         </>
       ),
     },

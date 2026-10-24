@@ -109,7 +109,7 @@ test("size and chain filters accept only the offered values", () => {
   assert.equal(parseMinChange("25"), 25);
   for (const bad of [undefined, "", "0", "30", "-10", "25abc"]) assert.equal(parseMinChange(bad), null, String(bad));
   assert.equal(parseChain("superstore", ["nofrills", "superstore"]), "superstore");
-  assert.equal(parseChain("maxi", ["nofrills"]), null, "a chain outside the store scope");
+  assert.equal(parseChain("zehrs", ["nofrills"]), null, "a chain outside the store scope");
   assert.equal(parseChain("", ["nofrills"]), null);
 });
 

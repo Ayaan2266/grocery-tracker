@@ -5,9 +5,7 @@ import {
   BANNER_COLORS,
   BANNER_LABELS,
   BANNER_SHORT,
-  countByRegion,
   inScope,
-  isOntario,
   nearbyStores,
   scopedStoreIds,
   STORE_MARKS,
@@ -20,7 +18,7 @@ import {
 } from "./stores.ts";
 
 test("the place is whatever follows the banner in a store's label", () => {
-  assert.equal(storeArea("Real Canadian Superstore - Winnipeg Kenaston"), "Winnipeg Kenaston");
+  assert.equal(storeArea("Real Canadian Superstore - Toronto Don Mills"), "Toronto Don Mills");
   assert.equal(storeArea("No Frills - Vaughan"), "Vaughan");
   assert.equal(storeArea("Loblaws"), null);
   assert.equal(storeArea(""), null);
@@ -29,7 +27,7 @@ test("the place is whatever follows the banner in a store's label", () => {
 });
 
 test("a store name carries its place when there is one", () => {
-  assert.equal(storeName("superstore", "Real Canadian Superstore", "Real Canadian Superstore - Winnipeg Kenaston"), "Superstore · Winnipeg Kenaston");
+  assert.equal(storeName("superstore", "Real Canadian Superstore", "Real Canadian Superstore - Toronto Don Mills"), "Superstore · Toronto Don Mills");
   assert.equal(storeName("loblaw", "Loblaws", null), "Loblaws");
   assert.equal(storeName("provigo", "Provigo", "Provigo - Laval"), "Provigo · Laval");
 });
@@ -41,31 +39,11 @@ test("every banner has a label, a short name and a colour", () => {
   assert.equal(new Set(Object.values(BANNER_COLORS)).size, banners.length, "no two banners share a colour");
 });
 
-test("a store is in Ontario when its postal code starts with K, L, M, N or P", () => {
-  for (const code of ["L4K 0C1", "M3J 3N4", "L9P 1N2", "K2M 0A7", "N2N 2Y2", "P3A 5H7", " m6a 3b4"]) {
-    assert.equal(isOntario(code), true, code);
-  }
-  for (const code of ["R3N 2A1", "J9J 3Z4", "T2G 0G7", "V5M 1A1", "", null, undefined]) {
-    assert.equal(isOntario(code), false, String(code));
-  }
-});
+const tracked = [{ id: 1 }, { id: 3 }, { id: 7 }]; // Vaughan, Markham, Toronto
 
-const tracked = [
-  { id: 1, postal_code: "L4K 0C1" }, // No Frills, Vaughan
-  { id: 2, postal_code: "R3N 2A1" }, // Superstore, Winnipeg
-  { id: 3, postal_code: "L3P 1W2" }, // Loblaws, Markham
-  { id: 6, postal_code: "J9J 3Z4" }, // Maxi, Gatineau
-  { id: 7, postal_code: "M3J 3N4" }, // Superstore, Toronto
-];
-
-test("the Ontario scope keeps the Ontario stores and all keeps every store", () => {
-  assert.deepEqual(scopedStoreIds(tracked, "ontario"), [1, 3, 7]);
+test("every store is in scope by default", () => {
   assert.equal(scopedStoreIds(tracked, "all"), null);
-});
-
-test("with no store known to be in Ontario, nothing is filtered out", () => {
-  assert.equal(scopedStoreIds([], "ontario"), null);
-  assert.equal(scopedStoreIds([{ id: 2, postal_code: "R3N 2A1" }], "ontario"), null);
+  assert.equal(scopedStoreIds([], "all"), null);
   assert.equal(inScope(null, 2), true);
   assert.equal(inScope([1, 3, 7], 2), false);
   assert.equal(inScope([1, 3, 7], 7), true);
@@ -79,39 +57,39 @@ test("a banner at two stores is named with its place, a banner at one without", 
     store_label,
   });
   const toronto = listing(7, "superstore", "Real Canadian Superstore - Toronto Gerry Fitzgerald");
-  const winnipeg = listing(2, "superstore", "Real Canadian Superstore - Winnipeg Kenaston");
+  const donMills = listing(11, "superstore", "Real Canadian Superstore - Toronto Don Mills");
   const vaughan = listing(1, "nofrills", "No Frills - Vaughan");
 
-  const both = shortStoreNames([toronto, winnipeg, vaughan]);
+  const both = shortStoreNames([toronto, donMills, vaughan]);
   assert.equal(both(toronto), "Superstore · Toronto Gerry Fitzgerald");
-  assert.equal(both(winnipeg), "Superstore · Winnipeg Kenaston");
+  assert.equal(both(donMills), "Superstore · Toronto Don Mills");
   assert.equal(both(vaughan), "No Frills");
 
   const one = shortStoreNames([toronto, vaughan]);
   assert.equal(one(toronto), "Superstore");
 });
 
-test("each store of a banner gets its own mark, Ontario first", () => {
+test("each store of a banner gets its own mark, the one added first first", () => {
   const stores = [
-    { id: 1, banner_slug: "nofrills", postal_code: "L4K 0C1" },
-    { id: 2, banner_slug: "superstore", postal_code: "R3N 2A1" }, // Winnipeg, added first
-    { id: 6, banner_slug: "maxi", postal_code: "J9J 3Z4" },
-    { id: 7, banner_slug: "superstore", postal_code: "M3J 3N4" }, // Toronto
-    { id: 9, banner_slug: "superstore", postal_code: "L4G 7Y3" }, // Aurora, a later GTA store
+    { id: 1, banner_slug: "nofrills" },
+    { id: 4, banner_slug: "zehrs" },
+    { id: 11, banner_slug: "superstore" }, // Don Mills
+    { id: 7, banner_slug: "superstore" }, // Gerry Fitzgerald, added first
+    { id: 12, banner_slug: "superstore" }, // Weston Road
   ];
   const marks = storeMarks(stores);
   assert.deepEqual(
-    [7, 9, 2].map((id) => marks.get(id)),
+    [7, 11, 12].map((id) => marks.get(id)),
     [0, 1, 2],
-    "Toronto first, then Aurora, then Winnipeg: three different marks",
+    "Gerry Fitzgerald first, then Don Mills, then Weston Road: three different marks",
   );
   assert.equal(marks.get(1), 0);
-  assert.equal(marks.get(6), 0);
+  assert.equal(marks.get(4), 0);
   assert.ok([...storeMarks(stores.slice(0, 3)).values()].every((mark) => mark === 0), "one store per banner: nothing to tell apart");
 });
 
 test("a banner's marks are all different, and past the fourth never the first store's", () => {
-  const stores = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, banner_slug: "nofrills", postal_code: "M5B 2K3" }));
+  const stores = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, banner_slug: "nofrills" }));
   const marks = [...storeMarks(stores).values()];
   assert.deepEqual(marks.slice(0, STORE_MARKS.length), [0, 1, 2, 3]);
   assert.ok(marks.slice(1).every((mark) => mark !== 0));
@@ -121,21 +99,14 @@ test("a banner's marks are all different, and past the fourth never the first st
   assert.equal(storeMark(99), STORE_MARKS[0]);
 });
 
-test("stores are counted by region", () => {
-  assert.deepEqual(countByRegion(tracked), { ontario: 3, outside: 2 });
-  assert.deepEqual(countByRegion([]), { ontario: 0, outside: 0 });
-});
-
 // Where the stores are, to the nearest few kilometres: Vaughan, Markham,
-// Uxbridge, North York, Toronto (Gerry Fitzgerald), Winnipeg and Gatineau.
+// Uxbridge, North York and Toronto (Gerry Fitzgerald).
 const placed = [
-  { id: 1, postal_code: "L4K 0C1", lat: 43.8, lng: -79.5 },
-  { id: 2, postal_code: "R3N 2A1", lat: 49.85, lng: -97.2 },
-  { id: 3, postal_code: "L3P 1W2", lat: 43.87, lng: -79.27 },
-  { id: 4, postal_code: "L9P 1N2", lat: 44.11, lng: -79.12 },
-  { id: 5, postal_code: "M6A 3B4", lat: 43.72, lng: -79.45 },
-  { id: 6, postal_code: "J9J 3Z4", lat: 45.39, lng: -75.84 },
-  { id: 7, postal_code: "M3J 3N4", lat: 43.76, lng: -79.49 },
+  { id: 1, lat: 43.8, lng: -79.5 },
+  { id: 3, lat: 43.87, lng: -79.27 },
+  { id: 4, lat: 44.11, lng: -79.12 },
+  { id: 5, lat: 43.72, lng: -79.45 },
+  { id: 7, lat: 43.76, lng: -79.49 },
 ];
 const vaughan = { fsa: "L4K", lat: 43.7947, lng: -79.4812, radiusKm: 25 };
 
@@ -145,7 +116,7 @@ test("the stores near a place are those within the radius, nearest first", () =>
   assert.equal(near.widened, false);
   assert.deepEqual(near.unplaced, []);
   assert.ok(near.km.get(1)! < near.km.get(7)! && near.km.get(7)! < near.km.get(5)!);
-  assert.ok(near.km.get(2)! > 1000, "Winnipeg is far away");
+  assert.ok(near.km.get(4)! > 25, "Uxbridge is out of range");
 });
 
 test("a bigger radius brings in more stores and a smaller one fewer", () => {
@@ -161,11 +132,6 @@ test("with nothing in range the nearest store stands in, and says so", () => {
   assert.deepEqual(near.ids, [4]);
 });
 
-test("a visitor in Winnipeg gets the Winnipeg store: near is not Ontario-only", () => {
-  const winnipeg = { fsa: "R3N", lat: 49.86, lng: -97.21, radiusKm: 25 };
-  assert.deepEqual(nearbyStores(placed, winnipeg).ids, [2]);
-});
-
 test("a store that could not be placed is kept in, never hidden", () => {
   const some = placed.map((store) => (store.id === 5 ? { ...store, lat: null, lng: null } : store));
   const near = nearbyStores(some, vaughan);
@@ -174,16 +140,15 @@ test("a store that could not be placed is kept in, never hidden", () => {
   assert.equal(near.km.has(5), false);
 
   const none = nearbyStores(placed.map((s) => ({ ...s, lat: null, lng: null })), vaughan);
-  assert.deepEqual(none.ids, [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(none.ids, [1, 3, 4, 5, 7]);
   assert.equal(none.widened, false);
 });
 
-test("the near scope uses the place, and without one it is Ontario", () => {
+test("the near scope uses the place, and without one it is every store", () => {
   assert.deepEqual(scopedStoreIds(placed, "near", vaughan), [1, 7, 5, 3]);
-  assert.deepEqual(scopedStoreIds(placed, "near", null), [1, 3, 4, 5, 7]);
+  assert.equal(scopedStoreIds(placed, "near", null), null);
   assert.equal(scopedStoreIds(placed, "all", vaughan), null);
-  assert.deepEqual(scopedStoreIds(placed, "ontario", vaughan), [1, 3, 4, 5, 7]);
-  assert.deepEqual(scopedStoreIds(tracked, "ontario"), [1, 3, 7], "stores with no coordinates still work");
+  assert.deepEqual(scopedStoreIds(tracked, "near", vaughan), [1, 3, 7], "stores with no coordinates are kept in");
   assert.equal(scopedStoreIds([], "near", vaughan), null);
 });
 

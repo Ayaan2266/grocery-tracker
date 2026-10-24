@@ -37,6 +37,11 @@ for f in 0008 0009 0010; do
 done
 ```
 
+Removing a store goes the other way: merge the change that takes it out of
+`targets.json` first, then apply the migration that deletes its row, or the
+night stops on a target with no store. `0018` dropped the two stores outside
+Ontario that way.
+
 Rules:
 
 - Never edit an applied migration. Add a new one.
@@ -44,6 +49,9 @@ Rules:
   moving `last_confirmed_on` forward. The trigger from `0006` refuses every
   other `UPDATE`, plus `DELETE` and `TRUNCATE`, from every role including the
   owner. `ingest/tests/test_db.py` fails if the code issues anything else.
+  The one exception is `0018`, which deleted the whole history of two stores
+  no longer tracked, with the guard triggers from `0006` and `0008` off for
+  those deletes only.
 - Never add an `INSERT`, `UPDATE` or `DELETE` policy for `anon`. That key ships
   to every browser, so a write policy hands the price history to anyone who
   opens devtools. `0003` and `0006` grant `SELECT` and nothing else, and

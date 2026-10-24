@@ -29,7 +29,6 @@ import {
   BANNER_COLORS,
   bannerLabel,
   inScope,
-  scopedStoreIds,
   shortStoreNames,
   storeArea,
   storeName,
@@ -352,18 +351,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
       )
     : [];
   // Mention the scope only where it changed what this page shows.
-  const ontarioIds = scopedStoreIds(scoped.stores, "ontario");
-  const scopeMatters =
-    scoped.scope === "all"
-      ? allListings.some((listing) => !inScope(ontarioIds, listing.store_id))
-      : matched.some((item) => !shown(item.listing));
-  // What the chart's subtitle calls the stores shown, when a scope narrowed them.
+  const scopeMatters = matched.some((item) => !shown(item.listing));
+  // What the chart's subtitle calls the stores shown, when "near" narrowed them.
   const storeKind =
-    scoped.storeIds !== null && product !== null && inScope(scoped.storeIds, product.store_id)
-      ? scoped.scope === "near"
-        ? "nearby "
-        : "Ontario "
-      : "";
+    scoped.storeIds !== null && product !== null && inScope(scoped.storeIds, product.store_id) ? "nearby " : "";
 
   const spansByProduct = Map.groupBy(history.data ?? [], (span) => span.product_id);
   const spansFor = (productId: number) => spansByProduct.get(productId) ?? [];
