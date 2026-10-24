@@ -1,7 +1,7 @@
 """Find and verify store codes for banners that are not ingested yet.
 
-    python -m ingest.stores discover zehrs fortinos maxi --near 43.59,-79.64
-    python -m ingest.stores verify zehrs/0554 maxi/8676
+    python -m ingest.stores discover zehrs fortinos --near 43.59,-79.64
+    python -m ingest.stores verify zehrs/0554 fortinos/7920
 
 Read-only: it searches the API and never touches the database. A code this
 prints as verified still goes through a migration and targets.json, like every

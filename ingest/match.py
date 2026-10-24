@@ -12,8 +12,8 @@ IDENTITY the SKU misses. The same manufactured good under a different code at
     Comparing these is always fair, so they may count as the same item.
 
 SUBSTITUTABILITY. Different goods a shopper would accept for each other:
-    Neilson "2% Milk" 4 l, stocked at No Frills and Loblaws, against Beatrice
-    "Partly Skimmed Milk 2%" 4 l, which is what Superstore carries instead.
+    Neilson "2% Milk" 4 l against Beatrice "Partly Skimmed Milk 2%" 4 l: the
+    same milk from two dairies, where a store may stock one and not the other.
     These make "where is this cheapest" answerable across banners that stock
     different brands, and are also where a wrong call does real damage, so a
     substitute is never presented as the same item and never priced into a
