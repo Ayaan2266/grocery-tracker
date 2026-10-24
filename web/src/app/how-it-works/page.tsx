@@ -244,7 +244,7 @@ function Steps({ status }: { status: NightlyStatus | null }) {
   const steps = [
     {
       tone: "yellow",
-      art: "six-stores.png",
+      art: "five-chains.png",
       title: `We check ${storeCount > 0 ? inWords(storeCount) : "the"} stores`,
       body: `Overnight, Loonie searches ${SEARCH_TERM_COUNT} everyday items at each store, and records every price, sale and unit price it finds.`,
       fact: status && status.prices > 0 ? `Last night: ${count(status.prices)} prices` : "Checked once a day",
@@ -697,7 +697,7 @@ export default async function HowItWorksPage({
                 We check the shelves every night<span className="gold-stop">.</span>
               </h1>
               <p className="hiw-lede">
-                Loonie records grocery prices at {storeCount > 0 ? inWords(storeCount) : "several"} Canadian stores
+                Loonie records grocery prices at {storeCount > 0 ? inWords(storeCount) : "several"} Ontario stores
                 every night, keeps the whole history, and tells you whether today’s price is actually a good one.
               </p>
               <LiveStatus status={nightly} />
@@ -710,12 +710,13 @@ export default async function HowItWorksPage({
             </div>
             {/* The receipt's store count is drawn here, not painted into the image,
                 so it follows the store list instead of going stale. The file was
-                renamed when the painted count was removed: Next's image cache is
-                keyed by path, and kept serving the old picture, "6" included,
-                under the new text at the old name. */}
+                renamed when the painted count was removed, and again when Maxi
+                left the painted chain list: Next's image cache is keyed by path,
+                and kept serving the old picture, "6" included, under the new
+                text at the old name. */}
             <div className="hiw-hero-art">
               <Image
-                src="/illustrations/how-it-works/nightly-check-live-count.png"
+                src="/illustrations/how-it-works/nightly-check-five-chains.png"
                 alt=""
                 width={480}
                 height={452}
