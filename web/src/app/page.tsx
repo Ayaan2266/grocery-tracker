@@ -121,10 +121,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     storeList.filter((store) => inScope(scoped.storeIds, store.id)).map((store) => store.banner_slug),
   ).size;
   const prices = results.data?.rows ?? [];
+  // A misspelling found nothing, so the results are for the corrected
+  // spelling; links from here carry that spelling on.
+  const corrected = results.data?.correctedTo;
+  const shownQuery = corrected ?? query;
   const histories = await rowHistories(prices);
   const hasMore = (results.data?.hasMore ?? false) && count < MAX_RESULTS;
   const error = scoped.error ?? results.error ?? (!query ? coverage.error : null);
-  const productHref = (id: number) => `/product/${id}?${new URLSearchParams({ q: query })}`;
+  const productHref = (id: number) => `/product/${id}?${new URLSearchParams({ q: shownQuery })}`;
 
   return (
     <main>
@@ -159,7 +163,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
               <div className="section-heading">
                 <div>
                   <p className="section-label">Latest recorded prices</p>
-                  <h2>Results for “{query}”</h2>
+                  <h2>Results for “{shownQuery}”</h2>
+                  {corrected && (
+                    <p className="search-correction">
+                      Nothing matched “{query}”, so these are results for <strong>{corrected}</strong>.
+                    </p>
+                  )}
                   <p>
                     Each result is one store’s listing. Open one to see its price history.
                   </p>
@@ -176,7 +185,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                       </p>
                       <StoreScopeControl scoped={scoped} />
                     </div>
-                    {prices.length > 1 && <SortToggle query={query} sort={sort} />}
+                    {prices.length > 1 && <SortToggle query={shownQuery} sort={sort} />}
                   </div>
                   {scopeHelp && <p className="scope-help">{scopeHelp}</p>}
                   <NearMeDetails scoped={scoped} />
@@ -204,7 +213,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                   {hasMore && (
                     <Link
                       className="show-more"
-                      href={`${searchHref(query, sort, count + PAGE_SIZE)}#result-${count}`}
+                      href={`${searchHref(shownQuery, sort, count + PAGE_SIZE)}#result-${count}`}
                       scroll={false}
                     >
                       Show more results <ArrowDown size={18} aria-hidden="true" />

@@ -37,6 +37,9 @@ for f in 0008 0009 0010; do
 done
 ```
 
+`0020` adds functions and nothing else, so it can go in before or after the
+code that calls them: the site searches the old way until it is applied.
+
 Removing a store goes the other way: merge the change that takes it out of
 `targets.json` first, then apply the migration that deletes its row, or the
 night stops on a target with no store. `0018` dropped the two stores outside
