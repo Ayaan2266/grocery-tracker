@@ -1548,6 +1548,30 @@ class TestSearch:
             "Buttermilk",  # only inside a longer word
         ]
 
+    def test_a_list_of_ingredients_is_not_named_for_the_first_one(self, conn) -> None:
+        self.stock(
+            conn,
+            "3131",
+            ("Banana, Sweet Potato, and Blueberry Strained Organic Baby Food", 100),
+            ("Apple, Banana & Blueberry Strained Baby Food", 109),
+            ("Bananas, Bunch", 169),
+        )
+        assert self.search(conn, "banana")[0] == "Bananas, Bunch"
+
+    def test_cheese_is_found_by_its_kind(self, conn) -> None:
+        self.stock(
+            conn,
+            "3131",
+            ("Macaroni & Cheese Classic Cheddar", 199),
+            ("Mild Cheddar Cheese", 699),
+            ("Cheddar Crackers", 299),
+        )
+        assert self.search(conn, "cheddar") == [
+            "Mild Cheddar Cheese",
+            "Macaroni & Cheese Classic Cheddar",
+            "Cheddar Crackers",
+        ]
+
     def test_two_words_in_the_order_written_beat_the_same_words_reversed(self, conn) -> None:
         self.stock(conn, "3131", ("Chocolate Milk", 299), ("Milk Chocolate Bar", 349))
         assert self.search(conn, "milk chocolate") == ["Milk Chocolate Bar", "Chocolate Milk"]
