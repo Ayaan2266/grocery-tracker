@@ -1558,6 +1558,28 @@ class TestSearch:
         )
         assert self.search(conn, "banana")[0] == "Bananas, Bunch"
 
+    def test_a_fruit_followed_by_more_fruit_is_a_blend(self, conn) -> None:
+        self.stock(
+            conn,
+            "3131",
+            ("Banana, Sweet Potato Blueberry", 100),
+            ("Apple, Banana, Kale with Hemp Seed", 129),
+            ("Apple, Sweet Potato, Blueberry with Coconut Oil", 129),
+            ("Bananas, Bunch", 169),
+            ("Apple, Paula Red", 199),
+            ("Greek Yogurt, Banana, Blended, 2% MF", 599),
+        )
+        assert self.search(conn, "banana")[0] == "Bananas, Bunch"
+        assert self.search(conn, "apple")[0] == "Apple, Paula Red"
+        assert self.search(conn, "yogurt") == ["Greek Yogurt, Banana, Blended, 2% MF"]
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT search_tier(%s, NULL, search_words('yogurt'))",
+                ("Greek Yogurt, Banana, Blended, 2% MF",),
+            )
+            # A kind of yogurt (Greek), not a blend named for something else.
+            assert cur.fetchone()[0] == 1, "a flavour after the comma is not a blend"
+
     def test_cheese_is_found_by_its_kind(self, conn) -> None:
         self.stock(
             conn,
