@@ -90,7 +90,7 @@ DECLARE
         -- fat and processing
         'skim|skimmed|partly|partially|whole|homogenized|homogenised|filtered|fine|'
         'microfiltered|ultrafiltered|ultra|enriched|lactose|free|fat|low|light|lite|'
-        'reduced|regular|mf|salted|unsalted|boneless|skinless|'
+        'reduced|regular|mf|salted|unsalted|boneless|skinless|mild|old|aged|sharp|'
         -- how it is raised or sold
         'organic|kosher|grass|fed|range|fresh|natural|premium|original|classic|plain|'
         'product|shelf|stable|brown|white|run|pasture|raised|grade|omega|plus|bunch|sliced|'
@@ -110,10 +110,15 @@ BEGIN
 
     -- The part of the name that says what it is ends at the first comma,
     -- parenthesis, " - " or "with": "Almond Milk Alternative, Original" is
-    -- an almond milk alternative. A marker word stands in for the boundary
-    -- so the name is folded once, not once for each part.
-    folded := search_text(
-        regexp_replace(lower(raw_name), '(,|\(|\s-\s|\s(with|in|for|made)\s)', ' qqheadend '));
+    -- an almond milk alternative. Not a comma that starts a list, though:
+    -- "Banana, Sweet Potato, and Blueberry Baby Food" is baby food. A marker
+    -- word stands in for the boundary so the name is folded once, not once
+    -- for each part.
+    folded := search_text(regexp_replace(
+        lower(raw_name),
+        CASE WHEN raw_name ~ ',.*\s(and|&|\+)\s' THEN '(\(|\s-\s|\s(with|in|for|made)\s)'
+             ELSE '(,|\(|\s-\s|\s(with|in|for|made)\s)' END,
+        ' qqheadend '));
     name_words := array_remove(string_to_array(folded, ' '), 'qqheadend');
     IF NOT words <@ name_words THEN
         RETURN 3;
@@ -136,6 +141,12 @@ BEGIN
             EXIT;
         END IF;
     END LOOP;
+
+    -- Cheese is named for its kind: "Mild Cheddar Cheese" is cheddar.
+    IF cardinality(head_words) > 1 AND head_words[cardinality(head_words)] = 'cheese'
+       AND head_words[cardinality(head_words) - 1] = wanted THEN
+        head_words := head_words[1:cardinality(head_words) - 1];
+    END IF;
 
     IF wanted IS NOT NULL AND head_words[cardinality(head_words)] IS DISTINCT FROM wanted THEN
         IF cardinality(words) > 1
@@ -247,11 +258,9 @@ $$;
 CREATE FUNCTION search_suggestion(search_term text) RETURNS text
 LANGUAGE plpgsql STABLE
 SET search_path FROM CURRENT
--- `<%` below uses this as its cut-off. The default, 0.6, misses a doubled
--- letter in a short word ("banaana" against "Bananas" is 0.57).
-SET pg_trgm.word_similarity_threshold = 0.4
 AS $$
 DECLARE
+    previous_threshold text;
     tokens text[] := ARRAY(
         SELECT t FROM regexp_split_to_table(lower(trim(coalesce(search_term, ''))), '\s+') AS t
          WHERE t <> '');
@@ -260,6 +269,14 @@ DECLARE
     token text;
     best text;
 BEGIN
+    -- `<%` below uses this as its cut-off. The default, 0.6, misses a doubled
+    -- letter in a short word ("banaana" against "Bananas" is 0.57). Set here
+    -- and put back, not with SET on the function: Supabase's postgres role
+    -- may not put a SET for an extension's setting on a function. Calling
+    -- similarity() first loads pg_trgm, so the setting exists to be set.
+    PERFORM similarity('', '');
+    previous_threshold := current_setting('pg_trgm.word_similarity_threshold');
+    PERFORM set_config('pg_trgm.word_similarity_threshold', '0.4', true);
     FOREACH token IN ARRAY tokens LOOP
         best := NULL;
         IF token ~ '^[[:alpha:]]{3,}$'
@@ -288,6 +305,7 @@ BEGIN
             corrected := corrected || token;
         END IF;
     END LOOP;
+    PERFORM set_config('pg_trgm.word_similarity_threshold', previous_threshold, true);
     RETURN CASE WHEN changed THEN array_to_string(corrected, ' ') END;
 END
 $$;
