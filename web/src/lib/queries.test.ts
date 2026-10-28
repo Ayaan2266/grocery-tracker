@@ -11,25 +11,79 @@ import {
 
 const originalFetch = globalThis.fetch;
 let requests: URL[];
-let respond: (url: URL) => Response;
+let bodies: unknown[];
+let respond: (url: URL, body: unknown) => Response;
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.test";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
   requests = [];
+  bodies = [];
   respond = () => Response.json([]);
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
     requests.push(url);
-    return respond(url);
+    bodies.push(body);
+    return respond(url, body);
   };
 });
 afterEach(() => { globalThis.fetch = originalFetch; });
 
-test("unit-price search groups dimensions before ranking value", async () => {
-  await searchProducts("milk", { sort: "value" });
-  const order = requests[0].searchParams.get("order")!;
+test("search asks the ranked search for one row more than a page, in the stores in scope", async () => {
+  respond = () => Response.json(Array.from({ length: 4 }, (_, i) => ({ product_id: i })));
+  const page = await searchProducts("  milk ", { sort: "value", limit: 3, storeIds: [2, 5] });
+  assert.equal(requests[0].pathname, "/rest/v1/rpc/search_products");
+  assert.deepEqual(bodies[0], { search_term: "milk", store_ids: [2, 5], sort_by: "value", max_rows: 4 });
+  assert.equal(page.data?.rows.length, 3);
+  assert.equal(page.data?.hasMore, true);
+  assert.equal(page.data?.correctedTo, undefined);
+  assert.equal(requests.length, 1, "a search that finds something is not spell-checked");
+});
+
+test("a search that finds nothing is run again with its spelling corrected", async () => {
+  respond = (url, body) => {
+    if (url.pathname.endsWith("/search_suggestion")) return Response.json("banana");
+    const term = (body as { search_term: string }).search_term;
+    return Response.json(term === "banana" ? [{ product_id: 7, raw_name: "Bananas, Bunch" }] : []);
+  };
+  const page = await searchProducts("banaana");
+  assert.deepEqual(requests.map((r) => r.pathname), [
+    "/rest/v1/rpc/search_products",
+    "/rest/v1/rpc/search_suggestion",
+    "/rest/v1/rpc/search_products",
+  ]);
+  assert.deepEqual(bodies[1], { search_term: "banaana" });
+  assert.equal(page.data?.correctedTo, "banana");
+  assert.deepEqual(page.data?.rows.map((r) => r.product_id), [7]);
+});
+
+test("a search with nothing close to correct comes back empty, not as an error", async () => {
+  respond = (url) => Response.json(url.pathname.endsWith("/search_suggestion") ? null : []);
+  const page = await searchProducts("zzqqx");
+  assert.equal(page.error, null);
+  assert.deepEqual(page.data, { rows: [], hasMore: false });
+  assert.equal(requests.length, 2);
+});
+
+test("before migration 0020 search falls back to ILIKE, grouping units before value", async () => {
+  respond = (url) => url.pathname.startsWith("/rest/v1/rpc/")
+    ? Response.json({ code: "PGRST202", message: "Could not find the function" }, { status: 404 })
+    : Response.json([]);
+  const page = await searchProducts("50%", { sort: "value" });
+  assert.equal(page.error, null);
+  const legacy = requests[1];
+  assert.equal(legacy.pathname, "/rest/v1/product_latest_price");
+  assert.equal(legacy.searchParams.get("raw_name"), "ilike.%50\\%%");
+  const order = legacy.searchParams.get("order")!;
   assert.ok(order.indexOf("comparison_unit") < order.indexOf("unit_price_cents"));
+});
+
+test("a failed search reports its error rather than no results", async () => {
+  respond = () => Response.json({ code: "57014", message: "canceling statement due to statement timeout" }, { status: 500 });
+  const page = await searchProducts("milk");
+  assert.equal(page.data, null);
+  assert.match(page.error ?? "", /statement timeout/);
 });
 
 test("full history includes prices after the response cap", async () => {

@@ -1500,3 +1500,102 @@ class TestProductImages:
             cur.execute("SET LOCAL ROLE anon")
             cur.execute("SELECT image_url FROM product_latest_price")
             assert cur.fetchone()[0] == self.PHOTO
+
+
+class TestSearch:
+    """search_products and search_suggestion (0020), which the search box calls."""
+
+    def stock(self, conn, store_code: str, *listings: tuple[str, int]) -> int:
+        """One night at a store: each listing's name and shelf price."""
+        banner = "nofrills" if store_code == "3131" else "loblaw"
+        store_id = db.resolve_store_id(conn, banner, store_code)
+        rows = [
+            replace(make_row(i), raw_name=name, price_cents=price, in_stock=True)
+            for i, (name, price) in enumerate(listings)
+        ]
+        result = db.write_store_observations(conn, store_id, rows, DAY)
+        assert result.errors == []
+        return store_id
+
+    def search(self, conn, term: str, store_ids: list[int] | None = None) -> list[str]:
+        with conn.cursor() as cur:
+            cur.execute("SELECT raw_name FROM search_products(%s, %s)", (term, store_ids))
+            return [name for (name,) in cur.fetchall()]
+
+    def suggestion(self, conn, term: str) -> str | None:
+        with conn.cursor() as cur:
+            cur.execute("SELECT search_suggestion(%s)", (term,))
+            return cur.fetchone()[0]
+
+    def test_milk_comes_before_what_only_mentions_milk(self, conn) -> None:
+        """The cheapest "milk" used to be a chocolate bar."""
+        self.stock(
+            conn,
+            "3131",
+            ("Milk Chocolate Bar", 129),
+            ("Buttermilk", 200),
+            ("Chocolate Milk", 299),
+            ("Oat Milk Alternative, Original", 449),
+            ("2% Milk", 655),
+            ("Partly Skimmed Milk 2% M.F.", 799),
+        )
+        assert self.search(conn, "milk") == [
+            "2% Milk",  # milk, cheapest first
+            "Partly Skimmed Milk 2% M.F.",
+            "Chocolate Milk",  # a kind of milk
+            "Milk Chocolate Bar",  # milk is in it, but it is a bar
+            "Oat Milk Alternative, Original",
+            "Buttermilk",  # only inside a longer word
+        ]
+
+    def test_two_words_in_the_order_written_beat_the_same_words_reversed(self, conn) -> None:
+        self.stock(conn, "3131", ("Chocolate Milk", 299), ("Milk Chocolate Bar", 349))
+        assert self.search(conn, "milk chocolate") == ["Milk Chocolate Bar", "Chocolate Milk"]
+        assert self.search(conn, "chocolate milk") == ["Chocolate Milk", "Milk Chocolate Bar"]
+
+    def test_singular_and_plural_find_each_other(self, conn) -> None:
+        self.stock(conn, "3131", ("Banana Chips", 249), ("Bananas, Bunch", 169), ("Berries", 499))
+        assert self.search(conn, "banana") == ["Bananas, Bunch", "Banana Chips"]
+        assert self.search(conn, "bananas") == ["Bananas, Bunch", "Banana Chips"]
+        assert self.search(conn, "berry") == ["Berries"]
+
+    def test_every_word_must_match_in_any_order(self, conn) -> None:
+        self.stock(
+            conn, "3131", ("Boneless Skinless Chicken Breasts", 1499), ("Chicken Thighs", 999)
+        )
+        assert self.search(conn, "breast chicken") == ["Boneless Skinless Chicken Breasts"]
+
+    def test_a_number_or_percent_sign_is_matched_literally(self, conn) -> None:
+        self.stock(conn, "3131", ("50% Less Fat Cheddar", 899), ("Mild Cheddar Cheese", 699))
+        assert self.search(conn, "50%") == ["50% Less Fat Cheddar"]
+        assert self.search(conn, "5_%") == []
+
+    def test_stores_out_of_scope_are_left_out(self, conn) -> None:
+        here = self.stock(conn, "3131", ("2% Milk", 655))
+        self.stock(conn, "1032", ("2% Milk", 599))
+        with conn.cursor() as cur:
+            cur.execute("SELECT store_id FROM search_products('milk', %s)", ([here],))
+            assert [store for (store,) in cur.fetchall()] == [here]
+
+    def test_a_misspelled_word_is_corrected_to_one_a_name_contains(self, conn) -> None:
+        self.stock(
+            conn, "3131", ("Bananas, Bunch", 169), ("Banana Chips", 249), ("Chocolate Milk", 299)
+        )
+        assert self.suggestion(conn, "banaana") == "banana"
+        assert self.suggestion(conn, "chocolate milkk") == "chocolate milk"
+
+    def test_nothing_is_suggested_for_a_search_that_matches_or_resembles_nothing(
+        self, conn
+    ) -> None:
+        self.stock(conn, "3131", ("Bananas, Bunch", 169))
+        assert self.suggestion(conn, "banana") is None
+        assert self.suggestion(conn, "zqxjv") is None
+
+    def test_anon_can_search(self, conn) -> None:
+        self.stock(conn, "3131", ("Bananas, Bunch", 169))
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            cur.execute("SELECT raw_name FROM search_products('banana')")
+            assert cur.fetchall() == [("Bananas, Bunch",)]
+            cur.execute("SELECT search_suggestion('banaana')")
+            assert cur.fetchone()[0] == "bananas"

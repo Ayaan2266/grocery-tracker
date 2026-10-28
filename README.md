@@ -27,7 +27,10 @@ and it is also the only part that cannot be built in a weekend.
 
 ## What the site does
 
-- **Search** every store's latest price, cheapest first or by unit price
+- **Search** every store's latest price, closest match first: "milk" lists
+  milk before chocolate milk, and chocolate milk before chocolate bars. A
+  misspelling ("banaana") is searched as the nearest word in the catalogue
+  (`db/migrations/0020`). Within each match, cheapest first or by unit price
   (per 100 g, per 100 ml, each), with a 7-day sparkline and a badge from the
   last 30 days: lowest recorded, below typical, above typical, or steady.
   Each result shows the store's own product photo, loaded from the store's

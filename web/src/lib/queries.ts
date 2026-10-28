@@ -84,14 +84,31 @@ export const PAGE_SIZE = 60;
 /** A "Show more" link can ask for at most this many rows in one request. */
 export const MAX_RESULTS = 600;
 
-export type SearchPage = { rows: LatestPrice[]; hasMore: boolean };
+export type SearchPage = {
+  rows: LatestPrice[];
+  hasMore: boolean;
+  /**
+   * The spelling that was searched instead, when the search as typed found
+   * nothing and a close one did: "banaana" finds bananas as "banana".
+   */
+  correctedTo?: string;
+};
+
+/** PostgREST's code for "no such function": migration 0020 is not applied. */
+const FUNCTION_NOT_FOUND = "PGRST202";
 
 /**
- * One page of search results, cheapest first.
+ * One page of search results, best match first, then cheapest.
  *
- * "price" is the shelf price. "value" is the unit price, which puts a 4 L jug
- * and a 1 L carton on the same scale. Group by unit so grams, millilitres
- * and each never compete. Products with no unit price go last.
+ * search_products (db/migrations/0020_search_relevance.sql) ranks the
+ * matches: "milk" puts milk before chocolate milk, and chocolate milk
+ * before milk chocolate bars and buttermilk. Within each rank, "price" is
+ * the shelf price. "value" is the unit price, which puts a 4 L jug and a
+ * 1 L carton on the same scale, grouped by unit so grams, millilitres and
+ * each never compete; products with no unit price go last.
+ *
+ * A search that finds nothing is tried once more with its misspelled words
+ * corrected (search_suggestion), and says so in `correctedTo`.
  *
  * Asks for one row more than it shows, which is how "Show more" knows there
  * is more without a second count query. `storeIds` limits the results to
@@ -112,6 +129,51 @@ export async function searchProducts(
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 
   const capped = Math.min(Math.max(limit, 1), MAX_RESULTS);
+  const ranked = (searchTerm: string) =>
+    supabase.rpc("search_products", {
+      search_term: searchTerm,
+      store_ids: storeIds,
+      sort_by: sort,
+      max_rows: capped + 1,
+    });
+  const page = (rows: LatestPrice[], correctedTo?: string): SearchPage => ({
+    rows: rows.slice(0, capped),
+    hasMore: rows.length > capped,
+    ...(correctedTo ? { correctedTo } : {}),
+  });
+
+  const first = await ranked(trimmed);
+  if (first.error?.code === FUNCTION_NOT_FOUND) {
+    return legacySearch(trimmed, sort, capped, storeIds);
+  }
+  if (first.error) return { data: null, error: first.error.message };
+  const rows = (first.data ?? []) as LatestPrice[];
+  if (rows.length > 0) return { data: page(rows), error: null };
+
+  const suggestion = await supabase.rpc("search_suggestion", { search_term: trimmed });
+  if (suggestion.error) return { data: null, error: suggestion.error.message };
+  const corrected = typeof suggestion.data === "string" ? suggestion.data : null;
+  if (!corrected || corrected === trimmed.toLowerCase()) return { data: page([]), error: null };
+
+  const second = await ranked(corrected);
+  if (second.error) return { data: null, error: second.error.message };
+  return { data: page((second.data ?? []) as LatestPrice[], corrected), error: null };
+}
+
+/**
+ * The search before migration 0020: the term anywhere in the name, cheapest
+ * first. Only for a database without search_products, so the site keeps
+ * working whichever of the code and the migration goes out first.
+ */
+async function legacySearch(
+  trimmed: string,
+  sort: SortOrder,
+  capped: number,
+  storeIds: number[] | null,
+): Promise<Result<SearchPage>> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
+
   let query = supabase
     .from("product_latest_price")
     .select("*")
