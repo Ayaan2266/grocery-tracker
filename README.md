@@ -3,7 +3,7 @@
 [![CI](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ci.yml)
 [![Nightly ingest](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ingest.yml/badge.svg)](https://github.com/Ayaan2266/grocery-tracker/actions/workflows/ingest.yml)
 
-**Live:** _launching on Vercel in October 2026_
+**Live:** _launching on Vercel in November 2026_
 
 Daily store-level price history for Canadian groceries, from ten Ontario
 stores across five Loblaw-owned banners (No Frills, Real Canadian Superstore,
