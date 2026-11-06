@@ -25,6 +25,10 @@ a { color: inherit; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--coral); outline-offset: 4px; }
 
 .site-shell { width: min(100% - 64px, 1280px); margin-inline: auto; }
+/* A short page (an empty basket, a 404) keeps its footer at the bottom of the
+   window instead of halfway up it. */
+.site-shell:has(> .site-footer) { display: flex; flex-direction: column; min-height: 100dvh; }
+.site-shell > .site-footer { margin-top: auto; }
 .skip-link { position: absolute; z-index: 20; top: -80px; left: 20px; padding: 10px 14px; background: var(--yellow); color: var(--navy); border-radius: 8px; }
 .skip-link:focus { top: 12px; }
 .hero-wrap { position: relative; background: var(--blue); box-shadow: 0 0 0 100vmax var(--blue); clip-path: inset(0 -100vmax); color: var(--white); }
@@ -42,6 +46,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .hero { position: relative; padding: 35px 20px 58px; text-align: center; }
 .hero-tote { position: absolute; left: -170px; bottom: -60px; z-index: 0; width: 320px; height: 320px; object-fit: contain; pointer-events: none; }
 .hero > :not(.hero-tote) { position: relative; z-index: 1; }
+.hero-searching { padding: 14px 20px 30px; }
 .eyebrow { display: flex; justify-content: center; align-items: center; gap: 9px; margin: 0 0 15px; color: var(--white); font-size: 14px; font-weight: 750; letter-spacing: .015em; animation: rise .55s ease both; }
 .eyebrow span { color: var(--coral); font-size: 25px; line-height: .5; }
 .hero h1 { max-width: 1120px; margin: 0 auto; font-size: clamp(50px, 6.2vw, 87px); font-weight: 850; letter-spacing: -.06em; line-height: 1.03; text-wrap: balance; animation: rise .62s .05s ease both; }
@@ -59,7 +64,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .staples a { padding: 7px 14px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(255,255,255,.1); color: var(--white); font-size: 13px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background .18s ease; }
 .staples a:hover { transform: translateY(-2px); background: rgba(255,255,255,.23); }
 
-.data-alert { margin: 0 0 24px; padding: 15px 18px; border: 1px solid #edbf79; border-radius: 13px; background: #fff7e6; color: var(--navy); font-size: 14px; }
+.data-alert { margin: 16px 0 24px; padding: 15px 18px; border: 1px solid #edbf79; border-radius: 13px; background: #fff7e6; color: var(--navy); font-size: 14px; }
 .prices-section { padding: 50px 0 58px; scroll-margin-top: 24px; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .section-label { margin: 0 0 7px; color: var(--blue); font-size: 12px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
@@ -116,6 +121,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .price-note + .scope-row, .product-page > .scope-row { margin-top: 16px; }
 .near-details { flex-basis: 100%; font-size: 13px; }
+.near-details + .price-list, .near-details + .empty-state { margin-top: 14px; }
 .near-details summary { width: fit-content; color: var(--blue-dark); cursor: pointer; font-weight: 800; }
 .near-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
 .near-form label:not(.visually-hidden) { color: var(--blue-dark); font-weight: 800; }
@@ -142,7 +148,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .empty-state p { margin: 0 0 5px; }
 .empty-state p:last-child { margin-bottom: 0; color: var(--muted); }
 .empty-state a { color: var(--blue-dark); font-weight: 800; }
-.coverage { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 44px; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.coverage { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 22px 0; border-top: 1px solid var(--line); }
 .coverage-stores { grid-column: 1 / -1; display: grid; gap: 10px; padding-top: 16px; border-top: 1px dashed var(--line); }
 .coverage-stores > p { margin: 0; color: var(--muted); font-size: 13px; }
 .coverage-stores ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -389,9 +395,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .price-row-action .basket-button { padding: 8px 14px; font-size: 13px; }
 
 @media (max-width: 600px) {
-  .price-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "product product" "trend amount" "action amount"; gap: 10px 14px; padding: 16px; }
+  .price-row { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "product product product" "trend amount action"; gap: 10px 14px; padding: 16px; }
   .price-row-trend { align-items: start; }
-  .price-row-action { align-self: end; }
   .price-row-amount strong { font-size: 22px; }
 }
 
@@ -632,7 +637,11 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 .worked-verdict a { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--blue-dark); font-size: 14px; font-weight: 850; text-decoration: none; }
 .worked-verdict a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.store-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.store-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.store-board > ul { display: contents; }
+/* The aisles fill what the last row of stores leaves, so ten stores in rows of
+   three do not end on one card beside two empty slots. */
+.store-board > .aisles { grid-column: span var(--board-free, 3); margin: 0; align-content: center; }
 .store-card { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px; border: 1px solid var(--line); border-left: 6px solid; border-radius: 16px; background: var(--white); }
 .store-card-head { display: flex; align-items: center; gap: 9px; }
 .store-card-head h4 { margin: 0; font-size: 20px; font-weight: 850; letter-spacing: -.035em; }
@@ -684,6 +693,7 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 1000px) {
   .hiw-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .legend, .store-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .store-board > .aisles { grid-column: 1 / -1; }
   .hiw-faq { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px) {
@@ -798,6 +808,9 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 380px) {
   /* The smallest phones fit two links beside the brand, which links home itself. */
   .site-header nav a[href="/"] { display: none; }
+  /* Too narrow for trend, price and Add in one row: the trend gets its own. */
+  .price-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "product product" "trend trend" "amount action"; }
+  .price-row-amount { align-items: flex-start; text-align: left; }
 }
 
 /* Product photos (components/product-photo.tsx). The store's photos are
