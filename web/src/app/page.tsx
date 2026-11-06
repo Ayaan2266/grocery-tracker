@@ -137,18 +137,26 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         <div className="hero-wrap">
           <SiteHeader current="home" />
 
-          <section className="hero" aria-labelledby="hero-title">
-            <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
-            <p className="eyebrow">Same groceries. Smarter choices. <span aria-hidden="true">✦</span></p>
-            <h1 id="hero-title">Grocery prices have a story<span className="gold-stop">.</span></h1>
-            <p className="hero-description">Find out if today is a good day to buy.</p>
+          {/* With a search, the hero shrinks to the search box so the results
+              start on the first screen, on a phone as well as a desktop. */}
+          <section className={query ? "hero hero-searching" : "hero"} aria-labelledby="hero-title">
+            {!query && (
+              <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
+            )}
+            {!query && <p className="eyebrow">Same groceries. Smarter choices. <span aria-hidden="true">✦</span></p>}
+            <h1 id="hero-title" className={query ? "visually-hidden" : undefined}>
+              Grocery prices have a story<span className="gold-stop">.</span>
+            </h1>
+            {!query && <p className="hero-description">Find out if today is a good day to buy.</p>}
             <SearchForm query={query} />
-            <div className="staples" aria-label="Try a staple">
-              <span>Try searching</span>
-              {staples.map((item) => (
-                <Link href={`/?q=${encodeURIComponent(item.term)}#prices`} key={item.term}>{item.label}</Link>
-              ))}
-            </div>
+            {!query && (
+              <div className="staples" aria-label="Try a staple">
+                <span>Try searching</span>
+                {staples.map((item) => (
+                  <Link href={`/?q=${encodeURIComponent(item.term)}#prices`} key={item.term}>{item.label}</Link>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 

@@ -594,14 +594,22 @@ function StoreCard({ store, mark }: { store: StoreStatus; mark: number | undefin
 }
 
 /** Every store checked nightly. */
-function StoreBoard({ status }: { status: NightlyStatus }) {
+/**
+ * The store cards, three to a row on a wide screen, with `children` filling
+ * the slots the last row leaves empty (all three when the stores fill it).
+ */
+function StoreBoard({ status, children }: { status: NightlyStatus; children: React.ReactNode }) {
   const marks = storeMarks(status.stores);
+  const free = 3 - (status.stores.length % 3);
   return (
-    <ul className="store-board">
-      {status.stores.map((store) => (
-        <StoreCard key={store.id} store={store} mark={marks.get(store.id)} />
-      ))}
-    </ul>
+    <div className="store-board" style={{ "--board-free": free } as React.CSSProperties}>
+      <ul>
+        {status.stores.map((store) => (
+          <StoreCard key={store.id} store={store} mark={marks.get(store.id)} />
+        ))}
+      </ul>
+      {children}
+    </div>
   );
 }
 
@@ -683,6 +691,26 @@ export default async function HowItWorksPage({
   const nightly = status.data;
   const storeCount = nightly?.stores.length ?? 0;
   const chainCount = new Set(nightly?.stores.map((s) => s.banner_slug) ?? []).size;
+
+  const aisles = (
+    <div className="aisles">
+      <p>
+        <Search size={16} aria-hidden="true" />
+        <span>
+          <strong>{SEARCH_TERM_COUNT} everyday searches</strong> across {AISLES.length} aisles. Try one:
+        </span>
+      </p>
+      <ul>
+        {AISLES.map((aisle) => (
+          <li key={aisle.key}>
+            <Link href={`/?q=${encodeURIComponent(aisle.sample)}#prices`} title={`Search “${aisle.sample}”`}>
+              {aisle.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <main>
@@ -785,27 +813,13 @@ export default async function HowItWorksPage({
             </div>
           </div>
           {nightly ? (
-            <StoreBoard status={nightly} />
+            <StoreBoard status={nightly}>{aisles}</StoreBoard>
           ) : (
-            <div role="alert" className="data-alert">Store details are unavailable right now. Please try again soon.</div>
+            <>
+              <div role="alert" className="data-alert">Store details are unavailable right now. Please try again soon.</div>
+              {aisles}
+            </>
           )}
-          <div className="aisles">
-            <p>
-              <Search size={16} aria-hidden="true" />
-              <span>
-                <strong>{SEARCH_TERM_COUNT} everyday searches</strong> across {AISLES.length} aisles. Try one:
-              </span>
-            </p>
-            <ul>
-              {AISLES.map((aisle) => (
-                <li key={aisle.key}>
-                  <Link href={`/?q=${encodeURIComponent(aisle.sample)}#prices`} title={`Search “${aisle.sample}”`}>
-                    {aisle.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
         </section>
 
         <section className="hiw-section hiw-faq" id="faq" aria-labelledby="faq-title">

@@ -89,13 +89,18 @@ function priceAxis(low: number, high: number): { domain: [number, number]; ticks
   return { domain: [bottom, top], ticks };
 }
 
-/** Whole-day ticks, at most `max` of them, always including both ends. */
+/**
+ * Whole-day ticks, at most `max` of them, always including both ends. A tick
+ * less than half a step before the last one is dropped, so the final two
+ * dates ("Nov 3", "Nov 6") never print on top of each other.
+ */
 function dayTicks(first: number, last: number, max = 7): number[] {
   const span = last - first;
   if (span <= 0) return [first];
   const step = Math.max(1, Math.ceil(span / (max - 1)));
   const ticks: number[] = [];
   for (let day = first; day < last; day += step) ticks.push(day);
+  if (ticks.length > 1 && last - ticks[ticks.length - 1] < step / 2) ticks.pop();
   ticks.push(last);
   return ticks;
 }
@@ -313,6 +318,7 @@ export function PriceChart({
               ticks={dayTicks(firstDay, lastDay)}
               tickFormatter={shortDate}
               tick={{ fill: "#53617e", fontSize: 12 }}
+              tickMargin={8}
               tickLine={false}
               axisLine={{ stroke: "#d8e3fa" }}
             />

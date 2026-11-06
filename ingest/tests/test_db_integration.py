@@ -1599,6 +1599,19 @@ class TestSearch:
         assert self.search(conn, "milk chocolate") == ["Milk Chocolate Bar", "Chocolate Milk"]
         assert self.search(conn, "chocolate milk") == ["Chocolate Milk", "Milk Chocolate Bar"]
 
+    def test_what_is_in_stock_comes_first(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        rows = [
+            replace(make_row(0), raw_name="2% Milk", price_cents=125, in_stock=False),
+            replace(make_row(1), raw_name="2% Milk", price_cents=599, in_stock=True),
+            replace(make_row(2), raw_name="Chocolate Milk", price_cents=99, in_stock=True),
+        ]
+        assert db.write_store_observations(conn, store_id, rows, DAY).errors == []
+        with conn.cursor() as cur:
+            cur.execute("SELECT price_cents, in_stock FROM search_products('milk')")
+            # The best match first, in stock before out of stock; then a kind of milk.
+            assert cur.fetchall() == [(599, True), (125, False), (99, True)]
+
     def test_singular_and_plural_find_each_other(self, conn) -> None:
         self.stock(conn, "3131", ("Banana Chips", 249), ("Bananas, Bunch", 169), ("Berries", 499))
         assert self.search(conn, "banana") == ["Bananas, Bunch", "Banana Chips"]

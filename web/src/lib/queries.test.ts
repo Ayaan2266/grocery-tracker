@@ -79,11 +79,24 @@ test("before migration 0020 search falls back to ILIKE, grouping units before va
   assert.ok(order.indexOf("comparison_unit") < order.indexOf("unit_price_cents"));
 });
 
+test("a query the database timed out on a cold start is tried once more", async () => {
+  let calls = 0;
+  respond = () => ++calls === 1
+    ? Response.json({ code: "57014", message: "canceling statement due to statement timeout" }, { status: 500 })
+    : Response.json([{ product_id: 1 }]);
+  const page = await searchProducts("milk");
+  assert.equal(page.error, null);
+  assert.deepEqual(page.data?.rows.map((r) => r.product_id), [1]);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(bodies[1], bodies[0], "the retry is the same request");
+});
+
 test("a failed search reports its error rather than no results", async () => {
   respond = () => Response.json({ code: "57014", message: "canceling statement due to statement timeout" }, { status: 500 });
   const page = await searchProducts("milk");
   assert.equal(page.data, null);
   assert.match(page.error ?? "", /statement timeout/);
+  assert.equal(requests.length, 2, "one retry, not a loop");
 });
 
 test("full history includes prices after the response cap", async () => {
