@@ -6,6 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";
 import { PriceChart, type ChartSeries } from "@/components/price-chart";
+import { StoreComparison } from "@/components/store-compare";
 import { ProductPhoto } from "@/components/product-photo";
 import { StoreChip, estimatedRegular } from "@/components/price-row";
 import { SearchForm } from "@/components/search-form";
@@ -17,7 +18,7 @@ import { readBasket } from "@/lib/basket-server";
 import { parseProductId } from "@/lib/product-id";
 import { summarize, type Verdict } from "@/lib/history";
 import { loadScopedStores } from "@/lib/store-scope";
-import { isWeighedKey, sameItemListings, similarListings, type SameItem } from "@/lib/matching";
+import { isWeighedKey, sameItemListings, similarListings } from "@/lib/matching";
 import {
   getPriceHistory,
   getProduct,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/queries";
 import {
   BANNER_COLORS,
+  BANNER_SHORT,
   bannerLabel,
   inScope,
   shortStoreNames,
@@ -170,97 +172,6 @@ function VerdictCard({ verdict, price, failed }: { verdict: Verdict | null; pric
   );
 }
 
-function StoreComparison({
-  items,
-  currentId,
-  query,
-  marks,
-}: {
-  items: SameItem<LatestPrice>[];
-  /** Each store's dot, as an index into STORE_MARKS. */
-  marks: Map<number, number>;
-  currentId: number;
-  query: string;
-}) {
-  const listings = items.map((item) => item.listing);
-  const otherCode = new Set(items.filter((item) => !item.byCode).map((item) => item.listing.product_id));
-  const sorted = [...listings].sort(
-    (a, b) => Number(b.in_stock) - Number(a.in_stock) || a.price_cents - b.price_cents,
-  );
-  // Out-of-stock listings are shown but never called cheapest.
-  const buyable = sorted.filter((l) => l.in_stock);
-  const cheapest = buyable[0] ?? null;
-  const priciest = buyable[buyable.length - 1] ?? null;
-  const current = listings.find((l) => l.product_id === currentId) ?? null;
-  const top = Math.max(...listings.map((l) => l.price_cents), 1);
-  const name = shortStoreNames(listings);
-
-  let pill: string | null = null;
-  if (cheapest && priciest && priciest.price_cents > cheapest.price_cents) {
-    pill =
-      current && current.in_stock && current.price_cents > cheapest.price_cents
-        ? `${formatCents(current.price_cents - cheapest.price_cents)} less at ${name(cheapest)}`
-        : `Save ${formatCents(priciest.price_cents - cheapest.price_cents)} vs ${name(priciest)}`;
-  }
-
-  return (
-    <section className="store-compare" id="compare" aria-labelledby="compare-title">
-      <div className="store-compare-header">
-        <div>
-          <h2 id="compare-title">Same item at other stores</h2>
-          <p>
-            Matched by the product code the stores share, or by the same brand, name and package
-            under another code. Latest recorded price at each.
-          </p>
-        </div>
-        {pill && <span className="save-pill">{pill}</span>}
-      </div>
-      <ul>
-        {sorted.map((listing) => {
-          const unit = formatUnitPrice(
-            listing.unit_price_cents,
-            listing.comparison_quantity,
-            listing.comparison_unit,
-          );
-          const isCurrent = listing.product_id === currentId;
-          const area = storeArea(listing.store_label);
-          const isCheapest =
-            cheapest !== null && buyable.length > 1 && listing.in_stock && listing.price_cents === cheapest.price_cents;
-          return (
-            <li key={listing.product_id} className={isCurrent ? "is-current" : undefined}>
-              <StoreDot slug={listing.banner_slug} mark={marks.get(listing.store_id)} />
-              <span className="store-compare-name">
-                {isCurrent ? (
-                  bannerLabel(listing.banner_slug, listing.retailer_name)
-                ) : (
-                  <Link href={`/product/${listing.product_id}?${new URLSearchParams({ q: query })}`}>
-                    {bannerLabel(listing.banner_slug, listing.retailer_name)}
-                  </Link>
-                )}
-                {area && <span className="store-area">{area}</span>}
-                {isCheapest && <small className="cheapest-badge">Cheapest</small>}
-                {isCurrent && <small>This listing</small>}
-                {otherCode.has(listing.product_id) && <small>Another product code</small>}
-                {!listing.in_stock && <small className="stock-badge">Out of stock</small>}
-              </span>
-              <span className="store-compare-bar" aria-hidden="true">
-                <span
-                  className={isCheapest ? "is-cheapest" : undefined}
-                  style={{ width: `${(listing.price_cents / top) * 100}%` }}
-                />
-              </span>
-              <span className="store-compare-price">
-                <strong>{formatCents(listing.price_cents)}</strong>
-                {unit && <small>{unit}</small>}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 /**
  * Other brands and codes with the same description, size and pack. Never
  * called the same item: the heading says so, and the unit price leads.
@@ -364,6 +275,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
     .map((listing) => ({
       key: `p${listing.product_id}`,
       label: seriesName(listing),
+      banner: BANNER_SHORT[listing.banner_slug] ?? listing.retailer_name,
+      place: storeArea(listing.store_label),
+      group: listing.banner_slug,
+      groupName: bannerLabel(listing.banner_slug, listing.retailer_name),
       color: BANNER_COLORS[listing.banner_slug] ?? "#53617e",
       current: listing.price_cents,
       spans: spansFor(listing.product_id),
@@ -422,16 +337,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     <div role="alert" className="data-alert">Price history is unavailable right now.</div>
                   </>
                 ) : (
-                  <PriceChart
-                    series={series}
-                    titleId="history-title"
-                    subtitle={
-                      series.length > 1
-                        ? `This item at every ${storeKind}store that carries it. Hover or tap for each day.`
-                        : "Hover or tap for the price on each day."
-                    }
-                    foldedSubtitle={`This item at the cheapest ${storeKind}stores that carry it. Hover or tap for each day.`}
-                  />
+                  <PriceChart series={series} titleId="history-title" nearby={storeKind !== ""} />
                 )}
               </section>
 
