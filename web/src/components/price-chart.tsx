@@ -1,27 +1,34 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { ChevronDown, X } from "lucide-react";
 import {
   Area,
   CartesianGrid,
   ComposedChart,
   Line,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  usePlotArea,
+  useYAxisScale,
 } from "recharts";
 
 import {
+  CHART_DEFAULT_LINES,
   CHART_MAX_LINES,
-  chartLines,
+  biggestDrop,
   chartPoints,
   dayNumber,
   isoDay,
   latestDeal,
   latestSpan,
+  rangeStats,
   spanOn,
+  suggestedLines,
   windowSpans,
   type Span,
 } from "@/lib/history";
@@ -29,12 +36,19 @@ import { markDot, storeMark } from "@/lib/stores";
 
 export type ChartSeries = {
   key: string;
+  /** The store's name wherever there is room for one string: the tooltip. */
   label: string;
+  /** The chain's short name and the store's place, for the chips: "Loblaws", "Markham Bullock Drive". */
+  banner: string;
+  place: string | null;
+  /** The chain, for one line per chain by default and the dropdown's groups. */
+  group: string;
+  groupName: string;
   color: string;
   spans: Span[];
-  /** Latest recorded price, shown in the legend. */
+  /** Latest recorded price. */
   current?: number;
-  /** The listing the page is about: drawn on top with a shaded area, and labelled "Latest". */
+  /** The listing the page is about: always drawn, on top, with a shaded area. */
   primary?: boolean;
   /**
    * Which of its banner's stores this is, as an index into STORE_MARKS: the
@@ -44,19 +58,6 @@ export type ChartSeries = {
   mark?: number;
 };
 
-/** A short line in the series' colour and dashes, for the legend. */
-function swatch(s: ChartSeries): string {
-  const { dash } = storeMark(s.mark);
-  if (!dash) return s.color;
-  let at = 0;
-  const stops = dash.split(" ").map((length, i) => {
-    const stop = `${i % 2 === 0 ? s.color : "transparent"} ${at}px ${at + Number(length)}px`;
-    at += Number(length);
-    return stop;
-  });
-  return `repeating-linear-gradient(90deg, ${stops.join(", ")})`;
-}
-
 const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 const dollars = (cents: number) => money.format(cents / 100);
 const shortDate = (day: number) =>
@@ -65,15 +66,27 @@ const shortDate = (day: number) =>
     day: "numeric",
     timeZone: "UTC",
   });
+const longDate = (day: number) =>
+  new Date(`${isoDay(day)}T00:00:00Z`).toLocaleDateString("en-CA", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+const isoShort = (iso: string) => shortDate(dayNumber(iso));
+/** "Oct 2", or "Sep 24 – Oct 1" for a stretch. */
+const stretch = (from: string, to: string) => (from === to ? isoShort(from) : `${isoShort(from)} – ${isoShort(to)}`);
 
 /** Range tabs. A tab only shows once there is more history than it covers. */
 const RANGES = [
-  { label: "1W", days: 7, name: "Last week" },
-  { label: "1M", days: 30, name: "Last month" },
-  { label: "3M", days: 91, name: "Last three months" },
-  { label: "All", days: null, name: "All history" },
+  { label: "7D", days: 7, name: "Last 7 days", word: "7 days" },
+  { label: "30D", days: 30, name: "Last 30 days", word: "30 days" },
+  { label: "90D", days: 90, name: "Last 90 days", word: "90 days" },
+  { label: "1Y", days: 365, name: "Last year", word: "1 year" },
+  { label: "All", days: null, name: "All history", word: null },
 ] as const;
-type RangeLabel = (typeof RANGES)[number]["label"];
+type Range = (typeof RANGES)[number];
+type RangeLabel = Range["label"];
 
 /**
  * A price axis on round amounts: steps of 25c, 50c, $1 or $2 depending on the
@@ -105,8 +118,37 @@ function dayTicks(first: number, last: number, max = 7): number[] {
   return ticks;
 }
 
-type TooltipEntry = { dataKey?: string | number; value?: number | null; color?: string };
+/** True on a phone-width screen, where the line-end labels have no room. */
+function useNarrow(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia("(max-width: 600px)");
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia("(max-width: 600px)").matches,
+    () => false,
+  );
+}
 
+function Dot({ s, as: Tag = "i" }: { s: ChartSeries; as?: "i" | "span" }) {
+  const dot = markDot(s.color, s.mark);
+  return <Tag className={["chart-dot", dot.className].filter(Boolean).join(" ")} style={dot.style} aria-hidden="true" />;
+}
+
+/** Stores at one price, cheapest group first. */
+function byPrice<T extends { price: number }>(rows: T[]): { price: number; rows: T[] }[] {
+  const groups = new Map<number, T[]>();
+  for (const row of rows) groups.set(row.price, [...(groups.get(row.price) ?? []), row]);
+  return [...groups.entries()].sort(([a], [b]) => a - b).map(([price, rows]) => ({ price, rows }));
+}
+
+type TooltipEntry = { dataKey?: string | number; value?: number | null };
+
+/**
+ * Every store drawn, grouped by price and cheapest first, so a line hidden
+ * under another at the same price is still named.
+ */
 function HistoryTooltip({
   active,
   payload,
@@ -119,26 +161,45 @@ function HistoryTooltip({
   series: ChartSeries[];
 }) {
   if (!active || !payload?.length || label === undefined) return null;
+  const rows = series.flatMap((s) => {
+    const price = payload.find((p) => p.dataKey === s.key)?.value;
+    return price == null ? [] : [{ s, price, span: spanOn(s.spans, label) }];
+  });
+  if (rows.length === 0) return null;
+  const groups = byPrice(rows);
+  const cheapest = groups[0].price;
   return (
     <div className="chart-tooltip">
-      <strong>{shortDate(label)}</strong>
-      {series.map((s) => {
-        const entry = payload.find((p) => p.dataKey === s.key);
-        if (entry?.value == null) return null;
-        const span = spanOn(s.spans, label);
-        const regular = span?.was_price_cents ?? span?.implied_regular_cents ?? null;
-        const dot = markDot(s.color, s.mark);
+      <strong>{longDate(label)}</strong>
+      {groups.map((group, i) => {
+        const many = group.rows.length > 1;
+        const tag = rows.length > 1 && i === 0 ? (many ? `Cheapest · ${group.rows.length} stores` : "Cheapest") : many ? `${group.rows.length} stores` : null;
         return (
-          <span key={s.key}>
-            <i className={dot.className ?? undefined} style={dot.style} aria-hidden="true" />
-            {s.label}: {dollars(entry.value)}
-            {regular !== null && regular > entry.value && (
-              <em>
-                {span?.was_price_cents != null ? " sale, was " : " usually ~"}
-                {dollars(regular)}
-              </em>
-            )}
-          </span>
+          <div key={group.price} className="tip-group">
+            <div className="tip-head">
+              {tag ? <span className={i === 0 ? "tip-cheapest" : undefined}>{tag}</span> : <span />}
+              <span>
+                {i > 0 && <em className="tip-gap">+{dollars(group.price - cheapest)}</em>}
+                <b>{dollars(group.price)}</b>
+              </span>
+            </div>
+            {group.rows.map(({ s, span, price }) => {
+              const regular = span?.was_price_cents ?? span?.implied_regular_cents ?? null;
+              return (
+                <span key={s.key} className="tip-store">
+                  <Dot s={s} />
+                  {s.label}
+                  {s.primary && " (this)"}
+                  {regular !== null && regular > price && (
+                    <em>
+                      {span?.was_price_cents != null ? " sale, was " : " usually ~"}
+                      {dollars(regular)}
+                    </em>
+                  )}
+                </span>
+              );
+            })}
+          </div>
         );
       })}
     </div>
@@ -183,7 +244,202 @@ function Callout({
   );
 }
 
-type DealTag = { key: string; day: number; price: number; text: string; align: "start" | "middle" | "end" };
+type EndLabel = { price: number; text: string; color: string; mark?: number };
+const END_LABEL_HEIGHT = 24;
+const endLabelWidth = (text: string) => Math.round(text.length * 6.9 + 34);
+
+/**
+ * One label per price where the lines end, in the margin right of the graph:
+ * "$1.25 · 3 stores" says three lines sit on top of each other there. Labels
+ * closer than their own height are pushed apart, then pulled back up if that
+ * runs them off the bottom.
+ */
+function EndLabels({ labels }: { labels: EndLabel[] }) {
+  const scale = useYAxisScale();
+  const area = usePlotArea();
+  if (!scale || !area) return null;
+  const gap = 4;
+  const placed = labels
+    .map((label) => ({ ...label, y: scale(label.price) ?? 0 }))
+    .sort((a, b) => a.y - b.y);
+  for (let i = 1; i < placed.length; i += 1) {
+    placed[i].y = Math.max(placed[i].y, placed[i - 1].y + END_LABEL_HEIGHT + gap);
+  }
+  const overflow = placed.length ? placed[placed.length - 1].y + END_LABEL_HEIGHT / 2 - (area.y + area.height + 6) : 0;
+  if (overflow > 0) for (const p of placed) p.y -= overflow;
+  const x = area.x + area.width + 12;
+  return (
+    <g className="chart-end-labels">
+      {placed.map((p) => {
+        const dash = storeMark(p.mark).dash;
+        return (
+          <g key={p.price}>
+            <rect
+              x={x}
+              y={p.y - END_LABEL_HEIGHT / 2}
+              width={endLabelWidth(p.text)}
+              height={END_LABEL_HEIGHT}
+              rx={12}
+              fill="#fff"
+              stroke={p.color}
+              strokeWidth={1.5}
+            />
+            <circle cx={x + 13} cy={p.y} r={4.5} fill={dash ? "#fff" : p.color} stroke={p.color} strokeWidth={dash ? 2 : 0} />
+            <text x={x + 24} y={p.y + 4} fill="#10224c" fontSize={12} fontWeight={800}>
+              {p.text}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+type Tone = "dark" | "good" | "bad" | "plain";
+
+function Stat({ label, value, note, tone, noteTone = "plain" }: { label: string; value: string; note: string; tone: Tone; noteTone?: Tone }) {
+  return (
+    <div className={`chart-stat chart-stat-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small className={`chart-stat-note-${noteTone}`}>{note}</small>
+    </div>
+  );
+}
+
+/**
+ * The stores on the graph as chips, which double as its legend, and a menu of
+ * every store that carries the item, grouped by chain, to tick lines on and off.
+ */
+function StorePicker({
+  series,
+  shown,
+  isSuggested,
+  onChange,
+  onReset,
+}: {
+  series: ChartSeries[];
+  shown: string[];
+  isSuggested: boolean;
+  onChange: (keys: string[]) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuId = `${useId()}-stores`;
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const visible = series.filter((s) => shown.includes(s.key));
+  const hidden = series.length - visible.length;
+  const full = visible.length >= CHART_MAX_LINES;
+  const toggle = (key: string) =>
+    onChange(shown.includes(key) ? shown.filter((k) => k !== key) : series.filter((s) => s.key === key || shown.includes(s.key)).map((s) => s.key));
+  const groups = [...Map.groupBy(series, (s) => s.group).values()];
+
+  return (
+    <div className="store-picker" ref={wrapRef}>
+      <span className="store-picker-label">Stores</span>
+      <ul className="store-chips" aria-label="Stores on the graph">
+        {visible.map((s) => (
+          <li key={s.key} className="store-chip" style={{ borderColor: s.color }}>
+            <Dot s={s} />
+            <strong>{s.banner}</strong>
+            {s.place && <span className="store-chip-place">{s.place}</span>}
+            {s.current !== undefined && <b>{dollars(s.current)}</b>}
+            {s.primary ? (
+              <small>This listing</small>
+            ) : (
+              <button type="button" aria-label={`Hide ${s.label} from the graph`} onClick={() => toggle(s.key)}>
+                <X size={14} strokeWidth={2.6} aria-hidden="true" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {series.length > 1 && (
+        <button
+          ref={buttonRef}
+          type="button"
+          className="store-picker-more"
+          aria-expanded={open}
+          aria-controls={menuId}
+          onClick={() => setOpen(!open)}
+        >
+          {hidden > 0 ? `+${hidden} more store${hidden === 1 ? "" : "s"}` : "Choose stores"}
+          <ChevronDown size={15} strokeWidth={2.6} aria-hidden="true" />
+        </button>
+      )}
+      {open && (
+        <div className="store-menu" id={menuId} role="group" aria-label="Stores on the graph">
+          <p className="store-menu-title">Stores on the graph</p>
+          <p className="store-menu-hint">This listing always shows. Up to {CHART_MAX_LINES} stores at once.</p>
+          {groups.map((group) => (
+            <fieldset key={group[0].group}>
+              <legend>
+                <Dot s={{ ...group[0], mark: 0 }} />
+                {group[0].groupName}
+              </legend>
+              {group.map((s) => {
+                const on = shown.includes(s.key);
+                return (
+                  <label key={s.key} className={on ? "is-on" : undefined}>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={s.primary || (!on && full)}
+                      onChange={() => toggle(s.key)}
+                    />
+                    <span>
+                      {s.place ?? s.banner}
+                      {s.primary && <small> (this listing)</small>}
+                    </span>
+                    {s.current !== undefined && <b>{dollars(s.current)}</b>}
+                  </label>
+                );
+              })}
+            </fieldset>
+          ))}
+          <div className="store-menu-footer">
+            <button type="button" className="store-menu-reset" disabled={isSuggested} onClick={onReset}>
+              Reset to suggested
+            </button>
+            <button
+              type="button"
+              className="store-menu-done"
+              onClick={() => {
+                setOpen(false);
+                buttonRef.current?.focus();
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type DealTag = { day: number; price: number; text: string; align: "start" | "middle" | "end" };
 
 /**
  * Price over time, one step line per store. Steps rather than slopes: a price
@@ -192,29 +448,33 @@ type DealTag = { key: string; day: number; price: number; text: string; align: "
 export function PriceChart({
   series,
   titleId,
-  subtitle,
-  foldedSubtitle = subtitle,
+  nearby = false,
 }: {
   series: ChartSeries[];
   titleId: string;
-  /** Under the title, with every line drawn. */
-  subtitle: string;
-  /** Under the title while lines past CHART_MAX_LINES are folded away. */
-  foldedSubtitle?: string;
+  /** The stores were narrowed to the ones near the reader: the subtitle says so. */
+  nearby?: boolean;
 }) {
   const [range, setRange] = useState<RangeLabel>("All");
-  const [showAll, setShowAll] = useState(false);
-  const folded = series.length > CHART_MAX_LINES;
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const narrow = useNarrow();
   const gradientId = `area-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
+  const suggested = suggestedLines(series, CHART_DEFAULT_LINES);
+  const shownKeys = picked ?? suggested;
   const allDays = series.flatMap((s) =>
     s.spans.flatMap((span) => [dayNumber(span.first_observed_on), dayNumber(span.last_confirmed_on)]),
   );
-  const header = (tabs: typeof RANGES[number][], active: RangeLabel | null) => (
+  const subtitle =
+    series.length > 1
+      ? `${series.length} ${nearby ? "nearby " : ""}stores carry this item · hover or tap the graph for any day`
+      : "Hover or tap the graph for the price on any day";
+
+  const header = (tabs: Range[], active: RangeLabel | null) => (
     <div className="chart-header">
       <div>
         <h2 id={titleId}>Price history</h2>
-        <p>{folded && !showAll ? foldedSubtitle : subtitle}</p>
+        <p>{subtitle}</p>
       </div>
       {active && tabs.length > 1 && (
         <div className="range-tabs" role="group" aria-label="Time range">
@@ -236,15 +496,21 @@ export function PriceChart({
   if (allDays.length === 0) return header([], null);
 
   const historyEnd = Math.max(...allDays);
-  const historyDays = historyEnd - Math.min(...allDays) + 1;
+  const historyStart = Math.min(...allDays);
+  const historyDays = historyEnd - historyStart + 1;
   const tabs = RANGES.filter((r) => r.days === null || historyDays > r.days);
   const active = tabs.find((t) => t.label === range) ?? tabs[tabs.length - 1];
 
   const endIso = isoDay(historyEnd);
-  const drawn = folded && !showAll ? chartLines(series, CHART_MAX_LINES) : series;
-  const shown = drawn
-    .map((s) => ({ ...s, spans: active.days === null ? s.spans : windowSpans(s.spans, endIso, active.days) }))
+  const inRange = (s: ChartSeries) => ({
+    ...s,
+    spans: active.days === null ? s.spans : windowSpans(s.spans, endIso, active.days),
+  });
+  const shown = series
+    .filter((s) => shownKeys.includes(s.key))
+    .map(inRange)
     .filter((s) => s.spans.length > 0);
+  if (shown.length === 0) return header(tabs, active.label);
   const points = chartPoints(shown.map(({ key, spans }) => ({ key, spans })));
 
   const firstDay = points[0].day;
@@ -257,56 +523,116 @@ export function PriceChart({
 
   const primary = shown.find((s) => s.primary);
   const primaryLatest = primary ? latestSpan(primary.spans) : undefined;
+  const stats = primary ? rangeStats(primary.spans) : null;
+  const now = primary?.current ?? stats?.current;
+  const rangeWord = active.word ? ` · ${active.word}` : ` since ${shortDate(historyStart)}`;
 
-  // Tag the latest deal on the primary line first, then one other store's, if they are apart.
-  const tags: DealTag[] = [];
-  for (const s of [...shown].sort((a, b) => Number(b.primary ?? false) - Number(a.primary ?? false))) {
-    const deal = latestDeal(s.spans);
-    if (!deal) continue;
-    const day = Math.round(
-      (dayNumber(deal.span.first_observed_on) + dayNumber(deal.span.last_confirmed_on)) / 2,
-    );
-    const at = position(day);
-    if (tags.some((t) => Math.abs(position(t.day) - at) < 0.3) || tags.length === 2) continue;
-    const prefix = shown.length > 1 ? `${s.label} ` : "";
-    const words = deal.declared ? `sale · was ${dollars(deal.regular)}` : `usually ~${dollars(deal.regular)}`;
-    const text = prefix ? prefix + words : words[0].toUpperCase() + words.slice(1);
-    tags.push({ key: s.key, day, price: deal.span.price_cents, text, align: at > 0.75 ? "end" : at < 0.25 ? "start" : "middle" });
+  // One callout on the page's own line: its latest sale if it has one, else its biggest drop.
+  let tag: DealTag | null = null;
+  if (primary) {
+    const deal = latestDeal(primary.spans);
+    const drop = deal ? null : biggestDrop(primary.spans);
+    if (deal) {
+      const day = Math.round((dayNumber(deal.span.first_observed_on) + dayNumber(deal.span.last_confirmed_on)) / 2);
+      const words = deal.declared ? `Sale · was ${dollars(deal.regular)}` : `Usually ~${dollars(deal.regular)}`;
+      tag = { day, price: deal.span.price_cents, text: words, align: "middle" };
+    } else if (drop) {
+      tag = { day: dayNumber(drop.day), price: drop.to, text: `Dropped ${dollars(drop.from - drop.to)} on ${isoShort(drop.day)}`, align: "start" };
+    }
+    if (tag) {
+      const at = position(tag.day);
+      tag.align = at > 0.7 ? "end" : at < 0.3 ? "start" : "middle";
+    }
   }
+
+  // Where each line ends, grouped by price: stacked lines are named here.
+  const ends = byPrice(
+    shown.flatMap((s) => {
+      const last = latestSpan(s.spans);
+      return last ? [{ s, price: last.price_cents }] : [];
+    }),
+  ).map(({ price, rows }): EndLabel => {
+    const lead = rows.find((r) => r.s.primary) ?? rows[0];
+    return {
+      price,
+      text: rows.length > 1 ? `${dollars(price)} · ${rows.length} stores` : `${dollars(price)} · ${lead.s.banner}`,
+      color: lead.s.color,
+      mark: lead.s.mark,
+    };
+  });
+  const showEnds = !narrow && shown.length > 1;
+  const rightMargin = showEnds ? Math.max(...ends.map((e) => endLabelWidth(e.text))) + 20 : 18;
 
   // A series seen on a single day in view has no line to draw, so it gets a dot.
   const pointCount = (key: string) => points.filter((p) => p[key] != null).length;
   const drawOrder = [...shown].sort((a, b) => Number(a.primary ?? false) - Number(b.primary ?? false));
+  const showAverage = stats !== null && stats.lowest !== stats.highest;
 
   return (
     <>
       {header(tabs, active.label)}
-      <ul className="chart-legend">
-        {drawn.map((s) => (
-          <li key={s.key}>
-            <i style={{ background: swatch(s) }} aria-hidden="true" />
-            <strong>{s.label}</strong>
-            {s.current !== undefined && <span>{dollars(s.current)}</span>}
-          </li>
-        ))}
-        {folded && (
-          <li>
-            <button type="button" className="chart-more" aria-pressed={showAll} onClick={() => setShowAll(!showAll)}>
-              {showAll ? "Show fewer" : `Show all ${series.length} stores`}
-            </button>
-          </li>
-        )}
-      </ul>
+
+      {stats && now !== undefined && primary && (
+        <div className="chart-stats">
+          <Stat
+            label="Now"
+            value={dollars(now)}
+            note={`${[primary.banner, primary.place].filter(Boolean).join(" · ")} (this listing)`}
+            tone="dark"
+          />
+          <Stat
+            label={`Lowest${rangeWord}`}
+            value={dollars(stats.lowest)}
+            note={
+              stats.lowest === stats.highest
+                ? "No change in this range"
+                : now <= stats.lowest
+                  ? `At its lowest now, since ${isoShort(stats.lowestFrom)}`
+                  : stretch(stats.lowestFrom, stats.lowestTo)
+            }
+            tone={now <= stats.lowest && stats.lowest !== stats.highest ? "good" : "plain"}
+            noteTone={now <= stats.lowest && stats.lowest !== stats.highest ? "good" : "plain"}
+          />
+          <Stat
+            label={`Average${rangeWord}`}
+            value={dollars(stats.average)}
+            note={
+              now < stats.average
+                ? `${dollars(stats.average - now)} below average`
+                : now > stats.average
+                  ? `${dollars(now - stats.average)} above average`
+                  : "Right on average"
+            }
+            tone="plain"
+            noteTone={now < stats.average ? "good" : now > stats.average ? "bad" : "plain"}
+          />
+          <Stat
+            label={`Highest${rangeWord}`}
+            value={dollars(stats.highest)}
+            note={stats.lowest === stats.highest ? "No change in this range" : stretch(stats.highestFrom, stats.highestTo)}
+            tone="plain"
+          />
+        </div>
+      )}
+
+      <StorePicker
+        series={series}
+        shown={shownKeys}
+        isSuggested={picked === null}
+        onChange={setPicked}
+        onReset={() => setPicked(null)}
+      />
+
       <div
         className="price-chart"
         role="img"
         aria-label={`Price history from ${shortDate(firstDay)} to ${shortDate(lastDay)}`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={points} margin={{ top: 22, right: 18, bottom: 4, left: 4 }}>
+          <ComposedChart data={points} margin={{ top: 22, right: rightMargin, bottom: 4, left: 4 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={primary?.color ?? "#0b49bd"} stopOpacity={0.24} />
+                <stop offset="0%" stopColor={primary?.color ?? "#0b49bd"} stopOpacity={0.2} />
                 <stop offset="100%" stopColor={primary?.color ?? "#0b49bd"} stopOpacity={0.02} />
               </linearGradient>
             </defs>
@@ -331,7 +657,10 @@ export function PriceChart({
               axisLine={false}
               width={62}
             />
-            <Tooltip content={<HistoryTooltip series={shown} />} />
+            <Tooltip
+              content={<HistoryTooltip series={shown} />}
+              cursor={{ stroke: "#10224c", strokeOpacity: 0.3, strokeWidth: 1 }}
+            />
             {primary && (
               <Area
                 dataKey={primary.key}
@@ -346,6 +675,19 @@ export function PriceChart({
                 isAnimationActive={false}
               />
             )}
+            {showAverage && (
+              <ReferenceLine
+                y={stats.average}
+                stroke="#53617e"
+                strokeDasharray="5 5"
+                strokeWidth={1.25}
+                label={
+                  narrow
+                    ? undefined
+                    : { value: `avg ${dollars(stats.average)}`, position: "insideTopLeft", fill: "#53617e", fontSize: 11, fontWeight: 800 }
+                }
+              />
+            )}
             {drawOrder.map((s) => (
               <Line
                 key={s.key}
@@ -353,7 +695,7 @@ export function PriceChart({
                 name={s.label}
                 type="stepAfter"
                 stroke={s.color}
-                strokeWidth={s.primary ? 3 : 2}
+                strokeWidth={s.primary ? 3.5 : 2}
                 strokeDasharray={storeMark(s.mark).dash ?? undefined}
                 dot={pointCount(s.key) === 1 ? { r: 4, fill: s.color, strokeWidth: 0 } : false}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
@@ -361,33 +703,52 @@ export function PriceChart({
                 isAnimationActive={false}
               />
             ))}
-            {tags.map((tag) => (
+            {tag && (
               <ReferenceDot
-                key={`deal-${tag.key}`}
                 x={tag.day}
                 y={tag.price}
                 r={0}
                 label={<Callout text={tag.text} align={tag.align} below fill="#fff0a7" color="#10224c" />}
               />
-            ))}
+            )}
+            {showEnds &&
+              shown
+                .filter((s) => !s.primary)
+                .map((s) => {
+                  const last = latestSpan(s.spans);
+                  return last ? (
+                    <ReferenceDot
+                      key={`end-${s.key}`}
+                      x={dayNumber(last.last_confirmed_on)}
+                      y={last.price_cents}
+                      r={4}
+                      fill={s.color}
+                      stroke="#fff"
+                      strokeWidth={2}
+                    />
+                  ) : null;
+                })}
             {primary && primaryLatest && (
               <ReferenceDot
                 x={dayNumber(primaryLatest.last_confirmed_on)}
                 y={primaryLatest.price_cents}
-                r={5}
+                r={5.5}
                 fill={primary.color}
                 stroke="#fff"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 label={
-                  <Callout
-                    text={`Latest ${dollars(primaryLatest.price_cents)}`}
-                    align={position(dayNumber(primaryLatest.last_confirmed_on)) < 0.25 ? "start" : "end"}
-                    fill="#10224c"
-                    color="#fff"
-                  />
+                  showEnds ? undefined : (
+                    <Callout
+                      text={`Latest ${dollars(primaryLatest.price_cents)}`}
+                      align={position(dayNumber(primaryLatest.last_confirmed_on)) < 0.25 ? "start" : "end"}
+                      fill="#10224c"
+                      color="#fff"
+                    />
+                  )
                 }
               />
             )}
+            {showEnds && <EndLabels labels={ends} />}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

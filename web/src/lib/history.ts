@@ -121,27 +121,119 @@ export function chartPoints(series: Series[]): ChartPoint[] {
     });
 }
 
-/**
- * Lines a price graph draws before the rest are folded behind a button: the
- * page's own store and the cheapest others. More than this reads as a tangle.
- */
-export const CHART_MAX_LINES = 6;
+/** Lines a price graph starts with. More than this reads as a tangle. */
+export const CHART_DEFAULT_LINES = 4;
+
+/** The most lines a reader can tick on at once, the page's own included. */
+export const CHART_MAX_LINES = 5;
+
+type Line = { key: string; primary?: boolean; current?: number; group?: string };
 
 /**
- * The series a graph draws when it has more than `max`: the one the page is
- * about, then the cheapest others by latest price. A series with no latest
- * price comes last. The ones kept stay in their given order, so the legend
- * does not reshuffle when the rest are shown.
+ * The keys of the lines a graph starts with, at most `max`: the page's own
+ * listing, then the cheapest store of each other chain (`group`), then the
+ * cheapest of the rest while there is room. A line with no latest price comes
+ * last. Keys come back in the series' own order, so the chips never reshuffle.
  */
-export function chartLines<T extends { primary?: boolean; current?: number }>(series: T[], max: number): T[] {
-  if (series.length <= max) return series;
+export function suggestedLines<T extends Line>(series: T[], max: number): string[] {
   const price = (s: T) => s.current ?? Number.MAX_SAFE_INTEGER;
-  const kept = new Set(
-    [...series]
-      .sort((a, b) => Number(b.primary ?? false) - Number(a.primary ?? false) || price(a) - price(b))
-      .slice(0, max),
+  const ranked = [...series].sort(
+    (a, b) => Number(b.primary ?? false) - Number(a.primary ?? false) || price(a) - price(b),
   );
-  return series.filter((s) => kept.has(s));
+  const kept = new Set<T>();
+  const chains = new Set<string>();
+  for (const s of ranked) {
+    const chain = s.group ?? s.key;
+    if (kept.size < max && !chains.has(chain)) {
+      kept.add(s);
+      chains.add(chain);
+    }
+  }
+  for (const s of ranked) if (kept.size < max) kept.add(s);
+  return series.filter((s) => kept.has(s)).map((s) => s.key);
+}
+
+export type RangeStats = {
+  /** The price on the last day in range. */
+  current: number;
+  lowest: number;
+  highest: number;
+  /** Day-weighted mean, to the cent: a price that held for three weeks counts for more than a one-day blip. */
+  average: number;
+  /** The most recent unbroken stretch at the lowest price. */
+  lowestFrom: string;
+  lowestTo: string;
+  /** The most recent unbroken stretch at the highest price. */
+  highestFrom: string;
+  highestTo: string;
+};
+
+/**
+ * The most recent run of back-to-back spans at `price`. Spans also split on
+ * values the graph does not show, such as a unit price, so a run can be
+ * several spans long.
+ */
+function latestRunAt(sorted: Span[], price: number): { from: string; to: string } {
+  let end = -1;
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    if (sorted[i].price_cents === price) {
+      end = i;
+      break;
+    }
+  }
+  let start = end;
+  while (
+    start > 0 &&
+    sorted[start - 1].price_cents === price &&
+    dayNumber(sorted[start - 1].last_confirmed_on) + 1 >= dayNumber(sorted[start].first_observed_on)
+  ) {
+    start -= 1;
+  }
+  return { from: sorted[start].first_observed_on, to: sorted[end].last_confirmed_on };
+}
+
+/**
+ * Now, lowest, average and highest for one listing's spans (already clipped
+ * to the range shown). Null when there are none.
+ */
+export function rangeStats(spans: Span[]): RangeStats | null {
+  if (spans.length === 0) return null;
+  const sorted = [...spans].sort((a, b) => a.first_observed_on.localeCompare(b.first_observed_on));
+  const prices = sorted.map((s) => s.price_cents);
+  const lowest = Math.min(...prices);
+  const highest = Math.max(...prices);
+  let total = 0;
+  let days = 0;
+  for (const s of sorted) {
+    total += s.price_cents * spanDays(s);
+    days += spanDays(s);
+  }
+  const low = latestRunAt(sorted, lowest);
+  const high = latestRunAt(sorted, highest);
+  return {
+    current: latestSpan(sorted)!.price_cents,
+    lowest,
+    highest,
+    average: Math.round(total / days),
+    lowestFrom: low.from,
+    lowestTo: low.to,
+    highestFrom: high.from,
+    highestTo: high.to,
+  };
+}
+
+/** The biggest single drop in a listing's price, for the graph's one callout. */
+export function biggestDrop(spans: Span[]): { day: string; from: number; to: number } | null {
+  const sorted = [...spans].sort((a, b) => a.first_observed_on.localeCompare(b.first_observed_on));
+  let best: { day: string; from: number; to: number } | null = null;
+  for (let i = 1; i < sorted.length; i += 1) {
+    const from = sorted[i - 1].price_cents;
+    const to = sorted[i].price_cents;
+    if (to < from && (!best || from - to >= best.from - best.to)) {
+      best = { day: sorted[i].first_observed_on, from, to };
+    }
+  }
+  return best;
 }
 
 /** The span covering a day, for the graph's tooltip. */

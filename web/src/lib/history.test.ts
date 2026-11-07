@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import {
   badgeFor,
-  chartLines,
+  biggestDrop,
   chartPoints,
   dailyPrices,
   dayNumber,
@@ -14,6 +14,8 @@ import {
   pickExample,
   priceLog,
   rangePercent,
+  rangeStats,
+  suggestedLines,
   summarize,
   windowSpans,
   type Span,
@@ -197,16 +199,55 @@ test("the example is the in-stock listing whose price moved most", () => {
   assert.equal(pickExample([{ ...moved, id: 4, price: 800 }, moved]), 2);
 });
 
-test("a crowded graph keeps the page's own line and the cheapest others, in order", () => {
+test("a graph starts with the page's own line and the cheapest store of each other chain", () => {
   const series = [
-    { key: "own", primary: true, current: 900 },
-    { key: "a", current: 500 },
-    { key: "b", current: 700 },
-    { key: "c" },
-    { key: "d", current: 300 },
-    { key: "e", current: 800 },
+    { key: "own", primary: true, current: 125, group: "zehrs" },
+    { key: "zehrs2", current: 100, group: "zehrs" },
+    { key: "lob1", current: 125, group: "loblaw" },
+    { key: "lob2", current: 120, group: "loblaw" },
+    { key: "rcss", current: 125, group: "superstore" },
+    { key: "fort", current: 199, group: "fortinos" },
+    { key: "gone", group: "nofrills" },
   ];
-  assert.deepEqual(chartLines(series, 3).map((s) => s.key), ["own", "a", "d"]);
-  assert.deepEqual(chartLines(series, 5).map((s) => s.key), ["own", "a", "b", "d", "e"], "no price: dropped first");
-  assert.equal(chartLines(series, 6), series, "few enough: every line, untouched");
+  assert.deepEqual(suggestedLines(series, 4), ["own", "lob2", "rcss", "fort"], "one per other chain, in order");
+  assert.deepEqual(
+    suggestedLines(series, 6),
+    ["own", "zehrs2", "lob2", "rcss", "fort", "gone"],
+    "a chain with no price still gets its line before a second store of a chain shown",
+  );
+  assert.deepEqual(
+    suggestedLines(series.slice(0, 4), 4),
+    ["own", "zehrs2", "lob1", "lob2"],
+    "too few chains: the cheapest of the rest fill the room",
+  );
+  assert.deepEqual(suggestedLines([{ key: "own", primary: true }], 4), ["own"]);
+});
+
+test("range stats: now, lowest, a day-weighted average and highest, with when", () => {
+  const spans = [
+    span("2026-09-24", "2026-10-01", 217),
+    span("2026-10-02", "2026-10-20", 125),
+    // Split on a value the graph does not show: still one stretch at $1.25.
+    span("2026-10-21", "2026-11-07", 125),
+  ];
+  const stats = rangeStats(spans)!;
+  assert.equal(stats.current, 125);
+  assert.equal(stats.lowest, 125);
+  assert.equal(stats.highest, 217);
+  assert.equal(stats.average, Math.round((217 * 8 + 125 * 37) / 45));
+  assert.deepEqual([stats.lowestFrom, stats.lowestTo], ["2026-10-02", "2026-11-07"]);
+  assert.deepEqual([stats.highestFrom, stats.highestTo], ["2026-09-24", "2026-10-01"]);
+  assert.equal(rangeStats([]), null);
+});
+
+test("range stats: the latest stretch at a price, not one before a gap", () => {
+  const spans = [span("2026-09-01", "2026-09-05", 300), span("2026-09-06", "2026-09-09", 400), span("2026-09-12", "2026-09-14", 300)];
+  const stats = rangeStats(spans)!;
+  assert.deepEqual([stats.lowestFrom, stats.lowestTo], ["2026-09-12", "2026-09-14"]);
+});
+
+test("the biggest drop is the largest fall between back-to-back prices", () => {
+  const spans = [span("2026-09-01", "2026-09-05", 300), span("2026-09-06", "2026-09-09", 250), span("2026-09-10", "2026-09-12", 400), span("2026-09-13", "2026-09-14", 200)];
+  assert.deepEqual(biggestDrop(spans), { day: "2026-09-13", from: 400, to: 200 });
+  assert.equal(biggestDrop([span("2026-09-01", "2026-09-05", 300), span("2026-09-06", "2026-09-09", 350)]), null);
 });
