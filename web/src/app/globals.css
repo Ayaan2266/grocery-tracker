@@ -766,6 +766,11 @@ a.hiw-fact:hover { text-decoration: underline; text-underline-offset: 3px; }
 .hiw-cta-copy p { margin: 6px 0 0; color: var(--yellow); font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
 .hiw-cta .search-form { width: min(100%, 780px); margin: 0; animation: none; }
 .hiw-cta .staples { justify-content: flex-start; margin-top: 0; animation: none; }
+/* A small link to the maker's site, under the closing call to action. */
+.hiw-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin: -20px 0 44px; color: var(--muted); font-size: 14px; font-weight: 700; }
+.hiw-contact a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue-dark); font-size: 13px; font-weight: 850; text-decoration: none; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.hiw-contact a:hover { transform: translateY(-2px); border-color: var(--blue); background: var(--pale-blue); }
+.hiw-contact a:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 
 @media (max-width: 1000px) {
   .hiw-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }

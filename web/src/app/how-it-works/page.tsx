@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { ArrowRight, CalendarDays, CircleCheck, MapPin, Search, Store } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, CircleCheck, Mail, MapPin, Search, Store } from "lucide-react";
 
 import { StoreChip } from "@/components/price-row";
 import { StoreDot } from "@/components/store-scope";
@@ -36,7 +36,7 @@ import {
   type LatestPrice,
   type StoreInfo,
 } from "@/lib/queries";
-import { BASE_OPEN_GRAPH } from "@/lib/site";
+import { BASE_OPEN_GRAPH, CONTACT_URL } from "@/lib/site";
 import { BANNER_COLORS, BANNER_SHORT, storeArea, storeMarks, storeCountLabel } from "@/lib/stores";
 import { formatCents, formatDay } from "@/lib/utils";
 
@@ -884,6 +884,15 @@ export default async function HowItWorksPage({
             ))}
           </div>
         </section>
+
+        <p className="hiw-contact">
+          <span>Questions or ideas?</span>
+          <a href={CONTACT_URL} target="_blank" rel="noopener noreferrer" aria-label="Contact Ayaan (opens in a new tab)">
+            <Mail size={15} strokeWidth={2.4} aria-hidden="true" />
+            Contact
+            <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" />
+          </a>
+        </p>
 
         <SiteFooter />
       </div>
