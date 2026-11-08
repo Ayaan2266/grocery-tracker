@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 
 export const SITE_NAME = "Loonie";
 
+/** Where "Contact" goes: the maker's own site. */
+export const CONTACT_URL = "https://ayaanmustafa.me/";
+
 export const SITE_DESCRIPTION =
   "Nightly price history from Canadian grocery stores. See whether today's price is " +
   "actually a good deal, and which store is cheapest for your whole basket.";
