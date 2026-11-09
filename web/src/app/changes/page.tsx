@@ -29,6 +29,7 @@ import {
 import { CHANGES_PAGE_SIZE, MAX_RESULTS } from "@/lib/queries";
 import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, storeArea, storeName } from "@/lib/stores";
+import { formatCount } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Price changes | Loonie",
@@ -49,7 +50,6 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const count = (n: number) => n.toLocaleString("en-CA");
 
 /** Items sold by weight listed under the main list, biggest change first. */
 const WEIGHED_SHOWN = 12;
@@ -166,12 +166,12 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
               <div className="changes-summary">
                 <article className="changes-card changes-card-down">
                   <p className="changes-card-label">Went down</p>
-                  <p className="changes-card-count">{count(filtered.drops)} {filtered.drops === 1 ? "price" : "prices"}</p>
+                  <p className="changes-card-count">{formatCount(filtered.drops)} {filtered.drops === 1 ? "price" : "prices"}</p>
                   <p>{biggest(top.down) ?? "Nothing went down."}</p>
                 </article>
                 <article className="changes-card changes-card-up">
                   <p className="changes-card-label">Went up</p>
-                  <p className="changes-card-count">{count(filtered.rises)} {filtered.rises === 1 ? "price" : "prices"}</p>
+                  <p className="changes-card-count">{formatCount(filtered.rises)} {filtered.rises === 1 ? "price" : "prices"}</p>
                   <p>{biggest(top.up) ?? "Nothing went up."}</p>
                 </article>
                 {isFlyerNight(day) ? (
@@ -199,7 +199,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                       scroll={false}
                     >
                       {d === "down" ? "Price drops" : "Price increases"}
-                      <span className="toggle-count">{count(d === "down" ? filtered.drops : filtered.rises)}</span>
+                      <span className="toggle-count">{formatCount(d === "down" ? filtered.drops : filtered.rises)}</span>
                     </Link>
                   ))}
                 </nav>
@@ -216,7 +216,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
               />
               {matching !== null && (
                 <p className="filter-result" role="status">
-                  {count(matching)} of {count(shown)} price {word} match.{" "}
+                  {formatCount(matching)} of {formatCount(shown)} price {word} match.{" "}
                   <Link href={changesHref({ direction, store, chain, sort })} scroll={false}>Clear deal and size</Link>
                 </p>
               )}
@@ -232,7 +232,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                       scroll={false}
                     >
                       {chain === null ? "All stores" : `All ${BANNER_SHORT[chain] ?? chain}`} ·{" "}
-                      {count(direction === "down" ? totals.drops : totals.rises)}
+                      {formatCount(direction === "down" ? totals.drops : totals.rises)}
                     </Link>
                     {storesWithChanges.map((s) => {
                       const c = totals.byStore.get(s.id)!;
@@ -247,19 +247,19 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                           <StoreDot slug={s.banner_slug} mark={scoped.marks.get(s.id)} as="i" className="" />
                           {BANNER_SHORT[s.banner_slug] ?? s.retailer_name}
                           <span className="store-chip-area">
-                            {storeArea(s.label) ?? ""} · {count(direction === "down" ? c.drops : c.rises)}
+                            {storeArea(s.label) ?? ""} · {formatCount(direction === "down" ? c.drops : c.rises)}
                           </span>
                         </Link>
                       );
                     })}
                   </nav>
                   <details className="store-filter-menu">
-                    <summary>Store: {store === null ? "All stores" : storeLabel(store)} ({count(shown)})</summary>
+                    <summary>Store: {store === null ? "All stores" : storeLabel(store)} ({formatCount(shown)})</summary>
                     <ul>
                       <li>
                         <Link href={changesHref({ direction, store: null, ...filters })} aria-current={store === null ? "true" : undefined}>
                           {chain === null ? "All stores" : `All ${BANNER_SHORT[chain] ?? chain}`} ·{" "}
-                          {count(direction === "down" ? totals.drops : totals.rises)}
+                          {formatCount(direction === "down" ? totals.drops : totals.rises)}
                         </Link>
                       </li>
                       {storesWithChanges.map((s) => {
@@ -268,7 +268,7 @@ export default async function ChangesPage({ searchParams }: { searchParams: Prom
                           <li key={s.id}>
                             <Link href={changesHref({ direction, store: s.id, ...filters })} aria-current={store === s.id ? "true" : undefined}>
                               <StoreDot slug={s.banner_slug} mark={scoped.marks.get(s.id)} />
-                              {storeLabel(s.id)} · {count(direction === "down" ? c.drops : c.rises)}
+                              {storeLabel(s.id)} · {formatCount(direction === "down" ? c.drops : c.rises)}
                             </Link>
                           </li>
                         );

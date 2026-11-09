@@ -9,7 +9,7 @@ export const BANNER_LABELS: Record<string, string> = {
   fortinos: "Fortinos",
 };
 
-/** Short names for tight spots: graph legends and basket columns. */
+/** Short names for tight spots: graph chips and basket columns. */
 export const BANNER_SHORT: Record<string, string> = {
   nofrills: "No Frills",
   superstore: "Superstore",
@@ -23,7 +23,7 @@ export const BANNER_SHORT: Record<string, string> = {
  * every graph whichever others appear beside it. Checked as a set against the
  * white chart surface, every pair against every other, for colour-blind
  * separation: no pair is closer than ΔE 7.9, which is only acceptable because
- * the legend, tooltip and store lists always name the store in text too.
+ * the chips, tooltip and store lists always name the store in text too.
  */
 export const BANNER_COLORS: Record<string, string> = {
   nofrills: "#c99700",

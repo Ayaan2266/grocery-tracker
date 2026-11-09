@@ -38,7 +38,7 @@ import {
 } from "@/lib/queries";
 import { BASE_OPEN_GRAPH, CONTACT_URL } from "@/lib/site";
 import { BANNER_COLORS, BANNER_SHORT, storeArea, storeMarks, storeCountLabel } from "@/lib/stores";
-import { formatCents, formatDay } from "@/lib/utils";
+import { formatCents, formatCount, formatDay } from "@/lib/utils";
 
 const DESCRIPTION =
   "How Loonie checks grocery prices every night, keeps their history, and decides whether today's price is a good one.";
@@ -185,8 +185,7 @@ async function attempt<T>(load: () => Promise<T>): Promise<{ data: T; failed: fa
 }
 
 const numberWords = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-const inWords = (n: number) => numberWords[n] ?? n.toLocaleString("en-CA");
-const count = (n: number) => n.toLocaleString("en-CA");
+const inWords = (n: number) => numberWords[n] ?? formatCount(n);
 
 /** "Sep 27, 9:16 a.m. ET": when a run finished, in the stores' own time zone. */
 function checkedAt(iso: string, withDay = true): string {
@@ -217,11 +216,11 @@ function LiveStatus({ status }: { status: NightlyStatus | null }) {
       {status.stale ? "Behind schedule: last checked " : "Last checked "}
       {checkedAt(status.lastCheckedAt)}
       <span aria-hidden="true">·</span>
-      {count(status.prices)} prices
+      {formatCount(status.prices)} prices
       {status.changed !== null && (
         <>
           <span aria-hidden="true">·</span>
-          {count(status.changed)} changed
+          {formatCount(status.changed)} changed
         </>
       )}
     </p>
@@ -247,7 +246,7 @@ function Steps({ status }: { status: NightlyStatus | null }) {
       art: "five-chains.png",
       title: `We check ${storeCount > 0 ? inWords(storeCount) : "the"} stores`,
       body: `Overnight, Loonie searches ${SEARCH_TERM_COUNT} everyday items at each store, and records every price, sale and unit price it finds.`,
-      fact: status && status.prices > 0 ? `Last night: ${count(status.prices)} prices` : "Checked once a day",
+      fact: status && status.prices > 0 ? `Last night: ${formatCount(status.prices)} prices` : "Checked once a day",
     },
     {
       tone: "lilac",
@@ -256,7 +255,7 @@ function Steps({ status }: { status: NightlyStatus | null }) {
       body: "If a price matches yesterday’s, Loonie just notes it’s still true. A new row is saved only when the price, sale or stock changes.",
       fact:
         status && status.changed !== null
-          ? `Last night: ${count(status.changed)} change${status.changed === 1 ? "" : "s"}${share}`
+          ? `Last night: ${formatCount(status.changed)} change${status.changed === 1 ? "" : "s"}${share}`
           : "Only changes are saved",
     },
     {
@@ -586,8 +585,8 @@ function StoreCard({ store, mark }: { store: StoreStatus; mark: number | undefin
             Not checked this week
           </span>
         )}
-        {store.run && <span className="stat-prices">{count(store.run.products_observed)} prices</span>}
-        {store.changed !== null && <span className="stat-changed">{count(store.changed)} changed</span>}
+        {store.run && <span className="stat-prices">{formatCount(store.run.products_observed)} prices</span>}
+        {store.changed !== null && <span className="stat-changed">{formatCount(store.changed)} changed</span>}
       </div>
     </li>
   );
@@ -840,7 +839,7 @@ export default async function HowItWorksPage({
                   <strong>Everyday items, not everything</strong>
                   <span>
                     It searches {SEARCH_TERM_COUNT} common items across {AISLES.length} aisles
-                    {nightly && nightly.prices > 0 ? `, about ${count(Math.round(nightly.prices / 1000) * 1000)} listings a night` : ""}.
+                    {nightly && nightly.prices > 0 ? `, about ${formatCount(Math.round(nightly.prices / 1000) * 1000)} listings a night` : ""}.
                   </span>
                 </div>
               </li>

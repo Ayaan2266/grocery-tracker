@@ -7,6 +7,7 @@ import {
   getPriceChanges,
   getStores,
   type Coverage,
+  type PriceChangeOptions,
   type PriceChangePage,
   type Result,
   type StoreInfo,
@@ -81,16 +82,9 @@ const changes = unstable_cache(
   { revalidate: CACHE_SECONDS },
 );
 
-export function getPriceChangesCached(options: {
-  day: string;
-  direction: Direction;
-  storeIds: number[] | null;
-  limit: number;
-  weighed?: boolean;
-  deal?: Deal | null;
-  minPercent?: number | null;
-  sort?: Sort;
-}): Promise<Result<PriceChangePage>> {
+export function getPriceChangesCached(
+  options: PriceChangeOptions & { limit: number },
+): Promise<Result<PriceChangePage>> {
   const ids = options.storeIds === null ? null : [...options.storeIds].sort((a, b) => a - b);
   return settle(() =>
     changes(options.day, options.direction, ids, options.limit, options.weighed ?? null, options.deal ?? null, options.minPercent ?? null, options.sort ?? "change"),

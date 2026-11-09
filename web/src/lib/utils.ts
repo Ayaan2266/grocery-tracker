@@ -6,6 +6,11 @@ export function formatCents(cents: number | null): string {
   return money.format(cents / 100);
 }
 
+/** "28,016": a whole number with thousands separators. */
+export function formatCount(n: number): string {
+  return n.toLocaleString("en-CA");
+}
+
 /** "$1.56/100g". Returns null when there is no unit price to show. */
 export function formatUnitPrice(
   cents: number | null,

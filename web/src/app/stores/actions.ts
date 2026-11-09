@@ -5,16 +5,9 @@ import { cookies } from "next/headers";
 
 import { lookupFsa } from "@/lib/geocode";
 import { encodeNear, parsePostalCode, parseRadius } from "@/lib/postal";
+import { COOKIE_OPTIONS } from "@/lib/site";
 import { NEAR_COOKIE, STORE_SCOPE_COOKIE } from "@/lib/store-scope";
 
-const COOKIE = {
-  path: "/",
-  sameSite: "lax",
-  httpOnly: true,
-  // HTTPS only once deployed; `next dev` serves plain http://localhost.
-  secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 24 * 90,
-} as const;
 
 /** Results, comparisons and basket totals all depend on the stores shown. */
 function refresh(): void {
@@ -29,7 +22,7 @@ export async function setStoreScope(form: FormData): Promise<void> {
   const store = await cookies();
   const scope = form.get("scope");
   if (scope === "near" && store.get(NEAR_COOKIE)) {
-    store.set(STORE_SCOPE_COOKIE, "near", COOKIE);
+    store.set(STORE_SCOPE_COOKIE, "near", COOKIE_OPTIONS);
   } else {
     store.delete(STORE_SCOPE_COOKIE);
     if (scope === "forget") store.delete(NEAR_COOKIE);
@@ -55,8 +48,8 @@ export async function setNearMe(_previous: NearMeState, form: FormData): Promise
     return { error: `Could not find where ${fsa} is just now. Check it, or try again in a moment.`, postal };
   }
   const store = await cookies();
-  store.set(NEAR_COOKIE, encodeNear({ fsa, ...point, radiusKm: parseRadius(form.get("radius")) }), COOKIE);
-  store.set(STORE_SCOPE_COOKIE, "near", COOKIE);
+  store.set(NEAR_COOKIE, encodeNear({ fsa, ...point, radiusKm: parseRadius(form.get("radius")) }), COOKIE_OPTIONS);
+  store.set(STORE_SCOPE_COOKIE, "near", COOKIE_OPTIONS);
   refresh();
   return { error: null, postal: "" };
 }
