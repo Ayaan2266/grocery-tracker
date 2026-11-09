@@ -328,7 +328,7 @@ Maintained honestly. Overclaiming reads as junior.
   Frills, all within 1.2 km of Toronto Metropolitan University, and the Don
   Mills and Weston Road Superstores. A banner's stores share its colour on
   graphs and are told apart by line and dot (solid, dashed, dotted,
-  dash-dot), and the legend and store lists name the place. A visitor can enter a
+  dash-dot), and the graph's store chips and store lists name the place. A visitor can enter a
   postal code and a radius to see the stores near it, in any province; that
   is stored in a cookie as the first three characters only. The distance is
   from the middle of the visitor's postal-code area to the store itself

@@ -2,6 +2,19 @@ import type { Metadata } from "next";
 
 export const SITE_NAME = "Loonie";
 
+/**
+ * How the site's own cookies are written: the basket and the store choice.
+ * Kept for 90 days, and sent over HTTPS only once deployed, since `next dev`
+ * serves plain http://localhost.
+ */
+export const COOKIE_OPTIONS = {
+  path: "/",
+  sameSite: "lax",
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 60 * 60 * 24 * 90,
+} as const;
+
 /** Where "Contact" goes: the maker's own site. */
 export const CONTACT_URL = "https://ayaanmustafa.me/";
 

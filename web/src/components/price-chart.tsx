@@ -33,6 +33,7 @@ import {
   type Span,
 } from "@/lib/history";
 import { markDot, storeMark } from "@/lib/stores";
+import { formatCents, formatDay } from "@/lib/utils";
 
 export type ChartSeries = {
   key: string;
@@ -58,14 +59,8 @@ export type ChartSeries = {
   mark?: number;
 };
 
-const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
-const dollars = (cents: number) => money.format(cents / 100);
-const shortDate = (day: number) =>
-  new Date(`${isoDay(day)}T00:00:00Z`).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+/** "Oct 2", for a day number: the graph's x axis counts in days. */
+const shortDate = (day: number) => formatDay(isoDay(day));
 const longDate = (day: number) =>
   new Date(`${isoDay(day)}T00:00:00Z`).toLocaleDateString("en-CA", {
     weekday: "short",
@@ -73,9 +68,8 @@ const longDate = (day: number) =>
     day: "numeric",
     timeZone: "UTC",
   });
-const isoShort = (iso: string) => shortDate(dayNumber(iso));
 /** "Oct 2", or "Sep 24 – Oct 1" for a stretch. */
-const stretch = (from: string, to: string) => (from === to ? isoShort(from) : `${isoShort(from)} – ${isoShort(to)}`);
+const stretch = (from: string, to: string) => (from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`);
 
 /** Range tabs. A tab only shows once there is more history than it covers. */
 const RANGES = [
@@ -179,8 +173,8 @@ function HistoryTooltip({
             <div className="tip-head">
               {tag ? <span className={i === 0 ? "tip-cheapest" : undefined}>{tag}</span> : <span />}
               <span>
-                {i > 0 && <em className="tip-gap">+{dollars(group.price - cheapest)}</em>}
-                <b>{dollars(group.price)}</b>
+                {i > 0 && <em className="tip-gap">+{formatCents(group.price - cheapest)}</em>}
+                <b>{formatCents(group.price)}</b>
               </span>
             </div>
             {group.rows.map(({ s, span, price }) => {
@@ -193,7 +187,7 @@ function HistoryTooltip({
                   {regular !== null && regular > price && (
                     <em>
                       {span?.was_price_cents != null ? " sale, was " : " usually ~"}
-                      {dollars(regular)}
+                      {formatCents(regular)}
                     </em>
                   )}
                 </span>
@@ -364,7 +358,7 @@ function StorePicker({
             <Dot s={s} />
             <strong>{s.banner}</strong>
             {s.place && <span className="store-chip-place">{s.place}</span>}
-            {s.current !== undefined && <b>{dollars(s.current)}</b>}
+            {s.current !== undefined && <b>{formatCents(s.current)}</b>}
             {s.primary ? (
               <small>This listing</small>
             ) : (
@@ -412,7 +406,7 @@ function StorePicker({
                       {s.place ?? s.banner}
                       {s.primary && <small> (this listing)</small>}
                     </span>
-                    {s.current !== undefined && <b>{dollars(s.current)}</b>}
+                    {s.current !== undefined && <b>{formatCents(s.current)}</b>}
                   </label>
                 );
               })}
@@ -534,10 +528,10 @@ export function PriceChart({
     const drop = deal ? null : biggestDrop(primary.spans);
     if (deal) {
       const day = Math.round((dayNumber(deal.span.first_observed_on) + dayNumber(deal.span.last_confirmed_on)) / 2);
-      const words = deal.declared ? `Sale · was ${dollars(deal.regular)}` : `Usually ~${dollars(deal.regular)}`;
+      const words = deal.declared ? `Sale · was ${formatCents(deal.regular)}` : `Usually ~${formatCents(deal.regular)}`;
       tag = { day, price: deal.span.price_cents, text: words, align: "middle" };
     } else if (drop) {
-      tag = { day: dayNumber(drop.day), price: drop.to, text: `Dropped ${dollars(drop.from - drop.to)} on ${isoShort(drop.day)}`, align: "start" };
+      tag = { day: dayNumber(drop.day), price: drop.to, text: `Dropped ${formatCents(drop.from - drop.to)} on ${formatDay(drop.day)}`, align: "start" };
     }
     if (tag) {
       const at = position(tag.day);
@@ -555,7 +549,7 @@ export function PriceChart({
     const lead = rows.find((r) => r.s.primary) ?? rows[0];
     return {
       price,
-      text: rows.length > 1 ? `${dollars(price)} · ${rows.length} stores` : `${dollars(price)} · ${lead.s.banner}`,
+      text: rows.length > 1 ? `${formatCents(price)} · ${rows.length} stores` : `${formatCents(price)} · ${lead.s.banner}`,
       color: lead.s.color,
       mark: lead.s.mark,
     };
@@ -576,18 +570,18 @@ export function PriceChart({
         <div className="chart-stats">
           <Stat
             label="Now"
-            value={dollars(now)}
+            value={formatCents(now)}
             note={`${[primary.banner, primary.place].filter(Boolean).join(" · ")} (this listing)`}
             tone="dark"
           />
           <Stat
             label={`Lowest${rangeWord}`}
-            value={dollars(stats.lowest)}
+            value={formatCents(stats.lowest)}
             note={
               stats.lowest === stats.highest
                 ? "No change in this range"
                 : now <= stats.lowest
-                  ? `At its lowest now, since ${isoShort(stats.lowestFrom)}`
+                  ? `At its lowest now, since ${formatDay(stats.lowestFrom)}`
                   : stretch(stats.lowestFrom, stats.lowestTo)
             }
             tone={now <= stats.lowest && stats.lowest !== stats.highest ? "good" : "plain"}
@@ -595,12 +589,12 @@ export function PriceChart({
           />
           <Stat
             label={`Average${rangeWord}`}
-            value={dollars(stats.average)}
+            value={formatCents(stats.average)}
             note={
               now < stats.average
-                ? `${dollars(stats.average - now)} below average`
+                ? `${formatCents(stats.average - now)} below average`
                 : now > stats.average
-                  ? `${dollars(now - stats.average)} above average`
+                  ? `${formatCents(now - stats.average)} above average`
                   : "Right on average"
             }
             tone="plain"
@@ -608,7 +602,7 @@ export function PriceChart({
           />
           <Stat
             label={`Highest${rangeWord}`}
-            value={dollars(stats.highest)}
+            value={formatCents(stats.highest)}
             note={stats.lowest === stats.highest ? "No change in this range" : stretch(stats.highestFrom, stats.highestTo)}
             tone="plain"
           />
@@ -651,7 +645,7 @@ export function PriceChart({
             <YAxis
               domain={axis.domain}
               ticks={axis.ticks}
-              tickFormatter={(cents: number) => dollars(cents)}
+              tickFormatter={(cents: number) => formatCents(cents)}
               tick={{ fill: "#53617e", fontSize: 12 }}
               tickLine={false}
               axisLine={false}
@@ -684,7 +678,7 @@ export function PriceChart({
                 label={
                   narrow
                     ? undefined
-                    : { value: `avg ${dollars(stats.average)}`, position: "insideTopLeft", fill: "#53617e", fontSize: 11, fontWeight: 800 }
+                    : { value: `avg ${formatCents(stats.average)}`, position: "insideTopLeft", fill: "#53617e", fontSize: 11, fontWeight: 800 }
                 }
               />
             )}
@@ -739,7 +733,7 @@ export function PriceChart({
                 label={
                   showEnds ? undefined : (
                     <Callout
-                      text={`Latest ${dollars(primaryLatest.price_cents)}`}
+                      text={`Latest ${formatCents(primaryLatest.price_cents)}`}
                       align={position(dayNumber(primaryLatest.last_confirmed_on)) < 0.25 ? "start" : "end"}
                       fill="#10224c"
                       color="#fff"

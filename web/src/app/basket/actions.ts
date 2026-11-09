@@ -13,19 +13,13 @@ import {
   type Basket,
 } from "@/lib/basket";
 import { parseProductId } from "@/lib/product-id";
+import { COOKIE_OPTIONS } from "@/lib/site";
 
 async function update(change: (basket: Basket) => void): Promise<void> {
   const store = await cookies();
   const basket = parseBasket(store.get(BASKET_COOKIE)?.value);
   change(basket);
-  store.set(BASKET_COOKIE, serializeBasket(basket), {
-    path: "/",
-    sameSite: "lax",
-    httpOnly: true,
-    // HTTPS only once deployed; `next dev` serves plain http://localhost.
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 90,
-  });
+  store.set(BASKET_COOKIE, serializeBasket(basket), COOKIE_OPTIONS);
   // Every page shows the basket count in its header.
   revalidatePath("/", "layout");
 }

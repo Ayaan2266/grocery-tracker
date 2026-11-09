@@ -331,13 +331,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .store-compare { margin-top: 15px; }
 .store-compare ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .store-compare li { display: grid; grid-template-columns: auto minmax(0, 1.2fr) minmax(70px, 1fr) auto; align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
-.store-compare li.is-current { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
 .store-dot { display: inline-block; width: 12px; height: 12px; border-radius: 999px; }
 .store-compare-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 800; }
 .store-compare-name a { color: var(--blue-dark); text-decoration: none; }
 .store-compare-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .store-compare-name small { padding: 2px 8px; border-radius: 999px; background: var(--pale-blue); color: var(--muted); font-size: 11px; font-weight: 800; }
-.store-compare-name .cheapest-badge { background: #e3f6ea; color: #17643a; }
 .store-area { color: var(--muted); font-size: 13px; font-weight: 700; }
 .store-compare-price { display: flex; flex-direction: column; align-items: flex-end; }
 .store-compare-price strong { font-size: 20px; font-weight: 850; color: var(--blue-dark); }
@@ -484,7 +482,6 @@ small.chart-stat-note-bad { color: #ad1630; }
 .store-menu-done { padding: 8px 18px; border: 0; border-radius: 999px; background: var(--navy); color: var(--white); cursor: pointer; font: inherit; font-size: 13px; font-weight: 850; }
 .store-compare-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin-bottom: 16px; }
 .save-pill { padding: 6px 12px; border-radius: 999px; background: #e3f6ea; color: #17643a; font-size: 13px; font-weight: 800; white-space: nowrap; }
-.store-compare-name .stock-badge { background: var(--pink); color: #ad1630; }
 /* Same item at other stores: a table grouped by price. */
 .compare-table-wrap { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
 .compare-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -517,7 +514,6 @@ small.chart-stat-note-bad { color: #ad1630; }
 @media (max-width: 600px) {
   .price-card-actions { width: 100%; }
   .store-compare li { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "dot name price" "bar bar bar"; gap: 10px 12px; padding: 13px 14px; }
-  .store-compare li > .store-dot { grid-area: dot; }
   .store-compare-name { grid-area: name; }
   .chart-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chart-stat strong { font-size: 22px; }
@@ -560,7 +556,6 @@ small.chart-stat-note-bad { color: #ad1630; }
 .basket-summary { grid-area: summary; position: sticky; top: 20px; display: grid; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--white); box-shadow: 0 14px 34px rgba(15,44,110,.1); }
 .basket-summary h2 { margin: 0; font-size: 20px; font-weight: 850; letter-spacing: -.03em; }
 .basket-summary .price-note { margin: 0; }
-.basket-summary-total { margin: 0; color: var(--blue-dark); font-size: 34px; font-weight: 850; letter-spacing: -.04em; }
 .store-totals { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
 .store-totals li { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; }
 .store-totals strong { font-size: 14px; font-weight: 850; }

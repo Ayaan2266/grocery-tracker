@@ -11,6 +11,7 @@ import { readBasket } from "@/lib/basket-server";
 import { getCoverageCached } from "@/lib/cached-queries";
 import { loadScopedStores } from "@/lib/store-scope";
 import { BANNER_SHORT, inScope, storeArea } from "@/lib/stores";
+import { formatCount } from "@/lib/utils";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
   MAX_RESULTS,
@@ -291,9 +292,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
 
         {coverage.data && (
           <section className="coverage" aria-label="Data coverage">
-            <p><strong>{coverage.data.products.toLocaleString("en-CA")}</strong><span>products tracked</span></p>
-            <p><strong>{coverage.data.observations.toLocaleString("en-CA")}</strong><span>price observations</span></p>
-            <p><strong>{coverage.data.days.toLocaleString("en-CA")}</strong><span>days of history</span></p>
+            <p><strong>{formatCount(coverage.data.products)}</strong><span>products tracked</span></p>
+            <p><strong>{formatCount(coverage.data.observations)}</strong><span>price observations</span></p>
+            <p><strong>{formatCount(coverage.data.days)}</strong><span>days of history</span></p>
             {storeList.length > 0 && (
               <p><strong>{storeList.length}</strong><span>stores checked nightly</span></p>
             )}

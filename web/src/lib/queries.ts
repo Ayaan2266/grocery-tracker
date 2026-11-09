@@ -1,6 +1,7 @@
 import { getSupabase, MISSING_CREDENTIALS } from "./supabase.ts";
 import { fetchAll, type QueryResult } from "./pagination.ts";
 import type { Deal, Direction, PriceChange, PriceChangeCount, Sort } from "./changes.ts";
+import type { Span } from "./history.ts";
 
 /**
  * One row of `product_latest_price`: a product carrying its most recent
@@ -296,15 +297,7 @@ export async function getSimilarCandidates(keys: string[]): Promise<Result<Lates
  * past Supabase's default response cap, while the same history as spans is a
  * few dozen rows.
  */
-export type PriceSpan = {
-  product_id: number;
-  first_observed_on: string;
-  last_confirmed_on: string;
-  price_cents: number;
-  was_price_cents: number | null;
-  implied_regular_cents?: number | null;
-  in_stock: boolean;
-};
+export type PriceSpan = Span & { product_id: number };
 
 /**
  * Spans that overlap the days since `sinceIso`, for many products at once:
@@ -534,6 +527,17 @@ export type PriceChangePage = {
  * shows, like searchProducts, so "Show more" needs no count; the exact count
  * comes back too, for the filtered total.
  */
+export type PriceChangeOptions = {
+  day: string;
+  direction: Direction;
+  storeIds: number[] | null;
+  limit?: number;
+  weighed?: boolean;
+  deal?: Deal | null;
+  minPercent?: number | null;
+  sort?: Sort;
+};
+
 export async function getPriceChanges({
   day,
   direction,
@@ -543,16 +547,7 @@ export async function getPriceChanges({
   deal = null,
   minPercent = null,
   sort = "change",
-}: {
-  day: string;
-  direction: Direction;
-  storeIds: number[] | null;
-  limit?: number;
-  weighed?: boolean;
-  deal?: Deal | null;
-  minPercent?: number | null;
-  sort?: Sort;
-}): Promise<Result<PriceChangePage>> {
+}: PriceChangeOptions): Promise<Result<PriceChangePage>> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: MISSING_CREDENTIALS };
 

@@ -4,6 +4,8 @@
  * here; the queries are in queries.ts.
  */
 
+import { formatCents } from "./utils.ts";
+
 /** One listing whose shelf price moved since its store's previous run. */
 export type PriceChange = {
   product_id: number;
@@ -102,8 +104,6 @@ export function isWeighed(change: Pick<PriceChange, "retailer_sku">): boolean {
   return change.retailer_sku.endsWith(WEIGHED_SUFFIX);
 }
 
-const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
-
 /** The size of a percentage change, no sign: whole percent from 1% up, one decimal below. */
 export function percentText(percent: number | string): string {
   const value = Math.abs(Number(percent));
@@ -112,13 +112,13 @@ export function percentText(percent: number | string): string {
 
 /** "$2.50 · 31%", the size of a change without its direction. */
 export function changeText(change: Pick<PriceChange, "change_cents" | "change_percent">): string {
-  return `${money.format(Math.abs(change.change_cents) / 100)} · ${percentText(change.change_percent)}`;
+  return `${formatCents(Math.abs(change.change_cents))} · ${percentText(change.change_percent)}`;
 }
 
 /** "down $2.50, 31%": the same for a screen reader, with the direction in words. */
 export function changeSpoken(change: Pick<PriceChange, "change_cents" | "change_percent">): string {
   const direction = change.change_cents < 0 ? "down" : "up";
-  return `${direction} ${money.format(Math.abs(change.change_cents) / 100)}, ${percentText(change.change_percent)}`;
+  return `${direction} ${formatCents(Math.abs(change.change_cents))}, ${percentText(change.change_percent)}`;
 }
 
 /**
