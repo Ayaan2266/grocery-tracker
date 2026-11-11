@@ -145,6 +145,6 @@ npm run lint && npm test && npm run build     # what CI runs
 ## Legal
 
 Personal, non-commercial project. Not affiliated with Loblaw Companies Limited
-or any retailer. It uses an undocumented internal API, which is against
+or any otherretailer. It uses an undocumented internal API, which is against
 Loblaw's terms of service; requests are limited to about one per second, and
 sustained 403s or a key rotation are treated as a stop signal.
