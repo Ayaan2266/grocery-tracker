@@ -8,7 +8,7 @@ at ten Ontario grocery stores, every night, and keeps the history.
 
 ![Loonie promo](docs/screenshots/promo.gif)
 
-**Live:** _launching on Vercel in November 2026_
+**Live:** https://loonie-black.vercel.app
 
 It answers two questions:
 
