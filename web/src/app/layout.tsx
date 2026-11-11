@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "@fontsource-variable/dm-sans/wght.css";
 import "./globals.css";
 
+import { Analytics } from "@vercel/analytics/next";
+
 import { NavigationProgress } from "@/components/navigation-progress";
 import { BASE_OPEN_GRAPH, SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
 
@@ -27,6 +29,8 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <NavigationProgress />
         {children}
+        {/* Vercel Web Analytics: page views only, no cookies. Does nothing outside Vercel. */}
+        <Analytics />
       </body>
     </html>
   );
