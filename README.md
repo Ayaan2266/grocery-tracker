@@ -8,7 +8,7 @@ at ten Ontario grocery stores, every night, and keeps the history.
 
 ![Loonie promo](docs/screenshots/promo.gif)
 
-**Live:** https://loonie-black.vercel.app
+**Live:** https://looniegroceries.ca
 
 It answers two questions:
 
