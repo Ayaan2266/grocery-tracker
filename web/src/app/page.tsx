@@ -10,7 +10,7 @@ import { NearMeDetails, StoreDot, StoreScopeControl, StoreScopeRow, storeScopeHe
 import { readBasket } from "@/lib/basket-server";
 import { getCoverageCached } from "@/lib/cached-queries";
 import { loadScopedStores } from "@/lib/store-scope";
-import { BANNER_SHORT, inScope, storeArea } from "@/lib/stores";
+import { BANNER_SHORT, inScope, storeArea, storesByDistance } from "@/lib/stores";
 import { formatCount } from "@/lib/utils";
 import { badgeFor, dailyPrices, dayNumber, isoDay, windowSpans, type Badge } from "@/lib/history";
 import {
@@ -117,6 +117,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     pending,
   ]);
   const storeList = scoped.stores;
+  // Once a visitor has given a postal code, the store list is the answer to it:
+  // the stores near them first, with how far each is.
+  const nearOn = scoped.scope === "near" && scoped.near !== null;
+  const storeChips = storesByDistance(storeList, nearOn ? scoped.nearStores : null, scoped.storeIds);
   const scopeHelp = storeScopeHelp(scoped, "results");
   const chains = new Set(
     storeList.filter((store) => inScope(scoped.storeIds, store.id)).map((store) => store.banner_slug),
@@ -300,14 +304,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
             )}
             {storeList.length > 0 && (
               <div className="coverage-stores">
-                <p>Checked every night. Prices differ between locations, so every price says where it was recorded.</p>
+                <p>
+                  {nearOn && scoped.near
+                    ? `Stores near ${scoped.near.fsa}, nearest first. The faded ones are outside ${scoped.near.radiusKm} km.`
+                    : "Checked every night. Prices differ between locations, so every price says where it was recorded."}
+                </p>
                 <div className="store-group">
-                  <ul aria-label="Stores">
-                    {storeList.map((store) => (
-                      <li key={store.id} className="store-chip">
+                  <ul aria-label={nearOn && scoped.near ? `Stores near ${scoped.near.fsa}` : "Stores"}>
+                    {storeChips.map(({ store, km, shown }) => (
+                      <li key={store.id} className={shown ? "store-chip" : "store-chip is-far"}>
                         <StoreDot slug={store.banner_slug} mark={scoped.marks.get(store.id)} as="i" className="" />
                         {BANNER_SHORT[store.banner_slug] ?? store.retailer_name}
                         {storeArea(store.label) && <span className="store-chip-area">{storeArea(store.label)}</span>}
+                        {nearOn && km !== null && (
+                          <span className="store-chip-km">
+                            about {Math.max(1, Math.round(km))} km
+                            {!shown && <span className="visually-hidden"> (outside your distance)</span>}
+                          </span>
+                        )}
                       </li>
                     ))}
                   </ul>

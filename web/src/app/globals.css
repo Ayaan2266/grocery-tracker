@@ -115,7 +115,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .scope-toggle button:hover { background: #dcecff; }
 .scope-toggle button[aria-pressed="true"] { background: var(--blue); color: var(--white); }
 .scope-count { padding: 1px 7px; border-radius: 999px; background: var(--line); font-size: 11px; }
-.scope-toggle button[aria-pressed="true"] .scope-count { background: rgba(255,255,255,.2); }
+.scope-toggle button[aria-pressed="true"] .scope-count { background: rgba(255,255,255,.22); color: var(--white); }
 .scope-help { margin: 0; color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1.45; }
 .results-toolbar + .scope-help { margin: -2px 0 14px; }
 .scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -153,6 +153,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .coverage-stores > p { margin: 0; color: var(--muted); font-size: 13px; }
 .coverage-stores ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .store-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+/* Home page, once a postal code is saved: how far each store is, and the ones outside the radius faded. */
+.store-chip-km { padding: 1px 7px; border-radius: 999px; background: var(--pale-blue); color: var(--blue-dark); font-size: 11px; font-weight: 800; }
+.coverage-stores .store-chip.is-far { border-style: dashed; background: none; color: var(--muted); }
+.coverage-stores .store-chip.is-far i { opacity: .45; }
+.coverage-stores .store-chip.is-far .store-chip-km { background: none; color: var(--muted); padding: 0; font-weight: 700; }
 .coverage p { display: flex; align-items: baseline; gap: 10px; margin: 0; }
 .coverage strong { font-size: 25px; font-weight: 850; }
 .coverage span { color: var(--muted); font-size: 13px; }
