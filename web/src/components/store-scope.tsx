@@ -65,16 +65,22 @@ function nearList(scoped: ScopedStores): string {
 function nearHelp(scoped: ScopedStores, where: "results" | "home"): string | null {
   const { near, nearStores, storeIds } = scoped;
   if (!near || !nearStores) return null;
-  if (where === "home") return `Search, product pages and the basket show the stores near ${near.fsa}.`;
   const shown = storeIds?.length ?? scoped.stores.length;
+  // The home page lists the stores itself, with distances, just above this line.
+  const applies = "Search, product pages and the basket show only these.";
   if (nearStores.widened) {
-    return `No store is within ${near.radiusKm} km of ${near.fsa}, so this shows the nearest: ${nearList(scoped)}.`;
+    return where === "home"
+      ? `No store is within ${near.radiusKm} km of ${near.fsa}, so the nearest one is shown. ${applies}`
+      : `No store is within ${near.radiusKm} km of ${near.fsa}, so this shows the nearest: ${nearList(scoped)}.`;
   }
   const unplaced = nearStores.unplaced.length;
   const unplacedNote =
     unplaced > 0
       ? ` ${plural(unplaced, "store")} could not be placed on the map just now, so ${unplaced === 1 ? "it is" : "they are"} shown too.`
       : "";
+  if (where === "home") {
+    return `${plural(shown, "store")} within ${near.radiusKm} km of ${near.fsa}, nearest first.${unplacedNote} ${applies}`;
+  }
   return `Showing ${plural(shown, "store")} within ${near.radiusKm} km of ${near.fsa}: ${nearList(scoped)}.${unplacedNote}`;
 }
 

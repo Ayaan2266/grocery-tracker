@@ -8,6 +8,7 @@ import {
   inScope,
   nearbyStores,
   scopedStoreIds,
+  storesByDistance,
   STORE_MARKS,
   storeCountLabel,
   storeMark,
@@ -117,6 +118,21 @@ test("the stores near a place are those within the radius, nearest first", () =>
   assert.deepEqual(near.unplaced, []);
   assert.ok(near.km.get(1)! < near.km.get(7)! && near.km.get(7)! < near.km.get(5)!);
   assert.ok(near.km.get(4)! > 25, "Uxbridge is out of range");
+});
+
+test("the home page lists the stores near a place first, nearest first, then the rest", () => {
+  const found = nearbyStores(placed, vaughan);
+  const listed = storesByDistance(placed, found, scopedStoreIds(placed, "near", vaughan));
+  assert.deepEqual(listed.map((entry) => entry.store.id), [1, 7, 5, 3, 4]);
+  assert.deepEqual(listed.map((entry) => entry.shown), [true, true, true, true, false]);
+  assert.ok(listed.every((entry) => entry.km !== null));
+  assert.equal(Math.round(listed[4].km!), Math.round(found.km.get(4)!));
+});
+
+test("with no place given the store list keeps its order and leaves nothing out", () => {
+  const listed = storesByDistance(placed, null, null);
+  assert.deepEqual(listed.map((entry) => entry.store.id), [1, 3, 4, 5, 7]);
+  assert.ok(listed.every((entry) => entry.shown && entry.km === null));
 });
 
 test("a bigger radius brings in more stores and a smaller one fewer", () => {

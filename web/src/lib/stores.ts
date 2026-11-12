@@ -100,6 +100,31 @@ export function nearbyStores(stores: Placed[], near: NearMe): NearStores {
   return { ids: [...within, ...unplaced], km, unplaced, widened };
 }
 
+export type StoreDistance<T> = { store: T; km: number | null; shown: boolean };
+
+/**
+ * Every store for the list on the home page once a visitor has given a place:
+ * the stores the site is showing first, nearest first, then the ones the radius
+ * leaves out, each with how far it is. With no place, or with every store
+ * shown, the order is left as it came and nothing is marked as left out.
+ */
+export function storesByDistance<T extends { id: number }>(
+  stores: T[],
+  found: NearStores | null,
+  storeIds: number[] | null,
+): StoreDistance<T>[] {
+  const listed = stores.map((store) => ({
+    store,
+    km: found?.km.get(store.id) ?? null,
+    shown: inScope(storeIds, store.id),
+  }));
+  if (!found || storeIds === null) return listed;
+  return listed.sort(
+    (a, b) =>
+      Number(b.shown) - Number(a.shown) || (a.km ?? Infinity) - (b.km ?? Infinity) || a.store.id - b.store.id,
+  );
+}
+
 /**
  * The ids of the stores in scope, or null for no filter. Null too when no
  * store is near, as when the store list failed to load: showing every store
