@@ -1,6 +1,6 @@
 /**
  * The price-changes page: every shelf price that moved on each store's latest
- * nightly run, from the price_changes view (db/migrations/0016). Pure helpers
+ * nightly run, from the price_changes view (db/migrations/0016; stored nightly since 0023). Pure helpers
  * here; the queries are in queries.ts.
  */
 

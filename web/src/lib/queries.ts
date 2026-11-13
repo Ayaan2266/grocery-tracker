@@ -489,7 +489,7 @@ export async function getCoverage(): Promise<Result<Coverage | null>> {
 /**
  * Every store's drop and rise counts for the night it last ran: one row per
  * store, so a dozen rows whatever the night was like (price_change_counts,
- * db/migrations/0016).
+ * db/migrations/0016; read from a table the nightly run fills since 0023).
  */
 export async function getPriceChangeCounts(): Promise<Result<PriceChangeCount[]>> {
   const supabase = getSupabase();

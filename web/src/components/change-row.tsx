@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { BasketButton } from "@/components/basket-button";

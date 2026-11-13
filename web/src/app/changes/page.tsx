@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { ChangeRow } from "@/components/change-row";

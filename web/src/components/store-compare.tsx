@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ChevronDown } from "lucide-react";
 
 import type { SameItem } from "@/lib/matching";
