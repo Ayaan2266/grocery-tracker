@@ -33,7 +33,7 @@ export function HeaderBar({ current, items = 0 }: { current?: HeaderPage; items?
         </Link>
         <Link href="/basket" warm className="basket-link" aria-current={current === "basket" ? "page" : undefined}>
           <ShoppingBasket size={18} aria-hidden="true" />
-          Basket
+          <span className="nav-long">Basket</span>
           {items > 0 && (
             <span className="basket-count" aria-label={`${items} item${items === 1 ? "" : "s"}`}>
               {items}
