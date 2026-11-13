@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ArrowDown, ArrowRight, ChartNoAxesCombined, ShoppingBasket, Tag } from "lucide-react";
 
 import { PriceRow, estimatedRegular } from "@/components/price-row";

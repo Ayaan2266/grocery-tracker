@@ -587,6 +587,7 @@ class TestViews:
             "ingest_coverage",
             "price_change_counts",
             "price_changes",
+            "price_changes_live",
             "price_observations",
             "product_latest_price",
         }
@@ -1222,6 +1223,15 @@ def test_the_schema_check_still_refuses_a_much_older_database(schema_conn) -> No
         db.check_schema(schema_conn)
 
 
+def test_refreshing_price_changes_before_0023_is_reported_not_raised(schema_conn) -> None:
+    """The night is already written by then, so a missing migration must not fail it."""
+    apply_migrations(schema_conn, before="0023_price_changes_table.sql")
+    assert db.refresh_price_changes(schema_conn) is None
+    with schema_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM price_changes")
+        assert cur.fetchone()[0] == 0, "the connection is usable afterwards"
+
+
 def test_the_schema_check_passes_once_every_migration_is_applied(conn) -> None:
     db.check_schema(conn)
 
@@ -1325,12 +1335,17 @@ def test_stores_run_on_finds_only_that_days_runs(conn) -> None:
 
 
 class TestPriceChanges:
-    """What changed overnight, 0016: the price-changes page reads these views."""
+    """What changed overnight, 0016: the price-changes page reads these views.
+
+    Since 0023 the views read a table the nightly run fills, so each read here
+    refreshes it first, as the run does after its last store.
+    """
 
     D1, D2, D3 = (date(2026, 9, d) for d in (21, 22, 23))
 
     @staticmethod
     def changes(conn) -> list[tuple]:
+        db.refresh_price_changes(conn)
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -1419,15 +1434,67 @@ class TestPriceChanges:
             conn, store_id, [make_row(i, price) for i, price in tonight.items()], self.D2
         )
 
+        db.refresh_price_changes(conn)
         with conn.cursor() as cur:
             cur.execute("SELECT store_id, changed_on, drops, rises FROM price_change_counts")
             assert cur.fetchall() == [(store_id, self.D2, 2, 1)]
+
+    def test_the_page_reads_what_the_last_refresh_stored(self, conn) -> None:
+        """0023: the views read a table, so a night shows up when the run stores it."""
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        db.write_store_observations(conn, store_id, [make_row(1, 500), make_row(2, 500)], self.D1)
+        db.write_store_observations(conn, store_id, [make_row(1, 400), make_row(2, 500)], self.D2)
+        assert db.refresh_price_changes(conn) == 1
+
+        db.write_store_observations(conn, store_id, [make_row(1, 400), make_row(2, 450)], self.D3)
+        with conn.cursor() as cur:
+            cur.execute("SELECT retailer_sku, changed_on FROM price_changes")
+            assert cur.fetchall() == [("SKU000001_EA", self.D2)], "not refreshed yet"
+
+        assert db.refresh_price_changes(conn) == 1
+        with conn.cursor() as cur:
+            cur.execute("SELECT retailer_sku, changed_on FROM price_changes")
+            assert cur.fetchall() == [("SKU000002_EA", self.D3)], "the old night is replaced"
+
+    def test_the_stored_changes_match_the_live_view(self, conn) -> None:
+        store_id = db.resolve_store_id(conn, "nofrills", "3131")
+        tonight = {1: 400, 2: 450, 3: 600, 4: 500}
+        db.write_store_observations(conn, store_id, [make_row(i, 500) for i in tonight], self.D1)
+        db.write_store_observations(
+            conn, store_id, [make_row(i, price) for i, price in tonight.items()], self.D2
+        )
+        db.refresh_price_changes(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM price_changes ORDER BY product_id")
+            stored = cur.fetchall()
+            cur.execute("SELECT * FROM price_changes_live ORDER BY product_id")
+            assert stored == cur.fetchall()
+            assert len(stored) == 3
+
+    def test_only_the_owner_can_refresh_or_read_the_live_view(self, conn) -> None:
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("SELECT refresh_price_changes()")
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("SELECT count(*) FROM price_changes_live")
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL ROLE anon")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("DELETE FROM price_change_rows")
+        conn.rollback()
 
     def test_anon_can_read_both_views(self, conn) -> None:
         store_id = db.resolve_store_id(conn, "nofrills", "3131")
         db.write_store_observations(conn, store_id, [make_row(1, 500)], self.D1)
         db.write_store_observations(conn, store_id, [make_row(1, 400)], self.D2)
 
+        db.refresh_price_changes(conn)
         with conn.cursor() as cur:
             cur.execute("SET LOCAL ROLE anon")
             cur.execute("SELECT count(*) FROM price_changes")
@@ -1489,6 +1556,7 @@ class TestProductImages:
         db.write_store_observations(
             conn, store_id, [replace(make_row(1, 400), image_url=self.PHOTO)], self.D2
         )
+        db.refresh_price_changes(conn)
         assert self.image(conn, "price_changes") == [("SKU000001_EA", self.PHOTO)]
 
     def test_anon_can_read_the_link(self, conn) -> None:

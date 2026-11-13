@@ -14,15 +14,24 @@ import {
 } from "./queries";
 
 /**
- * Reads that every page render makes and that change at most once a night:
- * the store list and the coverage counts. Kept in Next's data cache for a few
- * minutes, like the how-it-works status, so a page view costs the database
- * only the queries that depend on the visitor.
+ * Reads that change at most once a night: the store list, the coverage counts
+ * and the night's price changes. Kept in Next's data cache for an hour, like
+ * the how-it-works status, so a page view costs the database only the queries
+ * that depend on the visitor.
+ *
+ * This is where the site's caching lives. The pages themselves cannot be
+ * served from a cache with `export const revalidate`: every one of them reads
+ * the visitor's basket and store cookies to render, which makes Next render
+ * it per request whatever `revalidate` says.
+ *
+ * An hour, not longer, because nothing tells the site when the nightly run
+ * has finished: the cache simply runs out. A new night shows up within the
+ * hour.
  *
  * A failed read throws inside the cache, so it is never stored, and comes back
  * out as an ordinary error result.
  */
-const CACHE_SECONDS = 900;
+export const CACHE_SECONDS = 3600;
 
 function orThrow<T>(result: Result<T>): T {
   if (result.error !== null) throw new Error(result.error);

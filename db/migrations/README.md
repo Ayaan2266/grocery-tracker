@@ -40,6 +40,18 @@ done
 `0020` adds functions and nothing else, so it can go in before or after the
 code that calls them: the site searches the old way until it is applied.
 
+`0023` stores each night's price changes in a table, because working them
+out on every visit to the price-changes page ran past the API's three-second
+limit. It can go in before or after the code that fills the table: the nightly
+run calls `refresh_price_changes()` after its last store and only warns when
+the function is not there yet. Apply it first and merge soon after, because
+until the code is merged nothing refills the table and the page stays on the
+night the migration ran. To refill it by hand:
+
+```sql
+SELECT refresh_price_changes();
+```
+
 Removing a store goes the other way: merge the change that takes it out of
 `targets.json` first, then apply the migration that deletes its row, or the
 night stops on a target with no store. `0018` dropped the two stores outside

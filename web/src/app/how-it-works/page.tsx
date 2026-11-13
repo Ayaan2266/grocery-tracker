@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/link";
 import { unstable_cache } from "next/cache";
 import { ArrowRight, ArrowUpRight, CalendarDays, CircleCheck, Mail, MapPin, Search, Store } from "lucide-react";
 
 import { StoreChip } from "@/components/price-row";
 import { StoreDot } from "@/components/store-scope";
 import { SearchForm } from "@/components/search-form";
+import { CACHE_SECONDS } from "@/lib/cached-queries";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Sparkline } from "@/components/sparkline";
@@ -49,8 +50,7 @@ export const metadata: Metadata = {
   openGraph: { ...BASE_OPEN_GRAPH, title: "How Loonie works", description: DESCRIPTION },
 };
 
-/** The status and the example change once a day, so a few minutes' cache spares the database. */
-const CACHE_SECONDS = 900;
+/** The status and the example change once a day: cached for an hour, like the other nightly reads. */
 
 /** Items the worked example can use. Each is a site search that finds real listings. */
 const EXAMPLES = [

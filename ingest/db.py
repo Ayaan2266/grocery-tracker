@@ -230,6 +230,31 @@ def check_schema(conn: psycopg.Connection) -> None:
         ) from exc
 
 
+REFRESH_PRICE_CHANGES = "SELECT refresh_price_changes()"
+
+
+def refresh_price_changes(conn: psycopg.Connection) -> int | None:
+    """Rebuild the table the price-changes page reads (db/migrations/0023).
+
+    Called once a night, after every store is written: the page used to work
+    the changes out on each visit, which took longer than the API allows.
+    Returns how many changes were stored, or None when 0023 has not been
+    applied, in which case the page still reads the live view and nothing is
+    stale. Committed on its own, so a failure here never touches the night's
+    prices, which are already committed.
+    """
+    try:
+        written = conn.execute(REFRESH_PRICE_CHANGES).fetchone()[0]
+    except psycopg.errors.UndefinedFunction:
+        conn.rollback()
+        return None
+    except psycopg.Error:
+        conn.rollback()
+        raise
+    conn.commit()
+    return written
+
+
 RUNS_ON = """
 SELECT store_id
   FROM ingest_runs

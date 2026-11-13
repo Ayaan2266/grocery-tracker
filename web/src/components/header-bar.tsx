@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ShoppingBasket } from "lucide-react";
 
 export type HeaderPage = "home" | "changes" | "how-it-works" | "basket";
@@ -17,21 +17,21 @@ export function HeaderBar({ current, items = 0 }: { current?: HeaderPage; items?
         <span>Loonie</span>
       </Link>
       {/*
-        Prefetched in full while the visitor reads, so the header's pages open
-        at once. Each is cheap to render: their nightly data sits in the data
-        cache (lib/cached-queries.ts), and only the basket reads per visitor.
+        Loaded when the visitor points at one, not while they read: fetching
+        all four on every page view ran four server functions a visit, most
+        of them for pages never opened (components/link.tsx).
       */}
       <nav aria-label="Main navigation">
-        <Link href="/" prefetch aria-current={current === "home" ? "page" : undefined}>Home</Link>
+        <Link href="/" warm aria-current={current === "home" ? "page" : undefined}>Home</Link>
         {/* "Changes" on a phone, where three links have to fit beside the brand. */}
-        <Link href="/changes" prefetch aria-current={current === "changes" ? "page" : undefined}>
+        <Link href="/changes" warm aria-current={current === "changes" ? "page" : undefined}>
           <span className="nav-long">Price changes</span>
           <span className="nav-short" aria-hidden="true">Changes</span>
         </Link>
-        <Link href="/how-it-works" prefetch aria-current={current === "how-it-works" ? "page" : undefined}>
+        <Link href="/how-it-works" warm aria-current={current === "how-it-works" ? "page" : undefined}>
           How it works
         </Link>
-        <Link href="/basket" prefetch className="basket-link" aria-current={current === "basket" ? "page" : undefined}>
+        <Link href="/basket" warm className="basket-link" aria-current={current === "basket" ? "page" : undefined}>
           <ShoppingBasket size={18} aria-hidden="true" />
           Basket
           {items > 0 && (

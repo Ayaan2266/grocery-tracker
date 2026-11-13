@@ -52,7 +52,9 @@ never holds `DATABASE_URL` or the PCX key.
    ingest -> Run workflow -> task `migrate`. `0012` is an index the product
    page benefits from; nothing breaks without it. `0016` adds the views the
    price-changes page reads; without it that page says price data is
-   unavailable and every other page is unaffected.
+   unavailable and every other page is unaffected. `0023` stores those
+   changes in a table the nightly run refills; without it the page works
+   them out on every visit, which can run past the API's time limit.
 
 Every push to `main` deploys, and every pull request gets a preview. Previews
 read the same database as production, which is safe because the key cannot

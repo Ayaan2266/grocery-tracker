@@ -21,6 +21,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote
 
 from ingest.config import ConfigError, load_settings
@@ -498,6 +499,34 @@ def _write(database_url: str | None, outcomes: list[StoreOutcome], observed_on: 
             outcome.spans_opened = result.spans_opened
             if result.errors:
                 outcome.error = "; ".join(result.errors)
+
+        _refresh_price_changes(conn, database_url)
+
+
+def _refresh_price_changes(conn: Any, database_url: str) -> None:
+    """Store the night's price changes for the site, once every store is written.
+
+    The prices are committed by now, so nothing here can lose them: a failure
+    is logged and the page keeps the previous night's changes until the next
+    run, or until refresh_price_changes() is called by hand.
+    """
+    from ingest import db
+
+    try:
+        stored = db.refresh_price_changes(conn)
+    except db.psycopg.Error as exc:
+        log.error(
+            "could not store the night's price changes; the price-changes page is one "
+            "night behind until `SELECT refresh_price_changes()` is run: %s",
+            redact_password(str(exc), database_url),
+        )
+        return
+    if stored is None:
+        log.warning(
+            "refresh_price_changes() is missing: apply db/migrations/0023_price_changes_table.sql"
+        )
+    else:
+        log.info("stored %d price change(s) for the price-changes page", stored)
 
 
 if __name__ == "__main__":

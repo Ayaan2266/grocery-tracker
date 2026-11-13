@@ -244,3 +244,40 @@ def test_a_failed_check_for_an_earlier_run_lets_the_night_go_ahead(monkeypatch) 
 
     monkeypatch.setattr(db, "connect", refuse)
     assert run.already_ran("postgresql://test", [TARGET], date(2026, 10, 1)) is False
+
+
+class TestStoringThePriceChanges:
+    """After the night is written, its price changes are stored for the site (0023).
+
+    The prices are committed by then, so whatever happens here must not raise.
+    """
+
+    URL = "postgresql://user:hunter2@db.example/postgres"
+
+    def test_the_count_is_logged(self, monkeypatch, caplog) -> None:
+        from ingest import db
+
+        monkeypatch.setattr(db, "refresh_price_changes", lambda conn: 42)
+        with caplog.at_level("INFO"):
+            run._refresh_price_changes(object(), self.URL)
+        assert "stored 42 price change(s)" in caplog.text
+
+    def test_a_database_without_0023_gets_a_warning_naming_it(self, monkeypatch, caplog) -> None:
+        from ingest import db
+
+        monkeypatch.setattr(db, "refresh_price_changes", lambda conn: None)
+        with caplog.at_level("WARNING"):
+            run._refresh_price_changes(object(), self.URL)
+        assert "0023_price_changes_table.sql" in caplog.text
+
+    def test_a_failure_is_logged_and_not_raised(self, monkeypatch, caplog) -> None:
+        from ingest import db
+
+        def fail(conn):
+            raise db.psycopg.OperationalError(f"connection to {self.URL} lost")
+
+        monkeypatch.setattr(db, "refresh_price_changes", fail)
+        with caplog.at_level("ERROR"):
+            run._refresh_price_changes(object(), self.URL)
+        assert "one night behind" in caplog.text
+        assert "hunter2" not in caplog.text
