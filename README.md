@@ -17,7 +17,7 @@ It answers two questions:
 
 Flyer apps show what is on sale. Nobody keeps the history, so nobody can tell
 you if the sale is real. That is the gap, and history cannot be added later:
-it has to be collected one night at a time.
+it has to be collected one night at a time. Also is my first end to end project I made.
 
 ## What it looks like
 
