@@ -13,7 +13,7 @@ export function HeaderBar({ current, items = 0 }: { current?: HeaderPage; items?
   return (
     <header className="site-header">
       <Link className="brand" href="/" aria-label="Loonie home">
-        <Image src="/brand/loonie-mark.svg" alt="" width={48} height={48} priority />
+        <Image src="/brand/loonie-mark.svg" alt="" width={48} height={48} preload />
         <span>Loonie</span>
       </Link>
       {/*

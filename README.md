@@ -70,7 +70,7 @@ flowchart LR
 | Ingestion | Python 3.12, httpx, pydantic |
 | Scheduler | GitHub Actions |
 | Database | Supabase (Postgres) |
-| Site | Next.js 15, TypeScript, plain CSS, Recharts |
+| Site | Next.js 16, TypeScript, plain CSS, Recharts |
 | Hosting | Vercel |
 
 Total cost: $0.

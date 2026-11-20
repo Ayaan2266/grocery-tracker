@@ -16,17 +16,18 @@ export const contentType = "image/png";
 const BLUE = "#0b49bd";
 const YELLOW = "#ffe975";
 
-async function dataUrl(path: string, type: string): Promise<string> {
-  const file = await readFile(join(process.cwd(), path));
-  return `data:${type};base64,${file.toString("base64")}`;
+// Each path is written out in full, not built from a parameter: the bundler
+// can then see which files this reads, rather than packing the whole project.
+async function dataUrl(file: Promise<Buffer>, type: string): Promise<string> {
+  return `data:${type};base64,${(await file).toString("base64")}`;
 }
 
 export default async function OpenGraphImage() {
   const [bold, medium, mark, tote] = await Promise.all([
     readFile(join(process.cwd(), "assets/fonts/dm-sans-800.ttf")),
     readFile(join(process.cwd(), "assets/fonts/dm-sans-500.ttf")),
-    dataUrl("public/brand/loonie-mark.svg", "image/svg+xml"),
-    dataUrl("public/illustrations/grocery-tote.png", "image/png"),
+    dataUrl(readFile(join(process.cwd(), "public/brand/loonie-mark.svg")), "image/svg+xml"),
+    dataUrl(readFile(join(process.cwd(), "public/illustrations/grocery-tote.png")), "image/png"),
   ]);
 
   return new ImageResponse(

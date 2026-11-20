@@ -747,7 +747,7 @@ export default async function HowItWorksPage({
                 alt=""
                 width={480}
                 height={452}
-                priority
+                preload
               />
               <span className="hiw-receipt-count" aria-hidden="true">{storeCountLabel(storeCount)}</span>
             </div>
