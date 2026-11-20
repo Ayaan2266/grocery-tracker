@@ -17,7 +17,7 @@ It answers two questions:
 
 Flyer apps show what is on sale. Nobody keeps the history, so nobody can tell
 you if the sale is real. That is the gap, and history cannot be added later:
-it has to be collected one night at a time. Also is my first end to end project I made.
+it has to be collected one night at a time. It's also my first end-to-end project.
 
 ## What it looks like
 
@@ -145,6 +145,6 @@ npm run lint && npm test && npm run build     # what CI runs
 ## Legal
 
 Personal, non-commercial project. Not affiliated with Loblaw Companies Limited
-or any otherretailer. It uses an undocumented internal API, which is against
+or any other retailer. It uses an undocumented internal API, which is against
 Loblaw's terms of service; requests are limited to about one per second, and
 sustained 403s or a key rotation are treated as a stop signal.
