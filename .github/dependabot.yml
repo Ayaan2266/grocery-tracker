@@ -1,7 +1,7 @@
 # Weekly dependency updates, one grouped pull request per ecosystem, so CI
 # tests each batch the way it tests any other change.
 #
-# Major versions are left out of these: Next 16, a new ESLint or TypeScript
+# Major versions are left out of these: Next 17, a new ESLint or TypeScript
 # is a migration to plan, not a bump to merge. That rule covers version
 # updates only. Security updates, switched on in the repository's security
 # settings, still open for every advisory, majors included.

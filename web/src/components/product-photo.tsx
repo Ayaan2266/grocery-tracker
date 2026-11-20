@@ -43,5 +43,5 @@ export function ProductPhoto({
   // The product page's photo is at the top, so it loads first; list photos
   // wait until they are scrolled near (lazy-photo.tsx).
   if (variant !== "large") return <LazyPhoto src={src} size={size} className={className} />;
-  return <Image src={src} alt="" width={size} height={size} unoptimized priority className={className} />;
+  return <Image src={src} alt="" width={size} height={size} unoptimized preload className={className} />;
 }

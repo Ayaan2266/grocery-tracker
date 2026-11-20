@@ -146,7 +146,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
               start on the first screen, on a phone as well as a desktop. */}
           <section className={query ? "hero hero-searching" : "hero"} aria-labelledby="hero-title">
             {!query && (
-              <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} priority />
+              <Image className="hero-tote" src="/illustrations/grocery-tote.png" alt="" width={350} height={350} preload />
             )}
             {!query && <p className="eyebrow">Same groceries. Smarter choices. <span aria-hidden="true">✦</span></p>}
             <h1 id="hero-title" className={query ? "visually-hidden" : undefined}>

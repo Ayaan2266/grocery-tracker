@@ -12,8 +12,8 @@ const AHEAD = "200px 0px";
 /**
  * A list photo that is only fetched once it comes near the screen. Until
  * then it is an empty box of the same size, so rows do not move when the
- * photo arrives. Where IntersectionObserver is missing the photo loads
- * straight away.
+ * photo arrives. Every browser Next.js supports has IntersectionObserver
+ * (Chrome 111, Safari 16.4, Firefox 111 and up), so there is no fallback.
  */
 export function LazyPhoto({ src, size, className }: { src: string; size: number; className: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -22,10 +22,6 @@ export function LazyPhoto({ src, size, className }: { src: string; size: number;
   useEffect(() => {
     const box = ref.current;
     if (!box) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setNear(true);
-      return;
-    }
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
